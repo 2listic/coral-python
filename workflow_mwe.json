@@ -1,0 +1,78 @@
+{
+  "nodes": [
+    {
+      "id": "node0",
+      "value": 5,
+      "inputs": [],
+      "outputs": [-1],
+      "type": "elementary"
+    },
+    {
+      "id": "node1",
+      "function": "add",
+      "inputs": [0, 1],
+      "outpus": [0],
+      "type": "function"
+    },
+    {
+      "id": "node2",
+      "function": "multiply",
+      "inputs": [0, 1],
+      "outpus": [0],
+      "type": "function"
+    },
+    {
+      "id": "node3",
+      "function": "print_result",
+      "inputs": [0],
+      "outpus": [0],
+      "type": "function"
+    },
+    {
+      "id": "node4",
+      "value": 3,
+      "inputs": [],
+      "outputs": [-1],
+      "type": "elementary"
+    },
+    {
+      "id": "node5",
+      "value": 2,
+      "inputs": [],
+      "outputs": [-1],
+      "type": "elementary"
+    }
+  ],
+  "edges": [
+    {
+      "from": "node0",
+      "to": "node1",
+      "source_output": 0,
+      "target_input": 0
+    },
+    {
+      "from": "node4",
+      "to": "node1",
+      "source_output": 0,
+      "target_input": 1
+    },
+    {
+      "from": "node1",
+      "to": "node2",
+      "source_output": 0,
+      "target_input": 0
+    },
+    {
+      "from": "node5",
+      "to": "node2",
+      "source_output": 0,
+      "target_input": 1
+    },
+    {
+      "from": "node2",
+      "to": "node3",
+      "source_output": 0,
+      "target_input": 0
+    }
+  ]
+}

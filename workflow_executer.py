@@ -1,5 +1,6 @@
 import json
 from typing import Any, Dict, List
+import inspect
 
 
 # Define the functions that can be called by nodes
@@ -10,16 +11,16 @@ def add(a: float, b: float) -> float:
     return result
 
 
-def multiply(value: float, x: float) -> float:
-    """Multiply a value by x"""
-    result = value * x
-    print(f"multiply({value}, {x}) = {result}")
+def multiply(a: float, b: float) -> float:
+    """Multiply a by b"""
+    result = a * b
+    print(f"multiply({a}, {b}) = {result}")
     return result
 
 
-def print_result(value: float, message: str) -> float:
+def print_result(value: Any) -> Any:
     """Print the result with a message"""
-    print(f"{message}: {value}")
+    print(f"Print: {value}")
     return value
 
 
@@ -75,21 +76,55 @@ class WorkflowExecutor:
         
         for node_id in order:
             node = self.nodes[node_id]
-            func_name = node['function']
-            params = node['params'].copy()
+            node_type = node.get('type', 'function')
             
-            # If this node has incoming edges, pass the result from previous node
-            incoming = [e for e in self.edges if e['to'] == node_id]
-            if incoming:
-                # Get result from the last incoming node
-                prev_node_id = incoming[0]['from']
-                if prev_node_id in self.results:
-                    params['value'] = self.results[prev_node_id]
+            if node_type == 'elementary':
+                # Elementary nodes just return their value
+                result = node['value']
+                self.results[node_id] = result
+                print(f"{node_id} (elementary) = {result}")
             
-            # Execute the function
-            func = FUNCTION_MAP[func_name]
-            result = func(**params)
-            self.results[node_id] = result
+            elif node_type == 'function':
+                # Function nodes execute a function with inputs from edges
+                func_name = node['function']
+                func = FUNCTION_MAP[func_name]
+                
+                # Get incoming edges for this node
+                incoming_edges = [e for e in self.edges if e['to'] == node_id]
+                
+                # Collect inputs based on target_input index
+                # Sort by target_input to maintain proper parameter order
+                incoming_edges.sort(key=lambda e: e['target_input'])
+                
+                # Build the input list
+                inputs = []
+                for edge in incoming_edges:
+                    source_node_id = edge['from']
+                    if source_node_id not in self.results:
+                        raise ValueError(f"Node {source_node_id} hasn't been executed yet!")
+                    inputs.append(self.results[source_node_id])
+                
+                # Get function parameter names
+                sig = inspect.signature(func)
+                param_names = list(sig.parameters.keys())
+                
+                # Map inputs to parameters
+                if len(inputs) != len(param_names):
+                    raise ValueError(
+                        f"Function {func_name} expects {len(param_names)} parameters "
+                        f"but received {len(inputs)} inputs"
+                    )
+                
+                # Create kwargs dict
+                kwargs = {param_names[i]: inputs[i] for i in range(len(inputs))}
+                
+                # Execute the function
+                result = func(**kwargs)
+                self.results[node_id] = result
+            
+            else:
+                raise ValueError(f"Unknown node type: {node_type}")
+            
             print()
         
         print(f"All nodes executed successfully!")
@@ -97,6 +132,6 @@ class WorkflowExecutor:
 
 
 if __name__ == "__main__":
-    executor = WorkflowExecutor("workflow.json")
+    executor = WorkflowExecutor("workflow_mwe.json")
     results = executor.execute()
     print(f"\nFinal results: {results}")
