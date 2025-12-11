@@ -1,3 +1,4 @@
+import argparse
 import json
 from typing import Any, Dict, List
 import inspect
@@ -132,6 +133,15 @@ class WorkflowExecutor:
 
 
 if __name__ == "__main__":
-    executor = WorkflowExecutor("workflow_mwe.json")
+    parser = argparse.ArgumentParser(description='Execute a workflow from a JSON file')
+    parser.add_argument('workflow_file', 
+        nargs='?',  # Makes it optional
+        default='workflow_mwe.json',
+        help='Path to the workflow JSON file (default: workflow_mwe.json)'
+    )
+    
+    args = parser.parse_args()
+    
+    executor = WorkflowExecutor(args.workflow_file)
     results = executor.execute()
     print(f"\nFinal results: {results}")
