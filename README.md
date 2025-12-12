@@ -35,3 +35,22 @@ uv pip freeze > requirements.txt  # Lock all versions
 uv pip install --upgrade -r requirements.txt
 uv pip freeze > requirements.txt
 ```
+
+## Usage
+
+### Running the Workflow Executer
+
+**Run with default workflow file (network-py-mwe.json):**
+```bash
+python workflow_executer.py
+```
+
+**Run with a specific workflow file:**
+```bash
+python workflow_executer.py path/to/your/workflow.json
+```
+
+**Get help:**
+```bash
+python workflow_executer.py --help
+```
