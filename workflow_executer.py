@@ -79,13 +79,13 @@ class WorkflowExecutor:
         
         for node_id in order:
             node = self.nodes[node_id]
-            node_type = node.get('type', 'function')
+            node_type = node.get('node_type', 'function')
             
-            if node_type == 'elementary':
+            if node_type == 'primitive':
                 # Elementary nodes just return their value
                 result = node['value']
                 self.results[node_id] = result
-                print(f"{node_id} (elementary) = {result}")
+                print(f"{node_id} (primitive) = {result}")
             
             elif node_type == 'function':
                 # Function nodes execute a function with inputs from edges
@@ -126,7 +126,7 @@ class WorkflowExecutor:
                 self.results[node_id] = result
             
             else:
-                raise ValueError(f"Unknown node type: {node_type}")
+                raise ValueError(f"Unknown node node_type: {node_type}")
             
             print()
         

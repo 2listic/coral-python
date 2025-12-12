@@ -4,37 +4,37 @@
       "value": 5,
       "inputs": [],
       "outputs": [-1],
-      "type": "elementary"
+      "node_type": "primitive"
     },
     "1": {
       "function": "add",
       "inputs": [0, 1],
       "outpus": [0],
-      "type": "function"
+      "node_type": "function"
     },
     "2": {
       "function": "multiply",
       "inputs": [0, 1],
       "outpus": [0],
-      "type": "function"
+      "node_type": "function"
     },
     "3": {
       "function": "print_result",
       "inputs": [0],
       "outpus": [0],
-      "type": "function"
+      "node_type": "function"
     },
     "4": {
       "value": 3,
       "inputs": [],
       "outputs": [-1],
-      "type": "elementary"
+      "node_type": "primitive"
     },
     "5": {
       "value": 2,
       "inputs": [],
       "outputs": [-1],
-      "type": "elementary"
+      "node_type": "primitive"
     }
   },
   "edges": {
