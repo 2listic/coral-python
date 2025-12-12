@@ -88,8 +88,8 @@ class WorkflowExecutor:
                 print(f"{node_id} (primitive) = {result}")
             
             elif node_type == 'function':
-                # Function nodes execute a function with inputs from edges
-                func_name = node['function']
+                # function nodes execute a function with inputs from edges
+                func_name = node['method_name']
                 func = FUNCTION_MAP[func_name]
                 
                 # Get incoming edges for this node

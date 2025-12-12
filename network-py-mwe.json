@@ -4,37 +4,40 @@
       "value": 5,
       "inputs": [],
       "outputs": [-1],
-      "node_type": "primitive"
+      "node_type": "primitive",
+      "type": "int"
     },
     "1": {
-      "function": "add",
       "inputs": [0, 1],
       "outpus": [0],
-      "node_type": "function"
+      "node_type": "function",
+      "method_name": "add"
     },
     "2": {
-      "function": "multiply",
       "inputs": [0, 1],
       "outpus": [0],
-      "node_type": "function"
+      "node_type": "function",
+      "method_name": "multiply"
     },
     "3": {
-      "function": "print_result",
       "inputs": [0],
       "outpus": [0],
-      "node_type": "function"
+      "node_type": "function",
+      "method_name": "print_result"
     },
     "4": {
       "value": 3,
       "inputs": [],
       "outputs": [-1],
-      "node_type": "primitive"
+      "node_type": "primitive",
+      "type": "int"
     },
     "5": {
       "value": 2,
       "inputs": [],
       "outputs": [-1],
-      "node_type": "primitive"
+      "node_type": "primitive",
+      "type": "int"
     }
   },
   "edges": {
