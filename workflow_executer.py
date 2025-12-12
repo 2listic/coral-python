@@ -19,10 +19,9 @@ def multiply(a: float, b: float) -> float:
     return result
 
 
-def print_result(value: Any) -> Any:
+def print_result(value: Any) -> None:
     """Print the result with a message"""
     print(f"Print: {value}")
-    return value
 
 
 # Map function names to actual functions

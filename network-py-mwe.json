@@ -9,13 +9,13 @@
     },
     "1": {
       "inputs": [0, 1],
-      "outpus": [0],
+      "outpus": [2],
       "node_type": "function",
       "method_name": "add"
     },
     "2": {
       "inputs": [0, 1],
-      "outpus": [0],
+      "outpus": [2],
       "node_type": "function",
       "method_name": "multiply"
     },
