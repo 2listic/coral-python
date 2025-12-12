@@ -1,78 +1,72 @@
 {
-  "nodes": [
-    {
-      "id": "node0",
+  "nodes": {
+    "0": {
       "value": 5,
       "inputs": [],
       "outputs": [-1],
       "type": "elementary"
     },
-    {
-      "id": "node1",
+    "1": {
       "function": "add",
       "inputs": [0, 1],
       "outpus": [0],
       "type": "function"
     },
-    {
-      "id": "node2",
+    "2": {
       "function": "multiply",
       "inputs": [0, 1],
       "outpus": [0],
       "type": "function"
     },
-    {
-      "id": "node3",
+    "3": {
       "function": "print_result",
       "inputs": [0],
       "outpus": [0],
       "type": "function"
     },
-    {
-      "id": "node4",
+    "4": {
       "value": 3,
       "inputs": [],
       "outputs": [-1],
       "type": "elementary"
     },
-    {
-      "id": "node5",
+    "5": {
       "value": 2,
       "inputs": [],
       "outputs": [-1],
       "type": "elementary"
     }
-  ],
-  "edges": [
-    {
-      "from": "node0",
-      "to": "node1",
+  },
+  "edges": {
+    "1": {
+      "from": "0",
+      "to": "1",
       "source_output": 0,
       "target_input": 0
     },
-    {
-      "from": "node4",
-      "to": "node1",
+    "2": {
+      "from": "4",
+      "to": "1",
       "source_output": 0,
       "target_input": 1
     },
-    {
-      "from": "node1",
-      "to": "node2",
+    "3": {
+      "from": "1",
+      "to": "2",
       "source_output": 0,
       "target_input": 0
     },
-    {
-      "from": "node5",
-      "to": "node2",
+    "4": {
+      "from": "5",
+      "to": "2",
       "source_output": 0,
       "target_input": 1
     },
-    {
-      "from": "node2",
-      "to": "node3",
+    "5": {
+      "from": "2",
+      "to": "3",
       "source_output": 0,
       "target_input": 0
     }
-  ]
+  }
 }

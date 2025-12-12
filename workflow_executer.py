@@ -38,8 +38,10 @@ class WorkflowExecutor:
         with open(workflow_file, 'r') as f:
             data = json.load(f)
         
-        self.nodes = {node['id']: node for node in data['nodes']}
-        self.edges = data['edges']
+        self.nodes = {}
+        for node_id, node_data in data['nodes'].items():
+            self.nodes[node_id] = node_data
+        self.edges = list(data['edges'].values())
         self.results = {}
     
     def get_execution_order(self) -> List[str]:
