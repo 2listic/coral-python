@@ -48,6 +48,18 @@ python workflow_executer.py
 **Run with a specific workflow file:**
 ```bash
 python workflow_executer.py path/to/your/workflow.json
+
+### Generating the Registry File
+```
+
+**Generate the default registry file registry-py-mwe.json:**
+```bash
+python workflow_executer.py --generate-registry
+```
+
+**Generate custom output path for registry file:**
+```bash
+python workflow_executer.py --generate-registry --registry-output custom_registry.json
 ```
 
 **Get help:**

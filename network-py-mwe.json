@@ -9,19 +9,19 @@
     },
     "1": {
       "inputs": [0, 1],
-      "outpus": [2],
+      "outputs": [2],
       "node_type": "function",
       "method_name": "add"
     },
     "2": {
       "inputs": [0, 1],
-      "outpus": [2],
+      "outputs": [2],
       "node_type": "function",
       "method_name": "multiply"
     },
     "3": {
       "inputs": [0],
-      "outpus": [0],
+      "outputs": [0],
       "node_type": "function",
       "method_name": "print_result"
     },
