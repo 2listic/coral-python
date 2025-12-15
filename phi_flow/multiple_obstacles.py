@@ -50,7 +50,7 @@ smoke0 = CenteredGrid(0, ZERO_GRADIENT, domain, x=200, y=200)
 v_trj, s_trj, p_trj = iterate(step, batch(time=100), v0, smoke0, None, dt=.5, substeps=3)
 
 # %%
-anim = plot(obstacles, inflow, s_trj, animate='time', overlay='args')
+anim = plot(obstacles, inflow, s_trj, animate='time', overlay='args', show_color_bar=False)
 anim.save('multiple_obstacles.gif')
 anim.save('multiple_obstacles.mp4', writer='ffmpeg', fps=15, dpi=150)
 
