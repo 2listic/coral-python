@@ -29,7 +29,7 @@ trajectory = [smoke]
 for i in range(150):
   print(i, end=' ')
   smoke = advect.mac_cormack(smoke, velocity, dt=1) + INFLOW
-  vis.savefig(f'./frames_fume/frame_{i:04d}.png', vis.plot(smoke))
+  vis.savefig(f'./frame_{i:04d}.png', vis.plot(smoke))
   buoyancy_force = smoke * (0, 0.5) @ velocity
   velocity = advect.semi_lagrangian(velocity, velocity, dt=1) + buoyancy_force
   velocity, _ = fluid.make_incompressible(velocity, (), Solve(rank_deficiency=0))

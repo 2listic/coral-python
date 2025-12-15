@@ -19,6 +19,9 @@ source .venv/bin/activate  # Linux/Mac
 
 # Install dependencies
 uv pip install -r requirements.txt
+
+# Run a simulation and then check the mp4 or gif file produced
+python one_obstacle.py
 ```
 
 ### Managing Dependencies
