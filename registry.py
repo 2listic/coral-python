@@ -1,6 +1,6 @@
 import json
 import inspect
-from typing import Any, Dict, List, get_type_hints, get_origin
+from typing import Any, Dict, List, get_origin
 
 from functions import FUNCTION_MAP, PRIMITIVES
 
@@ -27,23 +27,16 @@ def generate_registry(function_map: Dict[str, callable], primitives: List[str] =
 
     # Add functions
     for func_name, func in function_map.items():
-        # Get function signature and type hints
+        # Get function signature
         sig = inspect.signature(func)
-        try:
-            type_hints = get_type_hints(func)
-        except Exception:
-            # Fallback if type hints can't be resolved
-            type_hints = {}
 
         arguments = []
         inputs = []
 
         # Process input parameters
         param_idx = 0
-        for param_name, param in sig.parameters.items():
-            # Get type from hints or annotation
-            param_type = type_hints.get(param_name, param.annotation)
-            json_type = python_type_to_json_type(param_type)
+        for _, param in sig.parameters.items():
+            json_type = python_type_to_json_type(param.annotation)
 
             arguments.append({
                 "connection_type": "input",
@@ -53,11 +46,11 @@ def generate_registry(function_map: Dict[str, callable], primitives: List[str] =
             param_idx += 1
 
         # Process return type (output)
-        return_type = type_hints.get('return', sig.return_annotation)
-        return_json_type = python_type_to_json_type(return_type)
+        return_annotation = sig.return_annotation
+        return_json_type = python_type_to_json_type(return_annotation)
 
         # Only add output if function returns something (not None)
-        if return_type is not None and return_type != type(None) and return_type != inspect.Signature.empty:
+        if return_annotation is not None and return_annotation != type(None) and return_annotation != inspect.Signature.empty:
             arguments.append({
                 "connection_type": "output",
                 "type": return_json_type
