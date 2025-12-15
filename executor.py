@@ -1,0 +1,106 @@
+import json
+import inspect
+from typing import Any, Dict, List
+
+from functions import FUNCTION_MAP
+
+
+class WorkflowExecutor:
+    def __init__(self, workflow_file: str):
+        with open(workflow_file, 'r') as f:
+            data = json.load(f)
+
+        self.nodes = {}
+        for node_id, node_data in data['nodes'].items():
+            self.nodes[node_id] = node_data
+        self.edges = list(data['edges'].values())
+        self.results = {}
+
+    def get_execution_order(self) -> List[str]:
+        """Determine execution order using topological sort"""
+        # Build adjacency list
+        graph = {node_id: [] for node_id in self.nodes.keys()}
+        in_degree = {node_id: 0 for node_id in self.nodes.keys()}
+
+        for edge in self.edges:
+            graph[edge['from']].append(edge['to'])
+            in_degree[edge['to']] += 1
+
+        # Topological sort using Kahn's algorithm
+        queue = [node_id for node_id, degree in in_degree.items() if degree == 0]
+        order = []
+
+        while queue:
+            node_id = queue.pop(0)
+            order.append(node_id)
+
+            for neighbor in graph[node_id]:
+                in_degree[neighbor] -= 1
+                if in_degree[neighbor] == 0:
+                    queue.append(neighbor)
+
+        if len(order) != len(self.nodes):
+            raise ValueError("Cycle detected in workflow!")
+
+        return order
+
+    def execute(self):
+        """Execute the workflow"""
+        order = self.get_execution_order()
+        print(f"Execution order: {order}\n")
+
+        for node_id in order:
+            node = self.nodes[node_id]
+            node_type = node.get('node_type', 'function')
+
+            if node_type == 'primitive':
+                # Elementary nodes just return their value
+                result = node['value']
+                self.results[node_id] = result
+                print(f"{node_id} (primitive) = {result}")
+
+            elif node_type == 'function':
+                # function nodes execute a function with inputs from edges
+                func_name = node['method_name']
+                func = FUNCTION_MAP[func_name]
+
+                # Get incoming edges for this node
+                incoming_edges = [e for e in self.edges if e['to'] == node_id]
+
+                # Collect inputs based on target_input index
+                # Sort by target_input to maintain proper parameter order
+                incoming_edges.sort(key=lambda e: e['target_input'])
+
+                # Build the input list
+                inputs = []
+                for edge in incoming_edges:
+                    source_node_id = edge['from']
+                    if source_node_id not in self.results:
+                        raise ValueError(f"Node {source_node_id} hasn't been executed yet!")
+                    inputs.append(self.results[source_node_id])
+
+                # Get function parameter names
+                sig = inspect.signature(func)
+                param_names = list(sig.parameters.keys())
+
+                # Map inputs to parameters
+                if len(inputs) != len(param_names):
+                    raise ValueError(
+                        f"Function {func_name} expects {len(param_names)} parameters "
+                        f"but received {len(inputs)} inputs"
+                    )
+
+                # Create kwargs dict
+                kwargs = {param_names[i]: inputs[i] for i in range(len(inputs))}
+
+                # Execute the function
+                result = func(**kwargs)
+                self.results[node_id] = result
+
+            else:
+                raise ValueError(f"Unknown node node_type: {node_type}")
+
+            print()
+
+        print(f"All nodes executed successfully!")
+        return self.results

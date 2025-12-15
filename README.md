@@ -42,27 +42,27 @@ uv pip freeze > requirements.txt
 
 **Run with default workflow file (network-py-mwe.json):**
 ```bash
-python workflow_executer.py
+python main.py
 ```
 
 **Run with a specific workflow file:**
 ```bash
-python workflow_executer.py path/to/your/workflow.json
+python main.py path/to/your/workflow.json
+```
 
 ### Generating the Registry File
-```
 
 **Generate the default registry file registry-py-mwe.json:**
 ```bash
-python workflow_executer.py --generate-registry
+python main.py --generate-registry
 ```
 
 **Generate custom output path for registry file:**
 ```bash
-python workflow_executer.py --generate-registry --registry-output custom_registry.json
+python main.py --generate-registry --registry-output custom_registry.json
 ```
 
 **Get help:**
 ```bash
-python workflow_executer.py --help
+python main.py --help
 ```

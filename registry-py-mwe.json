@@ -1,0 +1,111 @@
+{
+  "0": {
+    "value": null,
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "int"
+  },
+  "1": {
+    "value": null,
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "float"
+  },
+  "2": {
+    "value": null,
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "str"
+  },
+  "3": {
+    "value": null,
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "bool"
+  },
+  "4": {
+    "value": null,
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "any"
+  },
+  "5": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float"
+      },
+      {
+        "connection_type": "input",
+        "type": "float"
+      },
+      {
+        "connection_type": "output",
+        "type": "float"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "method_name": "add"
+  },
+  "6": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float"
+      },
+      {
+        "connection_type": "input",
+        "type": "float"
+      },
+      {
+        "connection_type": "output",
+        "type": "float"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "method_name": "multiply"
+  },
+  "7": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "any"
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [],
+    "node_type": "function",
+    "method_name": "print_result"
+  }
+}
