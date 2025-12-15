@@ -51,8 +51,8 @@ v_trj, s_trj, p_trj = iterate(step, batch(time=100), v0, smoke0, None, dt=.5, su
 
 # %%
 anim = plot(obstacles, inflow, s_trj, animate='time', overlay='args')
-anim.save('obstacle.gif')
-anim.save('simulation.mp4', writer='ffmpeg', fps=15, dpi=150)
+anim.save('multiple_obstacles.gif')
+anim.save('multiple_obstacles.mp4', writer='ffmpeg', fps=15, dpi=150)
 
 
 
