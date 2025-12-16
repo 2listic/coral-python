@@ -9,7 +9,7 @@ def main():
     parser = argparse.ArgumentParser(description='Execute a workflow from a JSON file')
     parser.add_argument('workflow_file',
         nargs='?',  # Makes it optional
-        default='network-py-mwe.json',
+        default='network-from-fe.json',
         help='Path to the workflow JSON file (default: network-py-mwe.json)'
     )
 

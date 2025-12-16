@@ -11,9 +11,16 @@ class WorkflowExecutor:
             data = json.load(f)
 
         self.nodes = {}
-        for node_id, node_data in data['nodes'].items():
+        for node_id, node_data in data['workflow']['nodes'].items():
             self.nodes[node_id] = node_data
-        self.edges = list(data['edges'].values())
+        
+        self.edges = []
+        for edge_data in data['workflow']['edges'].values():
+            edge = edge_data.copy()
+            edge['source'] = str(edge['source'])
+            edge['target'] = str(edge['target'])
+            self.edges.append(edge)
+
         self.results = {}
 
     def get_execution_order(self) -> List[str]:
@@ -23,8 +30,8 @@ class WorkflowExecutor:
         in_degree = {node_id: 0 for node_id in self.nodes.keys()}
 
         for edge in self.edges:
-            graph[edge['from']].append(edge['to'])
-            in_degree[edge['to']] += 1
+            graph[edge['source']].append(edge['target'])
+            in_degree[edge['target']] += 1
 
         # Topological sort using Kahn's algorithm
         queue = [node_id for node_id, degree in in_degree.items() if degree == 0]
@@ -54,18 +61,32 @@ class WorkflowExecutor:
             node_type = node.get('node_type', 'function')
 
             if node_type == 'primitive':
-                # Elementary nodes just return their value
-                result = node['value']
+                # Elementary nodes just return their value with type conversion
+                raw_value = node['value']
+                prim_type = node.get('type', 'any')
+                
+                # Convert value based on type
+                if prim_type == 'int':
+                    result = int(raw_value)
+                elif prim_type == 'float':
+                    result = float(raw_value)
+                elif prim_type == 'bool':
+                    result = bool(raw_value)
+                elif prim_type == 'str':
+                    result = str(raw_value)
+                else:  # 'any' or unspecified
+                    result = raw_value
+
                 self.results[node_id] = result
                 print(f"{node_id} (primitive) = {result}")
 
             elif node_type == 'function':
-                # function nodes execute a function with inputs from edges
+                # function nodes execute a function with inputs source edges
                 func_name = node['method_name']
                 func = FUNCTION_MAP[func_name]
 
                 # Get incoming edges for this node
-                incoming_edges = [e for e in self.edges if e['to'] == node_id]
+                incoming_edges = [e for e in self.edges if e['target'] == node_id]
 
                 # Collect inputs based on target_input index
                 # Sort by target_input to maintain proper parameter order
@@ -74,7 +95,7 @@ class WorkflowExecutor:
                 # Build the input list
                 inputs = []
                 for edge in incoming_edges:
-                    source_node_id = edge['from']
+                    source_node_id = edge['source']
                     if source_node_id not in self.results:
                         raise ValueError(f"Node {source_node_id} hasn't been executed yet!")
                     inputs.append(self.results[source_node_id])
