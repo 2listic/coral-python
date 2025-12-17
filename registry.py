@@ -1,8 +1,8 @@
 import json
 import inspect
-from typing import Any, Dict, List, get_origin
+from typing import Dict, List
 
-from functions import FUNCTION_MAP, PRIMITIVES_MAP
+from definitions import FUNCTION_MAP, PRIMITIVES_MAP
 
 
 def generate_registry(

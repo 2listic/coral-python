@@ -2,7 +2,7 @@ import json
 import inspect
 from typing import Any, List
 
-from functions import FUNCTION_MAP, PRIMITIVES_MAP
+from definitions import FUNCTION_MAP, PRIMITIVES_MAP
 
 
 class WorkflowExecutor:
