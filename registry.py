@@ -8,7 +8,7 @@ from definitions import FUNCTION_MAP, PRIMITIVES_MAP
 def generate_registry(
     function_map: Dict[str, callable], primitives: List[str] = None
 ) -> Dict:
-    """Generate a registry JSON from function definitions"""
+    """Generate a registry JSON from definitions"""
 
     if primitives is None or function_map is None:
         raise ValueError("primitives and function_map must be provided")
@@ -38,18 +38,18 @@ def generate_registry(
         # Process input parameters
         param_idx = 0
         for _, param in sig.parameters.items():
-            json_type = python_type_to_json_type(param.annotation)
+            type_string = python_type_to_string(param.annotation)
 
             arguments.append({
                 "connection_type": "input",
-                "type": json_type
+                "type": type_string
             })
             inputs.append(param_idx)
             param_idx += 1
 
         # Process return type (output)
         return_annotation = sig.return_annotation
-        return_json_type = python_type_to_json_type(return_annotation)
+        return_json_type = python_type_to_string(return_annotation)
 
         # Only add output if function returns something (not None)
         if (
@@ -77,8 +77,8 @@ def generate_registry(
     return registry
 
 
-def python_type_to_json_type(py_type) -> str:
-    """Convert Python type annotation to JSON schema type string"""
+def python_type_to_string(py_type) -> str:
+    """Convert Python type annotation to string"""
 
     # Handle empty/missing annotations
     if py_type is inspect.Signature.empty or py_type is None:
