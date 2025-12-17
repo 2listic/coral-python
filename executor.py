@@ -1,24 +1,24 @@
 import json
 import inspect
-from typing import Any, Dict, List
+from typing import Any, List
 
-from functions import FUNCTION_MAP
+from functions import FUNCTION_MAP, PRIMITIVES_MAP
 
 
 class WorkflowExecutor:
     def __init__(self, workflow_file: str):
-        with open(workflow_file, 'r') as f:
+        with open(workflow_file, "r") as f:
             data = json.load(f)
 
         self.nodes = {}
-        for node_id, node_data in data['workflow']['nodes'].items():
+        for node_id, node_data in data["workflow"]["nodes"].items():
             self.nodes[node_id] = node_data
-        
+
         self.edges = []
-        for edge_data in data['workflow']['edges'].values():
+        for edge_data in data["workflow"]["edges"].values():
             edge = edge_data.copy()
-            edge['source'] = str(edge['source'])
-            edge['target'] = str(edge['target'])
+            edge["source"] = str(edge["source"])
+            edge["target"] = str(edge["target"])
             self.edges.append(edge)
 
         self.results = {}
@@ -30,8 +30,8 @@ class WorkflowExecutor:
         in_degree = {node_id: 0 for node_id in self.nodes.keys()}
 
         for edge in self.edges:
-            graph[edge['source']].append(edge['target'])
-            in_degree[edge['target']] += 1
+            graph[edge["source"]].append(edge["target"])
+            in_degree[edge["target"]] += 1
 
         # Topological sort using Kahn's algorithm
         queue = [node_id for node_id, degree in in_degree.items() if degree == 0]
@@ -58,46 +58,48 @@ class WorkflowExecutor:
 
         for node_id in order:
             node = self.nodes[node_id]
-            node_type = node.get('node_type', 'function')
+            node_type = node.get("node_type", "function")
 
-            if node_type == 'primitive':
+            if node_type == "primitive":
                 # Elementary nodes just return their value with type conversion
-                raw_value = node['value']
-                prim_type = node.get('type', 'any')
-                
-                # Convert value based on type
-                if prim_type == 'int':
-                    result = int(raw_value)
-                elif prim_type == 'float':
-                    result = float(raw_value)
-                elif prim_type == 'bool':
-                    result = bool(raw_value)
-                elif prim_type == 'str':
-                    result = str(raw_value)
-                else:  # 'any' or unspecified
-                    result = raw_value
+                raw_value = node["value"]
+                prim_type = node.get("type", "any")
+
+                # Convert value based on type using PRIMITIVES_MAP
+                if prim_type in PRIMITIVES_MAP:
+                    converter = PRIMITIVES_MAP[prim_type]
+                    if converter is type(None):
+                        result = None
+                    elif converter is Any: # Don't convert value if type is Any
+                        result = raw_value
+                    else: # Cast value to correct type (may be a string in the JSON protocol)
+                        result = converter(raw_value)
+                else:  # Not found type
+                    raise ValueError(f"Not found primitive type: {prim_type}")
 
                 self.results[node_id] = result
                 print(f"{node_id} (primitive) = {result}")
 
-            elif node_type == 'function':
+            elif node_type == "function":
                 # function nodes execute a function with inputs source edges
-                func_name = node['method_name']
+                func_name = node["method_name"]
                 func = FUNCTION_MAP[func_name]
 
                 # Get incoming edges for this node
-                incoming_edges = [e for e in self.edges if e['target'] == node_id]
+                incoming_edges = [e for e in self.edges if e["target"] == node_id]
 
                 # Collect inputs based on target_input index
                 # Sort by target_input to maintain proper parameter order
-                incoming_edges.sort(key=lambda e: e['target_input'])
+                incoming_edges.sort(key=lambda e: e["target_input"])
 
                 # Build the input list
                 inputs = []
                 for edge in incoming_edges:
-                    source_node_id = edge['source']
+                    source_node_id = edge["source"]
                     if source_node_id not in self.results:
-                        raise ValueError(f"Node {source_node_id} hasn't been executed yet!")
+                        raise ValueError(
+                            f"Node {source_node_id} hasn't been executed yet!"
+                        )
                     inputs.append(self.results[source_node_id])
 
                 # Get function parameter names

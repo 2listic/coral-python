@@ -45,29 +45,13 @@
     "type": "any"
   },
   "5": {
-    "arguments": [
-      {
-        "connection_type": "input",
-        "type": "float"
-      },
-      {
-        "connection_type": "input",
-        "type": "float"
-      },
-      {
-        "connection_type": "output",
-        "type": "float"
-      }
-    ],
-    "inputs": [
-      0,
-      1
-    ],
+    "value": null,
+    "inputs": [],
     "outputs": [
-      2
+      -1
     ],
-    "node_type": "function",
-    "method_name": "add"
+    "node_type": "primitive",
+    "type": "none"
   },
   "6": {
     "arguments": [
@@ -92,9 +76,34 @@
       2
     ],
     "node_type": "function",
-    "method_name": "multiply"
+    "method_name": "add"
   },
   "7": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float"
+      },
+      {
+        "connection_type": "input",
+        "type": "float"
+      },
+      {
+        "connection_type": "output",
+        "type": "float"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "method_name": "multiply"
+  },
+  "8": {
     "arguments": [
       {
         "connection_type": "input",

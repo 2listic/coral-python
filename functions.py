@@ -28,5 +28,12 @@ FUNCTION_MAP = {
     "print_result": print_result
 }
 
-
-PRIMITIVES = ["int", "float", "str", "bool", "any"]
+# Map primitive type names to Python types
+PRIMITIVES_MAP = {
+    "int": int,
+    "float": float,
+    "str": str,
+    "bool": bool,
+    "any": Any,
+    "none": type(None),
+}

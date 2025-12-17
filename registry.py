@@ -2,13 +2,15 @@ import json
 import inspect
 from typing import Any, Dict, List, get_origin
 
-from functions import FUNCTION_MAP, PRIMITIVES
+from functions import FUNCTION_MAP, PRIMITIVES_MAP
 
 
-def generate_registry(function_map: Dict[str, callable], primitives: List[str] = None) -> Dict:
+def generate_registry(
+    function_map: Dict[str, callable], primitives: List[str] = None
+) -> Dict:
     """Generate a registry JSON from function definitions"""
 
-    if (primitives is None or function_map is None):
+    if primitives is None or function_map is None:
         raise ValueError("primitives and function_map must be provided")
 
     registry = {}
@@ -21,7 +23,7 @@ def generate_registry(function_map: Dict[str, callable], primitives: List[str] =
             "inputs": [],
             "outputs": [-1],
             "node_type": "primitive",
-            "type": prim_type
+            "type": prim_type,
         }
         node_id += 1
 
@@ -50,7 +52,11 @@ def generate_registry(function_map: Dict[str, callable], primitives: List[str] =
         return_json_type = python_type_to_json_type(return_annotation)
 
         # Only add output if function returns something (not None)
-        if return_annotation is not None and return_annotation != type(None) and return_annotation != inspect.Signature.empty:
+        if (
+            return_annotation is not None
+            and return_annotation != type(None)
+            and return_annotation != inspect.Signature.empty
+        ):
             arguments.append({
                 "connection_type": "output",
                 "type": return_json_type
@@ -64,7 +70,7 @@ def generate_registry(function_map: Dict[str, callable], primitives: List[str] =
             "inputs": inputs,
             "outputs": outputs,
             "node_type": "function",
-            "method_name": func_name
+            "method_name": func_name,
         }
         node_id += 1
 
@@ -78,38 +84,22 @@ def python_type_to_json_type(py_type) -> str:
     if py_type is inspect.Signature.empty or py_type is None:
         return "any"
 
-    # Handle typing module types (like Any)
-    if py_type is Any:
-        return "any"
+    # Create reverse mapping from PRIMITIVES_MAP for type lookup
+    # This maps Python types to their string representations
+    reverse_primitives_map = {v: k for k, v in PRIMITIVES_MAP.items()}
 
-    # Handle basic types
-    type_map = {
-        int: "int",
-        float: "float",
-        str: "string",
-        bool: "bool",
-        type(None): "none"
-    }
+    # Handle basic types using PRIMITIVES_MAP
+    if py_type in reverse_primitives_map:
+        return reverse_primitives_map[py_type]
 
-    if py_type in type_map:
-        return type_map[py_type]
-
-    # Handle typing generics (Optional, Union, etc.)
-    origin = get_origin(py_type)
-    if origin is not None:
-        # For Optional, Union, etc., just return "any" for simplicity
-        # You could make this more sophisticated
-        return "any"
-
-    # Default to "any" for unknown types
-    return "any"
+    raise ValueError(f"Unknown type: {py_type}")
 
 
 def save_registry_to_file(filename: str = "registry-py-mwe.json"):
     """Generate and save the registry to a JSON file"""
-    registry = generate_registry(FUNCTION_MAP, PRIMITIVES)
+    registry = generate_registry(FUNCTION_MAP, PRIMITIVES_MAP)
 
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         json.dump(registry, f, indent=2)
 
     print(f"Registry saved to {filename}")
