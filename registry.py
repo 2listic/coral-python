@@ -2,11 +2,11 @@ import json
 import inspect
 from typing import Dict, List
 
-from definitions import FUNCTION_MAP, PRIMITIVES_MAP
+from definitions import FUNCTION_MAP, PRIMITIVES_MAP, CLASS_MAP
 
 
 def generate_registry(
-    function_map: Dict[str, callable], primitives: List[str] = None
+    function_map: Dict[str, callable], primitives: List[str] = None, class_map: Dict[str, type] = None
 ) -> Dict:
     """Generate a registry JSON from definitions"""
 
@@ -74,6 +74,111 @@ def generate_registry(
         }
         node_id += 1
 
+    # Add class constructors
+    if class_map:
+        for class_name, cls in class_map.items():
+            # Get __init__ signature
+            init_sig = inspect.signature(cls.__init__)
+
+            arguments = []
+            inputs = []
+            param_idx = 0
+
+            # Process constructor parameters (skip 'self')
+            for param_name, param in init_sig.parameters.items():
+                if param_name == 'self':
+                    continue
+
+                type_string = python_type_to_string(param.annotation)
+                arguments.append({
+                    "connection_type": "input",
+                    "type": type_string
+                })
+                inputs.append(param_idx)
+                param_idx += 1
+
+            # Constructor returns instance (like primitives: outputs = [-1])
+            # No output added to arguments array
+            # instance_type is implicit: constructors always return objects
+            outputs = [-1]
+
+            registry[str(node_id)] = {
+                "arguments": arguments,
+                "inputs": inputs,
+                "outputs": outputs,
+                "node_type": "constructor",
+                "class_name": class_name,
+                "type": "object"
+            }
+            node_id += 1
+
+    # Add class methods
+    if class_map:
+        for class_name, cls in class_map.items():
+            # Get all instance methods (exclude __init__, __dunder__, private _methods)
+            for method_name in dir(cls):
+                if method_name.startswith('_'):
+                    continue
+
+                method = getattr(cls, method_name)
+                if not callable(method) or not inspect.isfunction(method):
+                    continue
+
+                # Get method signature
+                sig = inspect.signature(method)
+
+                arguments = []
+                inputs = []
+                param_idx = 0
+
+                # First input: the instance itself (type: object)
+                arguments.append({
+                    "connection_type": "input",
+                    "type": "object"
+                })
+                inputs.append(param_idx)
+                param_idx += 1
+
+                # Process method parameters (skip 'self')
+                for param_name, param in sig.parameters.items():
+                    if param_name == 'self':
+                        continue
+
+                    type_string = python_type_to_string(param.annotation)
+                    arguments.append({
+                        "connection_type": "input",
+                        "type": type_string
+                    })
+                    inputs.append(param_idx)
+                    param_idx += 1
+
+                # Process return type
+                return_annotation = sig.return_annotation
+                return_json_type = python_type_to_string(return_annotation)
+
+                if (
+                    return_annotation is not None
+                    and return_annotation != type(None)
+                    and return_annotation != inspect.Signature.empty
+                ):
+                    arguments.append({
+                        "connection_type": "output",
+                        "type": return_json_type
+                    })
+                    outputs = [param_idx]
+                else:
+                    outputs = []
+
+                registry[str(node_id)] = {
+                    "arguments": arguments,
+                    "inputs": inputs,
+                    "outputs": outputs,
+                    "node_type": "method",
+                    "class_name": class_name,
+                    "method_name": method_name,
+                }
+                node_id += 1
+
     return registry
 
 
@@ -83,6 +188,10 @@ def python_type_to_string(py_type) -> str:
     # Handle empty/missing annotations
     if py_type is inspect.Signature.empty or py_type is None:
         return "any"
+
+    # Handle object type (for class instances)
+    if py_type is object or str(py_type) == "<class 'object'>":
+        return "object"
 
     # Create reverse mapping from PRIMITIVES_MAP for type lookup
     # This maps Python types to their string representations
@@ -97,7 +206,7 @@ def python_type_to_string(py_type) -> str:
 
 def save_registry_to_file(filename: str = "registry-py-mwe.json"):
     """Generate and save the registry to a JSON file"""
-    registry = generate_registry(FUNCTION_MAP, PRIMITIVES_MAP)
+    registry = generate_registry(FUNCTION_MAP, PRIMITIVES_MAP, CLASS_MAP)
 
     with open(filename, "w") as f:
         json.dump(registry, f, indent=2)

@@ -2,7 +2,7 @@ import json
 import inspect
 from typing import Any, List
 
-from definitions import FUNCTION_MAP, PRIMITIVES_MAP
+from definitions import FUNCTION_MAP, PRIMITIVES_MAP, CLASS_MAP
 
 
 class WorkflowExecutor:
@@ -120,8 +120,101 @@ class WorkflowExecutor:
                 result = func(**kwargs)
                 self.results[node_id] = result
 
+            elif node_type == "constructor":
+                # Constructor nodes instantiate a class
+                class_name = node["class_name"]
+                cls = CLASS_MAP[class_name]
+
+                # Get incoming edges for constructor parameters
+                incoming_edges = [e for e in self.edges if e["target"] == node_id]
+                incoming_edges.sort(key=lambda e: e["target_input"])
+
+                # Collect inputs
+                inputs = []
+                for edge in incoming_edges:
+                    source_node_id = edge["source"]
+                    if source_node_id not in self.results:
+                        raise ValueError(
+                            f"Node {source_node_id} hasn't been executed yet!"
+                        )
+                    inputs.append(self.results[source_node_id])
+
+                # Get constructor parameter names (skip 'self')
+                init_sig = inspect.signature(cls.__init__)
+                param_names = [name for name in init_sig.parameters.keys() if name != 'self']
+
+                # Map inputs to parameters
+                if len(inputs) != len(param_names):
+                    raise ValueError(
+                        f"Constructor {class_name} expects {len(param_names)} parameters "
+                        f"but received {len(inputs)} inputs"
+                    )
+
+                # Create kwargs dict
+                kwargs = {param_names[i]: inputs[i] for i in range(len(inputs))}
+
+                # Instantiate the class
+                instance = cls(**kwargs)
+                self.results[node_id] = instance
+                print(f"{node_id} (constructor {class_name}) = {instance}")
+
+            elif node_type == "method":
+                # Method nodes call an instance method
+                class_name = node["class_name"]
+                method_name = node["method_name"]
+
+                # Get incoming edges
+                incoming_edges = [e for e in self.edges if e["target"] == node_id]
+                incoming_edges.sort(key=lambda e: e["target_input"])
+
+                # First input must be the instance
+                if len(incoming_edges) == 0:
+                    raise ValueError(f"Method node {node_id} has no instance input!")
+
+                # Collect all inputs (first is instance, rest are method parameters)
+                inputs = []
+                for edge in incoming_edges:
+                    source_node_id = edge["source"]
+                    if source_node_id not in self.results:
+                        raise ValueError(
+                            f"Node {source_node_id} hasn't been executed yet!"
+                        )
+                    inputs.append(self.results[source_node_id])
+
+                # Extract instance and method parameters
+                instance = inputs[0]
+                method_inputs = inputs[1:]
+
+                # Verify instance is of correct class
+                if not isinstance(instance, CLASS_MAP[class_name]):
+                    raise ValueError(
+                        f"Method node {node_id} expected instance of {class_name}, "
+                        f"got {type(instance).__name__}"
+                    )
+
+                # Get the method from the instance
+                method = getattr(instance, method_name)
+
+                # Get method parameter names (skip 'self')
+                sig = inspect.signature(method)
+                param_names = [name for name in sig.parameters.keys() if name != 'self']
+
+                # Map method inputs to parameters
+                if len(method_inputs) != len(param_names):
+                    raise ValueError(
+                        f"Method {class_name}.{method_name} expects {len(param_names)} parameters "
+                        f"but received {len(method_inputs)} inputs"
+                    )
+
+                # Create kwargs dict
+                kwargs = {param_names[i]: method_inputs[i] for i in range(len(method_inputs))}
+
+                # Execute the method
+                result = method(**kwargs)
+                self.results[node_id] = result
+
             else:
-                raise ValueError(f"Unknown node node_type: {node_type}")
+                raise ValueError(f"Unknown node type: {node_type}. Supported types: primitive, function, constructor, method")
 
             print()
 

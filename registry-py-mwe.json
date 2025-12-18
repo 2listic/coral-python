@@ -116,5 +116,169 @@
     "outputs": [],
     "node_type": "function",
     "method_name": "print_result"
+  },
+  "9": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float"
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "class_name": "Calculator",
+    "type": "object"
+  },
+  "10": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "str"
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "class_name": "StringProcessor",
+    "type": "object"
+  },
+  "11": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "object"
+      },
+      {
+        "connection_type": "input",
+        "type": "float"
+      },
+      {
+        "connection_type": "output",
+        "type": "float"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "method",
+    "class_name": "Calculator",
+    "method_name": "add_to_value"
+  },
+  "12": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "object"
+      },
+      {
+        "connection_type": "output",
+        "type": "float"
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "class_name": "Calculator",
+    "method_name": "get_value"
+  },
+  "13": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "object"
+      },
+      {
+        "connection_type": "input",
+        "type": "float"
+      },
+      {
+        "connection_type": "output",
+        "type": "float"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "method",
+    "class_name": "Calculator",
+    "method_name": "multiply_value"
+  },
+  "14": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "object"
+      },
+      {
+        "connection_type": "input",
+        "type": "str"
+      },
+      {
+        "connection_type": "output",
+        "type": "str"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "method",
+    "class_name": "StringProcessor",
+    "method_name": "concatenate"
+  },
+  "15": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "object"
+      },
+      {
+        "connection_type": "input",
+        "type": "str"
+      },
+      {
+        "connection_type": "input",
+        "type": "int"
+      },
+      {
+        "connection_type": "output",
+        "type": "str"
+      }
+    ],
+    "inputs": [
+      0,
+      1,
+      2
+    ],
+    "outputs": [
+      3
+    ],
+    "node_type": "method",
+    "class_name": "StringProcessor",
+    "method_name": "repeat"
   }
 }

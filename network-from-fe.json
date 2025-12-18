@@ -2,7 +2,7 @@
   "workflow": {
     "nodes": {
       "0": {
-        "value": "3.0",
+        "value": "2",
         "inputs": [],
         "outputs": [
           -1
@@ -11,11 +11,109 @@
         "type": "float",
         "is_valid": true,
         "position": {
-          "x": 304,
-          "y": 211.5
+          "x": 359.81639973706143,
+          "y": 221.16804820785055
         }
       },
       "1": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "float"
+          }
+        ],
+        "inputs": [
+          0
+        ],
+        "outputs": [
+          -1
+        ],
+        "node_type": "constructor",
+        "class_name": "Calculator",
+        "type": "object",
+        "is_valid": true,
+        "position": {
+          "x": 677.2806950976337,
+          "y": 43.848030092673966
+        }
+      },
+      "2": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "object"
+          },
+          {
+            "connection_type": "input",
+            "type": "float"
+          },
+          {
+            "connection_type": "output",
+            "type": "float"
+          }
+        ],
+        "inputs": [
+          0,
+          1
+        ],
+        "outputs": [
+          2
+        ],
+        "node_type": "method",
+        "class_name": "Calculator",
+        "method_name": "add_to_value",
+        "is_valid": true,
+        "position": {
+          "x": 1018.6825816393458,
+          "y": 309.38283073622796
+        }
+      },
+      "3": {
+        "value": "3",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "float",
+        "is_valid": true,
+        "position": {
+          "x": 667.5541456235107,
+          "y": 434.8553189524128
+        }
+      },
+      "4": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "object"
+          },
+          {
+            "connection_type": "input",
+            "type": "float"
+          },
+          {
+            "connection_type": "output",
+            "type": "float"
+          }
+        ],
+        "inputs": [
+          0,
+          1
+        ],
+        "outputs": [
+          2
+        ],
+        "node_type": "method",
+        "class_name": "Calculator",
+        "method_name": "multiply_value",
+        "is_valid": true,
+        "position": {
+          "x": 1417.4711100783832,
+          "y": 316.19141536811406
+        }
+      },
+      "5": {
         "arguments": [
           {
             "connection_type": "input",
@@ -30,133 +128,65 @@
         "method_name": "print_result",
         "is_valid": true,
         "position": {
-          "x": 1296.4665983931754,
-          "y": 434.97657339760724
-        }
-      },
-      "2": {
-        "value": "2",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
-        "type": "float",
-        "is_valid": true,
-        "position": {
-          "x": 333.5492862144865,
-          "y": 369.84117824551794
-        }
-      },
-      "3": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "float"
-          },
-          {
-            "connection_type": "input",
-            "type": "float"
-          },
-          {
-            "connection_type": "output",
-            "type": "float"
-          }
-        ],
-        "inputs": [
-          0,
-          1
-        ],
-        "outputs": [
-          2
-        ],
-        "node_type": "function",
-        "method_name": "add",
-        "is_valid": true,
-        "position": {
-          "x": 653.5527639131286,
-          "y": 237.56010539744705
-        }
-      },
-      "5": {
-        "value": "4",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
-        "type": "float",
-        "is_valid": true,
-        "position": {
-          "x": 593.2481571735668,
-          "y": 508.9308357254747
+          "x": 1477.7757168179446,
+          "y": 560.3278071685977
         }
       },
       "6": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "float"
-          },
-          {
-            "connection_type": "input",
-            "type": "float"
-          },
-          {
-            "connection_type": "output",
-            "type": "float"
-          }
-        ],
-        "inputs": [
-          0,
-          1
-        ],
+        "value": "5",
+        "inputs": [],
         "outputs": [
-          2
+          -1
         ],
-        "node_type": "function",
-        "method_name": "multiply",
+        "node_type": "primitive",
+        "type": "float",
         "is_valid": true,
         "position": {
-          "x": 965.7750020324723,
-          "y": 322.1810858223159
+          "x": 1075.0965685892584,
+          "y": 550.6012576944751
         }
       }
     },
     "edges": {
       "0": {
         "source": 0,
-        "target": 3,
+        "target": 1,
         "source_output": 0,
         "target_input": 0
       },
       "1": {
-        "source": 2,
-        "target": 3,
+        "source": 1,
+        "target": 2,
         "source_output": 0,
-        "target_input": 1
+        "target_input": 0
       },
       "2": {
         "source": 3,
-        "target": 6,
-        "source_output": 0,
-        "target_input": 0
-      },
-      "3": {
-        "source": 5,
-        "target": 6,
+        "target": 2,
         "source_output": 0,
         "target_input": 1
       },
-      "4": {
-        "source": 6,
-        "target": 1,
+      "3": {
+        "source": 1,
+        "target": 4,
         "source_output": 0,
         "target_input": 0
+      },
+      "4": {
+        "source": 4,
+        "target": 5,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "5": {
+        "source": 6,
+        "target": 4,
+        "source_output": 0,
+        "target_input": 1
       }
     }
   },
   "version": 1,
   "author": "dealiix-platform",
-  "date_time_utc": "2025-12-16T15:14:12.580Z"
+  "date_time_utc": "2025-12-17T15:17:27.209Z"
 }
