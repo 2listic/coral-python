@@ -131,8 +131,7 @@
       -1
     ],
     "node_type": "constructor",
-    "class_name": "Calculator",
-    "type": "object"
+    "type": "Calculator"
   },
   "10": {
     "arguments": [
@@ -148,14 +147,13 @@
       -1
     ],
     "node_type": "constructor",
-    "class_name": "StringProcessor",
-    "type": "object"
+    "type": "StringProcessor"
   },
   "11": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "object"
+        "type": "Calculator"
       },
       {
         "connection_type": "input",
@@ -174,14 +172,14 @@
       2
     ],
     "node_type": "method",
-    "class_name": "Calculator",
-    "method_name": "add_to_value"
+    "method_name": "Calculator.add_to_value",
+    "type": "Calculator.add_to_value"
   },
   "12": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "object"
+        "type": "Calculator"
       },
       {
         "connection_type": "output",
@@ -195,14 +193,14 @@
       1
     ],
     "node_type": "method",
-    "class_name": "Calculator",
-    "method_name": "get_value"
+    "method_name": "Calculator.get_value",
+    "type": "Calculator.get_value"
   },
   "13": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "object"
+        "type": "Calculator"
       },
       {
         "connection_type": "input",
@@ -221,14 +219,14 @@
       2
     ],
     "node_type": "method",
-    "class_name": "Calculator",
-    "method_name": "multiply_value"
+    "method_name": "Calculator.multiply_value",
+    "type": "Calculator.multiply_value"
   },
   "14": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "object"
+        "type": "StringProcessor"
       },
       {
         "connection_type": "input",
@@ -247,14 +245,14 @@
       2
     ],
     "node_type": "method",
-    "class_name": "StringProcessor",
-    "method_name": "concatenate"
+    "method_name": "StringProcessor.concatenate",
+    "type": "StringProcessor.concatenate"
   },
   "15": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "object"
+        "type": "StringProcessor"
       },
       {
         "connection_type": "input",
@@ -278,7 +276,7 @@
       3
     ],
     "node_type": "method",
-    "class_name": "StringProcessor",
-    "method_name": "repeat"
+    "method_name": "StringProcessor.repeat",
+    "type": "StringProcessor.repeat"
   }
 }

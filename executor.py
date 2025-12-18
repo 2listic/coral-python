@@ -122,7 +122,7 @@ class WorkflowExecutor:
 
             elif node_type == "constructor":
                 # Constructor nodes instantiate a class
-                class_name = node["class_name"]
+                class_name = node["type"]
                 cls = CLASS_MAP[class_name]
 
                 # Get incoming edges for constructor parameters
@@ -160,8 +160,9 @@ class WorkflowExecutor:
 
             elif node_type == "method":
                 # Method nodes call an instance method
-                class_name = node["class_name"]
-                method_name = node["method_name"]
+                # Parse fully qualified name: "ClassName.method_name"
+                fully_qualified_name = node["method_name"]
+                class_name, method_name = fully_qualified_name.rsplit(".", 1)
 
                 # Get incoming edges
                 incoming_edges = [e for e in self.edges if e["target"] == node_id]

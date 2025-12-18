@@ -98,8 +98,6 @@ def generate_registry(
                 param_idx += 1
 
             # Constructor returns instance (like primitives: outputs = [-1])
-            # No output added to arguments array
-            # instance_type is implicit: constructors always return objects
             outputs = [-1]
 
             registry[str(node_id)] = {
@@ -107,8 +105,7 @@ def generate_registry(
                 "inputs": inputs,
                 "outputs": outputs,
                 "node_type": "constructor",
-                "class_name": class_name,
-                "type": "object"
+                "type": class_name
             }
             node_id += 1
 
@@ -131,10 +128,10 @@ def generate_registry(
                 inputs = []
                 param_idx = 0
 
-                # First input: the instance itself (type: object)
+                # First input: the instance itself
                 arguments.append({
                     "connection_type": "input",
-                    "type": "object"
+                    "type": class_name
                 })
                 inputs.append(param_idx)
                 param_idx += 1
@@ -169,13 +166,15 @@ def generate_registry(
                 else:
                     outputs = []
 
+                fully_qualified_name = f"{class_name}.{method_name}"
+
                 registry[str(node_id)] = {
                     "arguments": arguments,
                     "inputs": inputs,
                     "outputs": outputs,
                     "node_type": "method",
-                    "class_name": class_name,
-                    "method_name": method_name,
+                    "method_name": fully_qualified_name,
+                    "type": fully_qualified_name
                 }
                 node_id += 1
 
