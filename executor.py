@@ -100,7 +100,17 @@ class WorkflowExecutor:
                         raise ValueError(
                             f"Node {source_node_id} hasn't been executed yet!"
                         )
-                    inputs.append(self.results[source_node_id])
+                    result = self.results[source_node_id]
+
+                    # Handle source_output for tuple returns
+                    if "source_output" in edge:
+                        source_output_idx = edge["source_output"]
+                        if isinstance(result, tuple) and source_output_idx < len(result):
+                            result = result[source_output_idx]
+                        # If source_output is 0 and result is not a tuple, use the result as-is
+                        # (backwards compatible with single-output functions)
+
+                    inputs.append(result)
 
                 # Get function parameter names
                 sig = inspect.signature(func)
@@ -137,7 +147,15 @@ class WorkflowExecutor:
                         raise ValueError(
                             f"Node {source_node_id} hasn't been executed yet!"
                         )
-                    inputs.append(self.results[source_node_id])
+                    result = self.results[source_node_id]
+
+                    # Handle source_output for tuple returns
+                    if "source_output" in edge:
+                        source_output_idx = edge["source_output"]
+                        if isinstance(result, tuple) and source_output_idx < len(result):
+                            result = result[source_output_idx]
+
+                    inputs.append(result)
 
                 # Get constructor parameter names (skip 'self')
                 init_sig = inspect.signature(cls.__init__)
@@ -180,7 +198,15 @@ class WorkflowExecutor:
                         raise ValueError(
                             f"Node {source_node_id} hasn't been executed yet!"
                         )
-                    inputs.append(self.results[source_node_id])
+                    result = self.results[source_node_id]
+
+                    # Handle source_output for tuple returns
+                    if "source_output" in edge:
+                        source_output_idx = edge["source_output"]
+                        if isinstance(result, tuple) and source_output_idx < len(result):
+                            result = result[source_output_idx]
+
+                    inputs.append(result)
 
                 # Extract instance and method parameters
                 instance = inputs[0]

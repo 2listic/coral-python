@@ -1,6 +1,6 @@
 import json
 import inspect
-from typing import Dict, List
+from typing import Any, Dict, List, get_origin, get_args
 
 from definitions import FUNCTION_MAP, PRIMITIVES_MAP, CLASS_MAP
 
@@ -49,14 +49,28 @@ def generate_registry(
 
         # Process return type (output)
         return_annotation = sig.return_annotation
-        return_json_type = python_type_to_string(return_annotation)
 
-        # Only add output if function returns something (not None)
-        if (
+        # Check if return type is a Tuple - if so, create multiple outputs
+        origin = get_origin(return_annotation)
+        if origin is tuple:
+            # Handle Tuple[Type1, Type2, ...] - create separate output for each element
+            tuple_args = get_args(return_annotation)
+            outputs = []
+            for i, tuple_type in enumerate(tuple_args):
+                type_string = python_type_to_string(tuple_type)
+                arguments.append({
+                    "connection_type": "output",
+                    "type": type_string
+                })
+                outputs.append(param_idx)
+                param_idx += 1
+        # Only add single output if function returns something (not None)
+        elif (
             return_annotation is not None
             and return_annotation != type(None)
             and return_annotation != inspect.Signature.empty
         ):
+            return_json_type = python_type_to_string(return_annotation)
             arguments.append({
                 "connection_type": "output",
                 "type": return_json_type
@@ -151,13 +165,28 @@ def generate_registry(
 
                 # Process return type
                 return_annotation = sig.return_annotation
-                return_json_type = python_type_to_string(return_annotation)
 
-                if (
+                # Check if return type is a Tuple - if so, create multiple outputs
+                origin = get_origin(return_annotation)
+                if origin is tuple:
+                    # Handle Tuple[Type1, Type2, ...] - create separate output for each element
+                    tuple_args = get_args(return_annotation)
+                    outputs = []
+                    for i, tuple_type in enumerate(tuple_args):
+                        type_string = python_type_to_string(tuple_type)
+                        arguments.append({
+                            "connection_type": "output",
+                            "type": type_string
+                        })
+                        outputs.append(param_idx)
+                        param_idx += 1
+                # Only add single output if method returns something (not None)
+                elif (
                     return_annotation is not None
                     and return_annotation != type(None)
                     and return_annotation != inspect.Signature.empty
                 ):
+                    return_json_type = python_type_to_string(return_annotation)
                     arguments.append({
                         "connection_type": "output",
                         "type": return_json_type
@@ -184,23 +213,20 @@ def generate_registry(
 def python_type_to_string(py_type) -> str:
     """Convert Python type annotation to string"""
 
-    # Handle empty/missing annotations
-    if py_type is inspect.Signature.empty or py_type is None:
-        return "any"
-
-    # Handle object type (for class instances)
-    if py_type is object or str(py_type) == "<class 'object'>":
-        return "object"
-
     # Create reverse mapping from PRIMITIVES_MAP for type lookup
     # This maps Python types to their string representations
     reverse_primitives_map = {v: k for k, v in PRIMITIVES_MAP.items()}
+
+    # Handle empty/missing annotations
+    if py_type is inspect.Signature.empty or py_type is None:
+        return reverse_primitives_map[Any]
 
     # Handle basic types using PRIMITIVES_MAP
     if py_type in reverse_primitives_map:
         return reverse_primitives_map[py_type]
 
-    raise ValueError(f"Unknown type: {py_type}")
+    # Default fallback for unknown types
+    return reverse_primitives_map[Any]
 
 
 def save_registry_to_file(filename: str = "registry-py-mwe.json"):
