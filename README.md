@@ -7,7 +7,7 @@ Coral for python libraries
 - Python 3.6+
 - [uv](https://github.com/astral-sh/uv) installed 
 
-### Setup
+## Setup
 
 ```bash
 # Create virtual environment
@@ -17,29 +17,34 @@ uv venv
 source .venv/bin/activate  # Linux/Mac
 # .venv\Scripts\activate  # Windows
 
-# Install dependencies
-uv pip install -r requirements.txt
-
-# Run a simulation and then check the mp4 or gif file produced
-python one_obstacle.py
+# Install dependencies without extras
+uv pip sync requirements.txt
 ```
 
 ### Managing Dependencies
 
-**Install a new package:**
-```bash
-uv pip install <package-name>
-echo "<package-name>" >> requirements.in  # Track what YOU installed
-uv pip freeze > requirements.txt  # Lock all versions
-```
+#### Install new packages with [uv pip compile](https://docs.astral.sh/uv/pip/compile/)
 
-**Update all packages:**
 ```bash
-uv pip install --upgrade -r requirements.txt
-uv pip freeze > requirements.txt
+# Add the package to requirements.in
+
+echo "jax" >> requirements.in
+
+#Recompile requirements.txt
+uv pip compile requirements.in -o requirements.txt
+
+# Sync your environment
+uv pip sync requirements.txt
 ```
 
 ## Usage
+
+### Running a stand-alone Phi-flow simulation
+
+```bash
+# Run a simulation and then check the mp4 or gif file produced
+python one_obstacle.py3
+```
 
 ### Running the Workflow Executer
 
@@ -53,7 +58,7 @@ python main.py
 python main.py path/to/your/workflow.json
 ```
 
-### Generating the Registry File
+### Generating the Workflow Registry File
 
 **Generate the default registry file registry-py-mwe.json:**
 ```bash
