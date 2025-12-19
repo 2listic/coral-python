@@ -57,56 +57,6 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "float"
-      },
-      {
-        "connection_type": "input",
-        "type": "float"
-      },
-      {
-        "connection_type": "output",
-        "type": "float"
-      }
-    ],
-    "inputs": [
-      0,
-      1
-    ],
-    "outputs": [
-      2
-    ],
-    "node_type": "function",
-    "method_name": "add"
-  },
-  "7": {
-    "arguments": [
-      {
-        "connection_type": "input",
-        "type": "float"
-      },
-      {
-        "connection_type": "input",
-        "type": "float"
-      },
-      {
-        "connection_type": "output",
-        "type": "float"
-      }
-    ],
-    "inputs": [
-      0,
-      1
-    ],
-    "outputs": [
-      2
-    ],
-    "node_type": "function",
-    "method_name": "multiply"
-  },
-  "8": {
-    "arguments": [
-      {
-        "connection_type": "input",
         "type": "any"
       }
     ],
@@ -117,142 +67,111 @@
     "node_type": "function",
     "method_name": "print_result"
   },
+  "7": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "any"
+      },
+      {
+        "connection_type": "input",
+        "type": "any"
+      },
+      {
+        "connection_type": "input",
+        "type": "any"
+      },
+      {
+        "connection_type": "input",
+        "type": "float"
+      },
+      {
+        "connection_type": "input",
+        "type": "bool"
+      },
+      {
+        "connection_type": "output",
+        "type": "any"
+      },
+      {
+        "connection_type": "output",
+        "type": "any"
+      },
+      {
+        "connection_type": "output",
+        "type": "any"
+      }
+    ],
+    "inputs": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "outputs": [
+      5,
+      6,
+      7
+    ],
+    "node_type": "function",
+    "method_name": "phiflow_step"
+  },
+  "8": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "any"
+      },
+      {
+        "connection_type": "input",
+        "type": "any"
+      },
+      {
+        "connection_type": "input",
+        "type": "int"
+      },
+      {
+        "connection_type": "input",
+        "type": "float"
+      },
+      {
+        "connection_type": "input",
+        "type": "int"
+      },
+      {
+        "connection_type": "output",
+        "type": "any"
+      },
+      {
+        "connection_type": "output",
+        "type": "any"
+      },
+      {
+        "connection_type": "output",
+        "type": "any"
+      }
+    ],
+    "inputs": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "outputs": [
+      5,
+      6,
+      7
+    ],
+    "node_type": "function",
+    "method_name": "phiflow_iterate"
+  },
   "9": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "float"
-      }
-    ],
-    "inputs": [
-      0
-    ],
-    "outputs": [
-      -1
-    ],
-    "node_type": "constructor",
-    "type": "Calculator"
-  },
-  "10": {
-    "arguments": [
-      {
-        "connection_type": "input",
-        "type": "str"
-      }
-    ],
-    "inputs": [
-      0
-    ],
-    "outputs": [
-      -1
-    ],
-    "node_type": "constructor",
-    "type": "StringProcessor"
-  },
-  "11": {
-    "arguments": [
-      {
-        "connection_type": "input",
-        "type": "Calculator"
-      },
-      {
-        "connection_type": "input",
-        "type": "float"
-      },
-      {
-        "connection_type": "output",
-        "type": "float"
-      }
-    ],
-    "inputs": [
-      0,
-      1
-    ],
-    "outputs": [
-      2
-    ],
-    "node_type": "method",
-    "method_name": "Calculator.add_to_value",
-    "type": "Calculator.add_to_value"
-  },
-  "12": {
-    "arguments": [
-      {
-        "connection_type": "input",
-        "type": "Calculator"
-      },
-      {
-        "connection_type": "output",
-        "type": "float"
-      }
-    ],
-    "inputs": [
-      0
-    ],
-    "outputs": [
-      1
-    ],
-    "node_type": "method",
-    "method_name": "Calculator.get_value",
-    "type": "Calculator.get_value"
-  },
-  "13": {
-    "arguments": [
-      {
-        "connection_type": "input",
-        "type": "Calculator"
-      },
-      {
-        "connection_type": "input",
-        "type": "float"
-      },
-      {
-        "connection_type": "output",
-        "type": "float"
-      }
-    ],
-    "inputs": [
-      0,
-      1
-    ],
-    "outputs": [
-      2
-    ],
-    "node_type": "method",
-    "method_name": "Calculator.multiply_value",
-    "type": "Calculator.multiply_value"
-  },
-  "14": {
-    "arguments": [
-      {
-        "connection_type": "input",
-        "type": "StringProcessor"
-      },
-      {
-        "connection_type": "input",
-        "type": "str"
-      },
-      {
-        "connection_type": "output",
-        "type": "str"
-      }
-    ],
-    "inputs": [
-      0,
-      1
-    ],
-    "outputs": [
-      2
-    ],
-    "node_type": "method",
-    "method_name": "StringProcessor.concatenate",
-    "type": "StringProcessor.concatenate"
-  },
-  "15": {
-    "arguments": [
-      {
-        "connection_type": "input",
-        "type": "StringProcessor"
+        "type": "any"
       },
       {
         "connection_type": "input",
@@ -263,8 +182,65 @@
         "type": "int"
       },
       {
+        "connection_type": "input",
+        "type": "int"
+      },
+      {
+        "connection_type": "input",
+        "type": "int"
+      },
+      {
         "connection_type": "output",
-        "type": "str"
+        "type": "any"
+      }
+    ],
+    "inputs": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "outputs": [
+      5
+    ],
+    "node_type": "function",
+    "method_name": "phiflow_plot_and_save"
+  },
+  "10": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float"
+      },
+      {
+        "connection_type": "input",
+        "type": "float"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PhiFlowBox"
+  },
+  "11": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float"
+      },
+      {
+        "connection_type": "input",
+        "type": "float"
+      },
+      {
+        "connection_type": "input",
+        "type": "float"
       }
     ],
     "inputs": [
@@ -273,10 +249,145 @@
       2
     ],
     "outputs": [
-      3
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PhiFlowSphere"
+  },
+  "12": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "any"
+      },
+      {
+        "connection_type": "input",
+        "type": "int"
+      },
+      {
+        "connection_type": "input",
+        "type": "int"
+      }
+    ],
+    "inputs": [
+      0,
+      1,
+      2
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PhiFlowStaggeredGrid"
+  },
+  "13": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "any"
+      },
+      {
+        "connection_type": "input",
+        "type": "int"
+      },
+      {
+        "connection_type": "input",
+        "type": "int"
+      }
+    ],
+    "inputs": [
+      0,
+      1,
+      2
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PhiFlowCenteredGrid"
+  },
+  "14": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "PhiFlowBox"
+      },
+      {
+        "connection_type": "output",
+        "type": "any"
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
     ],
     "node_type": "method",
-    "method_name": "StringProcessor.repeat",
-    "type": "StringProcessor.repeat"
+    "method_name": "PhiFlowBox.get_box",
+    "type": "PhiFlowBox.get_box"
+  },
+  "15": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "PhiFlowSphere"
+      },
+      {
+        "connection_type": "output",
+        "type": "any"
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "method_name": "PhiFlowSphere.get_sphere",
+    "type": "PhiFlowSphere.get_sphere"
+  },
+  "16": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "PhiFlowStaggeredGrid"
+      },
+      {
+        "connection_type": "output",
+        "type": "any"
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "method_name": "PhiFlowStaggeredGrid.get_grid",
+    "type": "PhiFlowStaggeredGrid.get_grid"
+  },
+  "17": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "PhiFlowCenteredGrid"
+      },
+      {
+        "connection_type": "output",
+        "type": "any"
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "method_name": "PhiFlowCenteredGrid.get_grid",
+    "type": "PhiFlowCenteredGrid.get_grid"
   }
 }
