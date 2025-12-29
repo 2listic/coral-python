@@ -10,13 +10,13 @@ def main():
     parser.add_argument('workflow_file',
         nargs='?',  # Makes it optional
         default='network-from-fe.json',
-        help='Path to the workflow JSON file (default: network-py-mwe.json)'
+        help='Path to the workflow JSON file (default: network-from-fe.json)'
     )
 
     # Add option to generate registry
     parser.add_argument('--generate-registry',
         action='store_true',
-        help='Generate the registry file from FUNCTION_MAP'
+        help='Generate the registry file from definitions.py'
     )
     parser.add_argument('--registry-output',
         default='registry-py-mwe.json',

@@ -48,7 +48,7 @@ python one_obstacle.py3
 
 ### Running the Workflow Executer
 
-**Run with default workflow file (network-py-mwe.json):**
+**Run with default workflow file (network-from-fe.json):**
 ```bash
 python main.py
 ```
