@@ -23,14 +23,23 @@ def main():
         help='Output path for the registry file (default: registry-py-mwe.json)'
     )
 
+    # Add option to specify which modules to load
+    parser.add_argument('--modules',
+        default='phiflow',
+        help='Comma-separated list of modules to load (options: math, string, phiflow). Default: phiflow'
+    )
+
     args = parser.parse_args()
+
+    # Parse module list
+    module_list = [m.strip() for m in args.modules.split(',') if m.strip()]
 
     # Generate registry if requested
     if args.generate_registry:
-        save_registry_to_file(args.registry_output)
+        save_registry_to_file(args.registry_output, modules=module_list)
     else:
         # Normal workflow execution
-        executor = WorkflowExecutor(args.workflow_file)
+        executor = WorkflowExecutor(args.workflow_file, modules=module_list)
         results = executor.execute()
         print(f"\nFinal results: {results}")
 

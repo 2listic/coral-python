@@ -1,12 +1,18 @@
 import json
 import inspect
-from typing import Any, List
+from typing import Any, List, Optional
 
-from definitions import FUNCTION_MAP, PRIMITIVES_MAP, CLASS_MAP
+from definitions import PRIMITIVES_MAP, build_function_map, build_class_map
 
 
 class WorkflowExecutor:
-    def __init__(self, workflow_file: str):
+    def __init__(self, workflow_file: str, modules: Optional[List[str]] = None):
+        """Initialize the workflow executor
+
+        Args:
+            workflow_file: Path to the workflow JSON file
+            modules: List of module names to load. If None, defaults to ['phiflow']
+        """
         with open(workflow_file, "r") as f:
             data = json.load(f)
 
@@ -22,6 +28,18 @@ class WorkflowExecutor:
             self.edges.append(edge)
 
         self.results = {}
+
+        # Build function and class maps based on specified modules
+        if modules is None:
+            modules = ['phiflow']
+
+        self.function_map = build_function_map(include=modules)
+        self.class_map = build_class_map(include=modules)
+        self.primitives_map = PRIMITIVES_MAP
+
+        print(f"Loaded modules: {', '.join(modules)}")
+        print(f"Available functions: {len(self.function_map)}")
+        print(f"Available classes: {len(self.class_map)}\n")
 
     def get_execution_order(self) -> List[str]:
         """Determine execution order using topological sort"""
@@ -65,9 +83,9 @@ class WorkflowExecutor:
                 raw_value = node["value"]
                 prim_type = node.get("type", "any")
 
-                # Convert value based on type using PRIMITIVES_MAP
-                if prim_type in PRIMITIVES_MAP:
-                    converter = PRIMITIVES_MAP[prim_type]
+                # Convert value based on type using primitives_map
+                if prim_type in self.primitives_map:
+                    converter = self.primitives_map[prim_type]
                     if converter is type(None):
                         result = None
                     elif converter is Any: # Don't convert value if type is Any
@@ -83,7 +101,7 @@ class WorkflowExecutor:
             elif node_type == "function":
                 # function nodes execute a function with inputs source edges
                 func_name = node["method_name"]
-                func = FUNCTION_MAP[func_name]
+                func = self.function_map[func_name]
 
                 # Get incoming edges for this node
                 incoming_edges = [e for e in self.edges if e["target"] == node_id]
@@ -133,7 +151,7 @@ class WorkflowExecutor:
             elif node_type == "constructor":
                 # Constructor nodes instantiate a class
                 class_name = node["type"]
-                cls = CLASS_MAP[class_name]
+                cls = self.class_map[class_name]
 
                 # Get incoming edges for constructor parameters
                 incoming_edges = [e for e in self.edges if e["target"] == node_id]
@@ -213,7 +231,7 @@ class WorkflowExecutor:
                 method_inputs = inputs[1:]
 
                 # Verify instance is of correct class
-                if not isinstance(instance, CLASS_MAP[class_name]):
+                if not isinstance(instance, self.class_map[class_name]):
                     raise ValueError(
                         f"Method node {node_id} expected instance of {class_name}, "
                         f"got {type(instance).__name__}"

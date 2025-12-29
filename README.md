@@ -58,6 +58,22 @@ python main.py
 python main.py path/to/your/workflow.json
 ```
 
+**Run with specific modules loaded:**
+```bash
+# Load only math operations
+python main.py workflow.json --modules="math"
+
+# Load multiple modules
+python main.py workflow.json --modules="math,string,phiflow"
+```
+
+**Default behavior**: When no `--modules` flag is provided, only the `phiflow` module is loaded (optimal for physics simulations). Primitives are always included.
+
+**Available modules**:
+- `phiflow` - PhiFlow physics simulation wrappers (default)
+- `math` - Mathematical operations (`add`, `multiply`, `math.sqrt`, etc.) and `Calculator` class
+- `string` - String processing utilities (`StringProcessor` class)
+
 ### Generating the Workflow Registry File
 
 **Generate the default registry file registry-py-mwe.json:**
@@ -65,9 +81,18 @@ python main.py path/to/your/workflow.json
 python main.py --generate-registry
 ```
 
+**Generate registry with specific modules:**
+```bash
+# Generate registry for math operations only
+python main.py --generate-registry --modules="math"
+
+# Generate registry for all modules
+python main.py --generate-registry --modules="math,string,phiflow"
+```
+
 **Generate custom output path for registry file:**
 ```bash
-python main.py --generate-registry --registry-output custom_registry.json
+python main.py --generate-registry --registry-output="custom_registry.json" --modules="math"
 ```
 
 **Get help:**

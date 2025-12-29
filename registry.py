@@ -1,8 +1,8 @@
 import json
 import inspect
-from typing import Any, Dict, List, get_origin, get_args
+from typing import Any, Dict, List, get_origin, get_args, Optional
 
-from definitions import FUNCTION_MAP, PRIMITIVES_MAP, CLASS_MAP
+from definitions import PRIMITIVES_MAP, build_function_map, build_class_map
 
 
 def generate_registry(
@@ -229,12 +229,26 @@ def python_type_to_string(py_type) -> str:
     return reverse_primitives_map[Any]
 
 
-def save_registry_to_file(filename: str = "registry-py-mwe.json"):
-    """Generate and save the registry to a JSON file"""
-    registry = generate_registry(FUNCTION_MAP, PRIMITIVES_MAP, CLASS_MAP)
+def save_registry_to_file(filename: str = "registry-py-mwe.json", modules: Optional[List[str]] = None):
+    """Generate and save the registry to a JSON file
+
+    Args:
+        filename: Output path for the registry file
+        modules: List of module names to include. If None, defaults to ['phiflow']
+    """
+    if modules is None:
+        modules = ['phiflow']
+
+    # Build function and class maps based on specified modules
+    function_map = build_function_map(include=modules)
+    class_map = build_class_map(include=modules)
+
+    # Always include primitives
+    registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
 
     with open(filename, "w") as f:
         json.dump(registry, f, indent=2)
 
     print(f"Registry saved to {filename}")
+    print(f"Loaded modules: {', '.join(modules)}")
     return registry
