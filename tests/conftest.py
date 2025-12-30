@@ -18,13 +18,14 @@ def project_root() -> Path:
 @pytest.fixture(scope="session")
 def workflow_files(project_root: Path) -> Dict[str, Path]:
     """Return paths to all workflow JSON files."""
+    fixtures_dir = project_root / "tests" / "fixtures" / "valid_workflows"
     return {
-        "obstacle": project_root / "network-from-fe-obstacle.json",
-        "smoke_plume": project_root / "network-from-fe-smoke_plume.json",
-        "math": project_root / "network-from-fe-math.json",
-        "classes": project_root / "network-from-fe-classes.json",
-        "functions": project_root / "network-from-fe-functions.json",
-        "default": project_root / "network-from-fe.json",
+        "obstacle": fixtures_dir / "network-from-fe-obstacle.json",
+        "smoke_plume": fixtures_dir / "network-from-fe-smoke_plume.json",
+        "math": fixtures_dir / "network-from-fe-math.json",
+        "classes": fixtures_dir / "network-from-fe-classes.json",
+        "functions": fixtures_dir / "network-from-fe-functions.json",
+        "default": fixtures_dir / "network-from-fe.json",
     }
 
 

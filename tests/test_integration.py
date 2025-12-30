@@ -44,6 +44,23 @@ class TestPhiFlowWorkflows:
 
         except ImportError:
             pytest.skip("PhiFlow not available")
+    
+    @pytest.mark.phiflow
+    @pytest.mark.integration
+    def test_default_workflow_execution(self, workflow_files):
+        """Test smoke plume workflow executes without errors."""
+        try:
+            executor = WorkflowExecutor(str(workflow_files["default"]), modules=['phiflow'])
+            results = executor.execute()
+
+            # Verify workflow executed and produced results
+            assert len(results) > 0
+            assert isinstance(results, dict)
+
+            print(f"Default workflow executed successfully with {len(results)} nodes")
+
+        except ImportError:
+            pytest.skip("PhiFlow not available")
 
 
 class TestMathWorkflows:

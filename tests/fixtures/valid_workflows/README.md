@@ -1,8 +1,9 @@
 # Valid Workflow Fixtures
 
-This directory is reserved for test-specific valid workflow fixtures.
+This directory contains test workflow fixtures used throughout the test suite.
 
-The main workflow files used for testing are located in the project root:
+## Workflow Files
+
 - `network-from-fe-obstacle.json` - PhiFlow obstacle workflow
 - `network-from-fe-smoke_plume.json` - PhiFlow smoke plume workflow
 - `network-from-fe-math.json` - Math operations workflow
@@ -10,6 +11,6 @@ The main workflow files used for testing are located in the project root:
 - `network-from-fe-functions.json` - Function calls workflow
 - `network-from-fe.json` - Default workflow
 
-These files are referenced via fixtures in `conftest.py`.
+These files are referenced via fixtures in `tests/conftest.py`.
 
 Additional test-specific workflows can be added here as needed.
