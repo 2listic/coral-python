@@ -309,7 +309,7 @@
         }
       },
       "21": {
-        "value": "50",
+        "value": "10",
         "inputs": [],
         "outputs": [
           -1
@@ -318,8 +318,8 @@
         "type": "int",
         "is_valid": true,
         "position": {
-          "x": 1499.7148116124572,
-          "y": 709.7983806620434
+          "x": 1514.471231282937,
+          "y": 693.1624783778074
         }
       },
       "22": {
@@ -332,8 +332,8 @@
         "type": "float",
         "is_valid": true,
         "position": {
-          "x": 1472.9838521193994,
-          "y": 825.975243074179
+          "x": 1489.4336733458965,
+          "y": 820.8346739408987
         }
       },
       "23": {
@@ -350,106 +350,6 @@
           "y": 935.9834225263783
         }
       },
-      "24": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "any"
-          },
-          {
-            "connection_type": "input",
-            "type": "any"
-          },
-          {
-            "connection_type": "input",
-            "type": "int"
-          },
-          {
-            "connection_type": "input",
-            "type": "float"
-          },
-          {
-            "connection_type": "input",
-            "type": "int"
-          },
-          {
-            "connection_type": "output",
-            "type": "any"
-          },
-          {
-            "connection_type": "output",
-            "type": "any"
-          },
-          {
-            "connection_type": "output",
-            "type": "any"
-          }
-        ],
-        "inputs": [
-          0,
-          1,
-          2,
-          3,
-          4
-        ],
-        "outputs": [
-          5,
-          6,
-          7
-        ],
-        "node_type": "function",
-        "method_name": "phiflow_iterate",
-        "is_valid": true,
-        "position": {
-          "x": 2138.2556536672455,
-          "y": 474.5478658663063
-        }
-      },
-      "25": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "any"
-          },
-          {
-            "connection_type": "input",
-            "type": "str"
-          },
-          {
-            "connection_type": "input",
-            "type": "int"
-          },
-          {
-            "connection_type": "input",
-            "type": "int"
-          },
-          {
-            "connection_type": "input",
-            "type": "int"
-          },
-          {
-            "connection_type": "output",
-            "type": "any"
-          }
-        ],
-        "inputs": [
-          0,
-          1,
-          2,
-          3,
-          4
-        ],
-        "outputs": [
-          5
-        ],
-        "node_type": "function",
-        "method_name": "phiflow_plot_and_save",
-        "is_valid": true,
-        "position": {
-          "x": 2505.126609790737,
-          "y": 593.1262504066534
-        }
-      },
       "26": {
         "value": "simulation.mp4",
         "inputs": [],
@@ -460,8 +360,8 @@
         "type": "str",
         "is_valid": true,
         "position": {
-          "x": 2118.0889514499736,
-          "y": 787.0272760951017
+          "x": 2113.787085705926,
+          "y": 768.385857870896
         }
       },
       "27": {
@@ -488,8 +388,8 @@
         "type": "int",
         "is_valid": true,
         "position": {
-          "x": 2078.150296083115,
-          "y": 1101.6659513023124
+          "x": 2096.7917143073205,
+          "y": 1100.2319960542964
         }
       },
       "29": {
@@ -502,8 +402,132 @@
         "type": "int",
         "is_valid": true,
         "position": {
-          "x": 2126.8559733597726,
-          "y": 891.2574254671499
+          "x": 2111.0824656315986,
+          "y": 882.6536939790549
+        }
+      },
+      "30": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "any"
+          },
+          {
+            "connection_type": "input",
+            "type": "any"
+          },
+          {
+            "connection_type": "input",
+            "type": "int"
+          },
+          {
+            "connection_type": "input",
+            "type": "float"
+          },
+          {
+            "connection_type": "input",
+            "type": "int"
+          },
+          {
+            "connection_type": "input",
+            "type": "any"
+          },
+          {
+            "connection_type": "output",
+            "type": "any"
+          },
+          {
+            "connection_type": "output",
+            "type": "any"
+          },
+          {
+            "connection_type": "output",
+            "type": "any"
+          }
+        ],
+        "inputs": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "outputs": [
+          6,
+          7,
+          8
+        ],
+        "node_type": "function",
+        "method_name": "phiflow_iterate",
+        "is_valid": true,
+        "position": {
+          "x": 2235.697848994144,
+          "y": 355.3962066855224
+        }
+      },
+      "31": {
+        "value": null,
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "none",
+        "is_valid": true,
+        "position": {
+          "x": 1795.621487432151,
+          "y": 126.74630249093471
+        }
+      },
+      "32": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "any"
+          },
+          {
+            "connection_type": "input",
+            "type": "str"
+          },
+          {
+            "connection_type": "input",
+            "type": "int"
+          },
+          {
+            "connection_type": "input",
+            "type": "int"
+          },
+          {
+            "connection_type": "input",
+            "type": "int"
+          },
+          {
+            "connection_type": "input",
+            "type": "any"
+          },
+          {
+            "connection_type": "output",
+            "type": "any"
+          }
+        ],
+        "inputs": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "outputs": [
+          6
+        ],
+        "node_type": "function",
+        "method_name": "phiflow_plot_and_save",
+        "is_valid": true,
+        "position": {
+          "x": 2697.8713479683825,
+          "y": 353.6651086243268
         }
       }
     },
@@ -600,67 +624,79 @@
       },
       "15": {
         "source": 18,
-        "target": 24,
+        "target": 30,
         "source_output": 0,
         "target_input": 0
       },
       "16": {
         "source": 11,
-        "target": 24,
+        "target": 30,
         "source_output": 0,
         "target_input": 1
       },
       "17": {
         "source": 21,
-        "target": 24,
+        "target": 30,
         "source_output": 0,
         "target_input": 2
       },
       "18": {
         "source": 22,
-        "target": 24,
+        "target": 30,
         "source_output": 0,
         "target_input": 3
       },
       "19": {
         "source": 23,
-        "target": 24,
+        "target": 30,
         "source_output": 0,
         "target_input": 4
       },
       "20": {
-        "source": 24,
-        "target": 25,
+        "source": 31,
+        "target": 30,
+        "source_output": 0,
+        "target_input": 5
+      },
+      "21": {
+        "source": 30,
+        "target": 32,
         "source_output": 1,
         "target_input": 0
       },
-      "21": {
+      "22": {
         "source": 26,
-        "target": 25,
+        "target": 32,
         "source_output": 0,
         "target_input": 1
       },
-      "22": {
+      "23": {
         "source": 29,
-        "target": 25,
+        "target": 32,
         "source_output": 0,
         "target_input": 2
       },
-      "23": {
+      "24": {
         "source": 27,
-        "target": 25,
+        "target": 32,
         "source_output": 0,
         "target_input": 3
       },
-      "24": {
+      "25": {
         "source": 28,
-        "target": 25,
+        "target": 32,
         "source_output": 0,
         "target_input": 4
+      },
+      "26": {
+        "source": 31,
+        "target": 32,
+        "source_output": 0,
+        "target_input": 5
       }
     }
   },
   "version": 1,
   "author": "dealiix-platform",
-  "date_time_utc": "2025-12-19T14:40:27.570Z"
+  "date_time_utc": "2025-12-30T13:08:32.728Z"
 }

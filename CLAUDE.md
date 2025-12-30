@@ -70,15 +70,45 @@ python main.py --generate-registry --registry-output="custom-registry.json" --mo
 ### Running Standalone PhiFlow Simulations
 ```bash
 # Run a PhiFlow simulation directly (not through workflow system)
-python phi_flow/examples/smoke_plume/smoke_plume.py
-# Check the generated .mp4 or .gif output file
+python phi_flow/one_obstacle_absorb.py
+python phi_flow/multiple_obstacles.py
+# Check the generated .mp4 or .gif output file in phi_flow/ directory
+```
+
+### Running Tests
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=. --cov-report=html
+open htmlcov/index.html
+
+# Run specific test file
+pytest tests/test_executor.py
+pytest tests/test_integration.py
+
+# Run specific test class or function
+pytest tests/test_executor.py::TestPrimitiveNodeExecution
+pytest tests/test_executor.py::TestPrimitiveNodeExecution::test_int_primitive
+
+# Run tests by category (using markers)
+pytest -m integration  # Integration tests with JSON network files
+pytest -m math         # Math module tests
+pytest -m phiflow      # PhiFlow tests
+pytest -m string       # String module tests
+
+# Verbose output with print statements
+pytest -v   # Verbose
+pytest -vv  # Extra verbose
+pytest -s   # Show print statements
 ```
 
 ## Architecture
 
 ### Core Components
 
-The system is organized into five main modules:
+The system is organized into four main modules:
 
 1. **definitions/** - Modular package for callable functions and classes:
    - **`definitions/__init__.py`**: Exports `build_function_map()`, `build_class_map()`, and `PRIMITIVES_MAP`
@@ -178,7 +208,7 @@ The `phi_flow/` directory contains physics simulation examples using the PhiFlow
 - Fluid dynamics simulations (smoke plumes, obstacles)
 - Uses JIT compilation for performance
 - Supports multiple backends (JAX, PyTorch, TensorFlow)
-- Wrapper classes in [definitions.py](definitions.py) provide simplified API for workflow integration
+- Wrapper classes in [definitions/phiflow_defs.py](definitions/phiflow_defs.py) provide simplified API for workflow integration
 
 ## Key Constraints and Design Decisions
 
