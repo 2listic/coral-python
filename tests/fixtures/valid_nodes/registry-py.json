@@ -57,53 +57,48 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any"
-      }
-    ],
-    "inputs": [
-      0
-    ],
-    "outputs": [],
-    "node_type": "function",
-    "method_name": "print_result"
-  },
-  "7": {
-    "arguments": [
-      {
-        "connection_type": "input",
-        "type": "any"
+        "type": "any",
+        "name": "velocity_grid"
       },
       {
         "connection_type": "input",
-        "type": "any"
+        "type": "any",
+        "name": "smoke_grid"
       },
       {
         "connection_type": "input",
-        "type": "int"
+        "type": "int",
+        "name": "time_steps"
       },
       {
         "connection_type": "input",
-        "type": "float"
+        "type": "float",
+        "name": "dt"
       },
       {
         "connection_type": "input",
-        "type": "int"
+        "type": "int",
+        "name": "substeps"
       },
       {
         "connection_type": "input",
-        "type": "any"
+        "type": "any",
+        "name": "obstacles"
       },
       {
         "connection_type": "output",
-        "type": "any"
+        "type": "any",
+        "name": ""
       },
       {
         "connection_type": "output",
-        "type": "any"
+        "type": "any",
+        "name": ""
       },
       {
         "connection_type": "output",
-        "type": "any"
+        "type": "any",
+        "name": ""
       }
     ],
     "inputs": [
@@ -122,35 +117,42 @@
     "node_type": "function",
     "method_name": "phiflow_iterate"
   },
-  "8": {
+  "7": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any"
+        "type": "any",
+        "name": "smoke_trajectory"
       },
       {
         "connection_type": "input",
-        "type": "str"
+        "type": "str",
+        "name": "output_filename"
       },
       {
         "connection_type": "input",
-        "type": "int"
+        "type": "int",
+        "name": "frame_time"
       },
       {
         "connection_type": "input",
-        "type": "int"
+        "type": "int",
+        "name": "fps"
       },
       {
         "connection_type": "input",
-        "type": "int"
+        "type": "int",
+        "name": "dpi"
       },
       {
         "connection_type": "input",
-        "type": "any"
+        "type": "any",
+        "name": "obstacles"
       },
       {
         "connection_type": "output",
-        "type": "any"
+        "type": "any",
+        "name": ""
       }
     ],
     "inputs": [
@@ -167,35 +169,42 @@
     "node_type": "function",
     "method_name": "phiflow_plot_and_save"
   },
-  "9": {
+  "8": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any"
+        "type": "any",
+        "name": "geom1"
       },
       {
         "connection_type": "input",
-        "type": "any"
+        "type": "any",
+        "name": "geom2"
       },
       {
         "connection_type": "input",
-        "type": "any"
+        "type": "any",
+        "name": "geom3"
       },
       {
         "connection_type": "input",
-        "type": "any"
+        "type": "any",
+        "name": "geom4"
       },
       {
         "connection_type": "input",
-        "type": "any"
+        "type": "any",
+        "name": "geom5"
       },
       {
         "connection_type": "input",
-        "type": "any"
+        "type": "any",
+        "name": "geom6"
       },
       {
         "connection_type": "output",
-        "type": "any"
+        "type": "any",
+        "name": ""
       }
     ],
     "inputs": [
@@ -212,15 +221,17 @@
     "node_type": "function",
     "method_name": "phiflow_union"
   },
-  "10": {
+  "9": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "float"
+        "type": "float",
+        "name": "x"
       },
       {
         "connection_type": "input",
-        "type": "float"
+        "type": "float",
+        "name": "y"
       }
     ],
     "inputs": [
@@ -233,19 +244,22 @@
     "node_type": "constructor",
     "type": "PhiFlowBox"
   },
-  "11": {
+  "10": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "float"
+        "type": "float",
+        "name": "x"
       },
       {
         "connection_type": "input",
-        "type": "float"
+        "type": "float",
+        "name": "y"
       },
       {
         "connection_type": "input",
-        "type": "float"
+        "type": "float",
+        "name": "radius"
       }
     ],
     "inputs": [
@@ -259,19 +273,22 @@
     "node_type": "constructor",
     "type": "PhiFlowSphere"
   },
-  "12": {
+  "11": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any"
+        "type": "any",
+        "name": "domain_box"
       },
       {
         "connection_type": "input",
-        "type": "int"
+        "type": "int",
+        "name": "resolution_x"
       },
       {
         "connection_type": "input",
-        "type": "int"
+        "type": "int",
+        "name": "resolution_y"
       }
     ],
     "inputs": [
@@ -285,19 +302,22 @@
     "node_type": "constructor",
     "type": "PhiFlowStaggeredGrid"
   },
-  "13": {
+  "12": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any"
+        "type": "any",
+        "name": "domain_box"
       },
       {
         "connection_type": "input",
-        "type": "int"
+        "type": "int",
+        "name": "resolution_x"
       },
       {
         "connection_type": "input",
-        "type": "int"
+        "type": "int",
+        "name": "resolution_y"
       }
     ],
     "inputs": [
@@ -311,23 +331,27 @@
     "node_type": "constructor",
     "type": "PhiFlowCenteredGrid"
   },
-  "14": {
+  "13": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "float"
+        "type": "float",
+        "name": "center_x"
       },
       {
         "connection_type": "input",
-        "type": "float"
+        "type": "float",
+        "name": "center_y"
       },
       {
         "connection_type": "input",
-        "type": "float"
+        "type": "float",
+        "name": "half_size_x"
       },
       {
         "connection_type": "input",
-        "type": "float"
+        "type": "float",
+        "name": "half_size_y"
       }
     ],
     "inputs": [
@@ -342,15 +366,17 @@
     "node_type": "constructor",
     "type": "PhiFlowCuboid"
   },
-  "15": {
+  "14": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "PhiFlowBox"
+        "type": "PhiFlowBox",
+        "name": "self"
       },
       {
         "connection_type": "output",
-        "type": "any"
+        "type": "any",
+        "name": ""
       }
     ],
     "inputs": [
@@ -363,15 +389,17 @@
     "method_name": "PhiFlowBox.get_box",
     "type": "PhiFlowBox.get_box"
   },
-  "16": {
+  "15": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "PhiFlowSphere"
+        "type": "PhiFlowSphere",
+        "name": "self"
       },
       {
         "connection_type": "output",
-        "type": "any"
+        "type": "any",
+        "name": ""
       }
     ],
     "inputs": [
@@ -384,15 +412,17 @@
     "method_name": "PhiFlowSphere.get_sphere",
     "type": "PhiFlowSphere.get_sphere"
   },
-  "17": {
+  "16": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "PhiFlowStaggeredGrid"
+        "type": "PhiFlowStaggeredGrid",
+        "name": "self"
       },
       {
         "connection_type": "output",
-        "type": "any"
+        "type": "any",
+        "name": ""
       }
     ],
     "inputs": [
@@ -405,15 +435,17 @@
     "method_name": "PhiFlowStaggeredGrid.get_grid",
     "type": "PhiFlowStaggeredGrid.get_grid"
   },
-  "18": {
+  "17": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "PhiFlowCenteredGrid"
+        "type": "PhiFlowCenteredGrid",
+        "name": "self"
       },
       {
         "connection_type": "output",
-        "type": "any"
+        "type": "any",
+        "name": ""
       }
     ],
     "inputs": [
@@ -426,15 +458,17 @@
     "method_name": "PhiFlowCenteredGrid.get_grid",
     "type": "PhiFlowCenteredGrid.get_grid"
   },
-  "19": {
+  "18": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "PhiFlowCuboid"
+        "type": "PhiFlowCuboid",
+        "name": "self"
       },
       {
         "connection_type": "output",
-        "type": "any"
+        "type": "any",
+        "name": ""
       }
     ],
     "inputs": [

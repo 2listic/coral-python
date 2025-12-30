@@ -37,12 +37,13 @@ def generate_registry(
 
         # Process input parameters
         param_idx = 0
-        for _, param in sig.parameters.items():
+        for param_name, param in sig.parameters.items():
             type_string = python_type_to_string(param.annotation)
 
             arguments.append({
                 "connection_type": "input",
-                "type": type_string
+                "type": type_string,
+                "name": param_name
             })
             inputs.append(param_idx)
             param_idx += 1
@@ -60,7 +61,8 @@ def generate_registry(
                 type_string = python_type_to_string(tuple_type)
                 arguments.append({
                     "connection_type": "output",
-                    "type": type_string
+                    "type": type_string,
+                    "name": ""
                 })
                 outputs.append(param_idx)
                 param_idx += 1
@@ -73,7 +75,8 @@ def generate_registry(
             return_json_type = python_type_to_string(return_annotation)
             arguments.append({
                 "connection_type": "output",
-                "type": return_json_type
+                "type": return_json_type,
+                "name": ""
             })
             outputs = [param_idx]
         else:
@@ -106,7 +109,8 @@ def generate_registry(
                 type_string = python_type_to_string(param.annotation)
                 arguments.append({
                     "connection_type": "input",
-                    "type": type_string
+                    "type": type_string,
+                    "name": param_name
                 })
                 inputs.append(param_idx)
                 param_idx += 1
@@ -145,7 +149,8 @@ def generate_registry(
                 # First input: the instance itself
                 arguments.append({
                     "connection_type": "input",
-                    "type": class_name
+                    "type": class_name,
+                    "name": "self"
                 })
                 inputs.append(param_idx)
                 param_idx += 1
@@ -158,7 +163,8 @@ def generate_registry(
                     type_string = python_type_to_string(param.annotation)
                     arguments.append({
                         "connection_type": "input",
-                        "type": type_string
+                        "type": type_string,
+                        "name": param_name
                     })
                     inputs.append(param_idx)
                     param_idx += 1
@@ -176,7 +182,8 @@ def generate_registry(
                         type_string = python_type_to_string(tuple_type)
                         arguments.append({
                             "connection_type": "output",
-                            "type": type_string
+                            "type": type_string,
+                            "name": ""
                         })
                         outputs.append(param_idx)
                         param_idx += 1
@@ -189,7 +196,8 @@ def generate_registry(
                     return_json_type = python_type_to_string(return_annotation)
                     arguments.append({
                         "connection_type": "output",
-                        "type": return_json_type
+                        "type": return_json_type,
+                        "name": ""
                     })
                     outputs = [param_idx]
                 else:
