@@ -76,7 +76,7 @@ python main.py workflow.json --modules="math,string,phiflow"
 
 ### 3. Generating the Workflow Registry File
 
-Generate the default registry file registry-py-mwe.json:
+Generate the default registry file registry-py.json:
 ```bash
 python main.py --generate-registry
 ```

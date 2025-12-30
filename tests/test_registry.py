@@ -245,7 +245,7 @@ class TestRegistryFileOperations:
         save_registry_to_file(modules=['math'])
 
         # Check default file was created
-        default_file = tmp_path / "registry-py-mwe.json"
+        default_file = tmp_path / "registry-py.json"
         assert default_file.exists()
 
     def test_registry_file_is_valid_json(self, tmp_path):

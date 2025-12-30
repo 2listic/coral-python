@@ -19,8 +19,8 @@ def main():
         help='Generate the registry file from definitions.py'
     )
     parser.add_argument('--registry-output',
-        default='registry-py-mwe.json',
-        help='Output path for the registry file (default: registry-py-mwe.json)'
+        default='registry-py.json',
+        help='Output path for the registry file (default: registry-py.json)'
     )
 
     # Add option to specify which modules to load

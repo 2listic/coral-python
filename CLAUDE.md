@@ -155,7 +155,7 @@ Edge format:
 - `{"source": "<source_id>", "target": "<target_id>", "source_output": <idx>, "target_input": <idx>}`
 - **CRITICAL**: `target_input` determines parameter ordering for function/method calls
 
-**Registry Files** (e.g., `registry-py-mwe.json`):
+**Registry Files** (e.g., `registry-py.json`):
 - Auto-generated schema describing all available node types
 - Each entry has:
   - `arguments`: Array with `connection_type` ("input"/"output") and `type`

@@ -229,7 +229,7 @@ def python_type_to_string(py_type) -> str:
     return reverse_primitives_map[Any]
 
 
-def save_registry_to_file(filename: str = "registry-py-mwe.json", modules: Optional[List[str]] = None):
+def save_registry_to_file(filename: str = "registry-py.json", modules: Optional[List[str]] = None):
     """Generate and save the registry to a JSON file
 
     Args:

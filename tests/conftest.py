@@ -32,10 +32,11 @@ def workflow_files(project_root: Path) -> Dict[str, Path]:
 @pytest.fixture(scope="session")
 def registry_files(project_root: Path) -> Dict[str, Path]:
     """Return paths to registry JSON files."""
+    fixtures_dir = project_root / "tests" / "fixtures" / "valid_nodes"
     return {
-        "math": project_root / "registry-math.json",
-        "phiflow": project_root / "registry-phiflow.json",
-        "mwe": project_root / "registry-py-mwe.json",
+        "math": fixtures_dir / "registry-math.json",
+        "phiflow": fixtures_dir / "registry-phiflow.json",
+        "default": fixtures_dir / "registry-py.json",
     }
 
 
