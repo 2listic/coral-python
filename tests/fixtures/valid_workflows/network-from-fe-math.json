@@ -1,0 +1,112 @@
+{
+  "workflow": {
+    "nodes": {
+      "0": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "float"
+          },
+          {
+            "connection_type": "output",
+            "type": "float"
+          }
+        ],
+        "inputs": [
+          0
+        ],
+        "outputs": [
+          1
+        ],
+        "node_type": "function",
+        "method_name": "math.sqrt",
+        "is_valid": true,
+        "position": {
+          "x": 665.9375,
+          "y": 244
+        }
+      },
+      "1": {
+        "value": "2",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "float",
+        "is_valid": true,
+        "position": {
+          "x": 357.15625,
+          "y": 247.5
+        }
+      },
+      "2": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "float"
+          },
+          {
+            "connection_type": "output",
+            "type": "float"
+          }
+        ],
+        "inputs": [
+          0
+        ],
+        "outputs": [
+          1
+        ],
+        "node_type": "function",
+        "method_name": "math.sin",
+        "is_valid": true,
+        "position": {
+          "x": 431.65625,
+          "y": 393
+        }
+      },
+      "3": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "any"
+          }
+        ],
+        "inputs": [
+          0
+        ],
+        "outputs": [],
+        "node_type": "function",
+        "method_name": "print_result",
+        "is_valid": true,
+        "position": {
+          "x": 724.65625,
+          "y": 401
+        }
+      }
+    },
+    "edges": {
+      "0": {
+        "source": 1,
+        "target": 0,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "1": {
+        "source": 0,
+        "target": 2,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "2": {
+        "source": 2,
+        "target": 3,
+        "source_output": 0,
+        "target_input": 0
+      }
+    }
+  },
+  "version": 1,
+  "author": "dealiix-platform",
+  "date_time_utc": "2025-12-19T10:03:06.230Z"
+}

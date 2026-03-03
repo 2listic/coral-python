@@ -1,0 +1,162 @@
+{
+  "workflow": {
+    "nodes": {
+      "0": {
+        "value": "3.0",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "float",
+        "is_valid": true,
+        "position": {
+          "x": 304,
+          "y": 211.5
+        }
+      },
+      "1": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "any"
+          }
+        ],
+        "inputs": [
+          0
+        ],
+        "outputs": [],
+        "node_type": "function",
+        "method_name": "print_result",
+        "is_valid": true,
+        "position": {
+          "x": 1296.4665983931754,
+          "y": 434.97657339760724
+        }
+      },
+      "2": {
+        "value": "2",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "float",
+        "is_valid": true,
+        "position": {
+          "x": 333.5492862144865,
+          "y": 369.84117824551794
+        }
+      },
+      "3": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "float"
+          },
+          {
+            "connection_type": "input",
+            "type": "float"
+          },
+          {
+            "connection_type": "output",
+            "type": "float"
+          }
+        ],
+        "inputs": [
+          0,
+          1
+        ],
+        "outputs": [
+          2
+        ],
+        "node_type": "function",
+        "method_name": "add",
+        "is_valid": true,
+        "position": {
+          "x": 653.5527639131286,
+          "y": 237.56010539744705
+        }
+      },
+      "5": {
+        "value": "4",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "float",
+        "is_valid": true,
+        "position": {
+          "x": 593.2481571735668,
+          "y": 508.9308357254747
+        }
+      },
+      "6": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "float"
+          },
+          {
+            "connection_type": "input",
+            "type": "float"
+          },
+          {
+            "connection_type": "output",
+            "type": "float"
+          }
+        ],
+        "inputs": [
+          0,
+          1
+        ],
+        "outputs": [
+          2
+        ],
+        "node_type": "function",
+        "method_name": "multiply",
+        "is_valid": true,
+        "position": {
+          "x": 965.7750020324723,
+          "y": 322.1810858223159
+        }
+      }
+    },
+    "edges": {
+      "0": {
+        "source": 0,
+        "target": 3,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "1": {
+        "source": 2,
+        "target": 3,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "2": {
+        "source": 3,
+        "target": 6,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "3": {
+        "source": 5,
+        "target": 6,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "4": {
+        "source": 6,
+        "target": 1,
+        "source_output": 0,
+        "target_input": 0
+      }
+    }
+  },
+  "version": 1,
+  "author": "dealiix-platform",
+  "date_time_utc": "2025-12-16T15:14:12.580Z"
+}
