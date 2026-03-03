@@ -43,7 +43,7 @@ uv pip sync requirements.txt
 
 ```bash
 # Run a simulation and then check the mp4 or gif file produced
-python one_obstacle.py3
+python one_obstacle.py
 ```
 
 ### 2. Running the Workflow Executer

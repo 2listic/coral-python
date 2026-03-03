@@ -1,0 +1,857 @@
+{
+  "workflow": {
+    "nodes": {
+      "7": {
+        "value": "100",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "float",
+        "is_valid": true,
+        "position": {
+          "x": 70.03667203790297,
+          "y": 137.90803590670052
+        }
+      },
+      "13": {
+        "value": "50",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "float",
+        "is_valid": true,
+        "position": {
+          "x": 124.55833747868672,
+          "y": 312.7979999970585
+        }
+      },
+      "14": {
+        "value": "5",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "float",
+        "is_valid": true,
+        "position": {
+          "x": 98.13827531375492,
+          "y": 557.470749611427
+        }
+      },
+      "15": {
+        "value": "9.5",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "float",
+        "is_valid": true,
+        "position": {
+          "x": 115.36875063871042,
+          "y": 441.4522157567264
+        }
+      },
+      "17": {
+        "value": "200",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "int",
+        "is_valid": true,
+        "position": {
+          "x": 802.2432890176724,
+          "y": 516.2100729129198
+        }
+      },
+      "19": {
+        "value": "64",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "int",
+        "is_valid": true,
+        "position": {
+          "x": 804.4516595293679,
+          "y": 302.44420743338173
+        }
+      },
+      "21": {
+        "value": "50",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "int",
+        "is_valid": true,
+        "position": {
+          "x": 1526.8776428253366,
+          "y": 689.7215054177414
+        }
+      },
+      "22": {
+        "value": "0.5",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "float",
+        "is_valid": true,
+        "position": {
+          "x": 1480.5794687992932,
+          "y": 822.1774347342322
+        }
+      },
+      "23": {
+        "value": "3",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "int",
+        "is_valid": true,
+        "position": {
+          "x": 1477.096307426024,
+          "y": 935.9834225263783
+        }
+      },
+      "26": {
+        "value": "simulation.mp4",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "str",
+        "is_valid": true,
+        "position": {
+          "x": 2118.0889514499736,
+          "y": 787.0272760951017
+        }
+      },
+      "27": {
+        "value": "15",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "int",
+        "is_valid": true,
+        "position": {
+          "x": 2078.183843839894,
+          "y": 995.4817404467145
+        }
+      },
+      "28": {
+        "value": "150",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "int",
+        "is_valid": true,
+        "position": {
+          "x": 2078.150296083115,
+          "y": 1101.6659513023124
+        }
+      },
+      "29": {
+        "value": "80",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "int",
+        "is_valid": true,
+        "position": {
+          "x": 2126.8559733597726,
+          "y": 891.2574254671499
+        }
+      },
+      "31": {
+        "value": "10",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "float",
+        "is_valid": true,
+        "position": {
+          "x": 1342.6514565166847,
+          "y": 123.01146445601489
+        }
+      },
+      "32": {
+        "value": "15",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "float",
+        "is_valid": true,
+        "position": {
+          "x": 1337.965084312094,
+          "y": 25.130396403032414
+        }
+      },
+      "33": {
+        "value": "60",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "float",
+        "is_valid": true,
+        "position": {
+          "x": 1338.5681890028923,
+          "y": -83.42278897360073
+        }
+      },
+      "34": {
+        "value": "50",
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "float",
+        "is_valid": true,
+        "position": {
+          "x": 1341.5820301371482,
+          "y": -207.61745440570436
+        }
+      },
+      "36": {
+        "value": null,
+        "inputs": [],
+        "outputs": [
+          -1
+        ],
+        "node_type": "primitive",
+        "type": "none",
+        "is_valid": true,
+        "position": {
+          "x": 1819.185507960884,
+          "y": -216.6183987416331
+        }
+      },
+      "38": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "float",
+            "name": "x"
+          },
+          {
+            "connection_type": "input",
+            "type": "float",
+            "name": "y"
+          }
+        ],
+        "inputs": [
+          0,
+          1
+        ],
+        "outputs": [
+          -1
+        ],
+        "node_type": "constructor",
+        "type": "PhiFlowBox",
+        "is_valid": true,
+        "position": {
+          "x": 560.050773885825,
+          "y": 117.84083829398213
+        }
+      },
+      "39": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "float",
+            "name": "x"
+          },
+          {
+            "connection_type": "input",
+            "type": "float",
+            "name": "y"
+          },
+          {
+            "connection_type": "input",
+            "type": "float",
+            "name": "radius"
+          }
+        ],
+        "inputs": [
+          0,
+          1,
+          2
+        ],
+        "outputs": [
+          -1
+        ],
+        "node_type": "constructor",
+        "type": "PhiFlowSphere",
+        "is_valid": true,
+        "position": {
+          "x": 583.6332239434627,
+          "y": 407.6370953076763
+        }
+      },
+      "40": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "any",
+            "name": "domain_box"
+          },
+          {
+            "connection_type": "input",
+            "type": "int",
+            "name": "resolution_x"
+          },
+          {
+            "connection_type": "input",
+            "type": "int",
+            "name": "resolution_y"
+          }
+        ],
+        "inputs": [
+          0,
+          1,
+          2
+        ],
+        "outputs": [
+          -1
+        ],
+        "node_type": "constructor",
+        "type": "PhiFlowStaggeredGrid",
+        "is_valid": true,
+        "position": {
+          "x": 1298.9393072915784,
+          "y": 249.15614843810573
+        }
+      },
+      "41": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "PhiFlowBox",
+            "name": "self"
+          },
+          {
+            "connection_type": "output",
+            "type": "any",
+            "name": ""
+          }
+        ],
+        "inputs": [
+          0
+        ],
+        "outputs": [
+          1
+        ],
+        "node_type": "method",
+        "method_name": "PhiFlowBox.get_box",
+        "type": "PhiFlowBox.get_box",
+        "is_valid": true,
+        "position": {
+          "x": 913.5085188820058,
+          "y": 119.04180249358025
+        }
+      },
+      "42": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "PhiFlowSphere",
+            "name": "self"
+          },
+          {
+            "connection_type": "output",
+            "type": "any",
+            "name": ""
+          }
+        ],
+        "inputs": [
+          0
+        ],
+        "outputs": [
+          1
+        ],
+        "node_type": "method",
+        "method_name": "PhiFlowSphere.get_sphere",
+        "type": "PhiFlowSphere.get_sphere",
+        "is_valid": true,
+        "position": {
+          "x": 917.4607143930223,
+          "y": 690.018268597996
+        }
+      },
+      "43": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "any",
+            "name": "domain_box"
+          },
+          {
+            "connection_type": "input",
+            "type": "int",
+            "name": "resolution_x"
+          },
+          {
+            "connection_type": "input",
+            "type": "int",
+            "name": "resolution_y"
+          }
+        ],
+        "inputs": [
+          0,
+          1,
+          2
+        ],
+        "outputs": [
+          -1
+        ],
+        "node_type": "constructor",
+        "type": "PhiFlowCenteredGrid",
+        "is_valid": true,
+        "position": {
+          "x": 1303.5323833025097,
+          "y": 511.0199042738674
+        }
+      },
+      "45": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "PhiFlowStaggeredGrid",
+            "name": "self"
+          },
+          {
+            "connection_type": "output",
+            "type": "any",
+            "name": ""
+          }
+        ],
+        "inputs": [
+          0
+        ],
+        "outputs": [
+          1
+        ],
+        "node_type": "method",
+        "method_name": "PhiFlowStaggeredGrid.get_grid",
+        "type": "PhiFlowStaggeredGrid.get_grid",
+        "is_valid": true,
+        "position": {
+          "x": 1758.8348621333253,
+          "y": 306.3188240955864
+        }
+      },
+      "49": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "PhiFlowCenteredGrid",
+            "name": "self"
+          },
+          {
+            "connection_type": "output",
+            "type": "any",
+            "name": ""
+          }
+        ],
+        "inputs": [
+          0
+        ],
+        "outputs": [
+          1
+        ],
+        "node_type": "method",
+        "method_name": "PhiFlowCenteredGrid.get_grid",
+        "type": "PhiFlowCenteredGrid.get_grid",
+        "is_valid": true,
+        "position": {
+          "x": 1722.8076458521364,
+          "y": 472.2196909222935
+        }
+      },
+      "50": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "float",
+            "name": "center_x"
+          },
+          {
+            "connection_type": "input",
+            "type": "float",
+            "name": "center_y"
+          },
+          {
+            "connection_type": "input",
+            "type": "float",
+            "name": "half_size_x"
+          },
+          {
+            "connection_type": "input",
+            "type": "float",
+            "name": "half_size_y"
+          }
+        ],
+        "inputs": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "outputs": [
+          -1
+        ],
+        "node_type": "constructor",
+        "type": "PhiFlowCuboid",
+        "is_valid": true,
+        "position": {
+          "x": 1942.7310154398988,
+          "y": -77.85734938335152
+        }
+      },
+      "51": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "any",
+            "name": "velocity_grid"
+          },
+          {
+            "connection_type": "input",
+            "type": "any",
+            "name": "smoke_grid"
+          },
+          {
+            "connection_type": "input",
+            "type": "int",
+            "name": "time_steps"
+          },
+          {
+            "connection_type": "input",
+            "type": "float",
+            "name": "dt"
+          },
+          {
+            "connection_type": "input",
+            "type": "int",
+            "name": "substeps"
+          },
+          {
+            "connection_type": "input",
+            "type": "any",
+            "name": "obstacles"
+          },
+          {
+            "connection_type": "output",
+            "type": "any",
+            "name": ""
+          },
+          {
+            "connection_type": "output",
+            "type": "any",
+            "name": ""
+          },
+          {
+            "connection_type": "output",
+            "type": "any",
+            "name": ""
+          }
+        ],
+        "inputs": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "outputs": [
+          6,
+          7,
+          8
+        ],
+        "node_type": "function",
+        "method_name": "phiflow_iterate",
+        "is_valid": true,
+        "position": {
+          "x": 2255.309302939301,
+          "y": 339.4883710973994
+        }
+      },
+      "52": {
+        "arguments": [
+          {
+            "connection_type": "input",
+            "type": "any",
+            "name": "smoke_trajectory"
+          },
+          {
+            "connection_type": "input",
+            "type": "str",
+            "name": "output_filename"
+          },
+          {
+            "connection_type": "input",
+            "type": "int",
+            "name": "frame_time"
+          },
+          {
+            "connection_type": "input",
+            "type": "int",
+            "name": "fps"
+          },
+          {
+            "connection_type": "input",
+            "type": "int",
+            "name": "dpi"
+          },
+          {
+            "connection_type": "input",
+            "type": "any",
+            "name": "obstacles"
+          },
+          {
+            "connection_type": "output",
+            "type": "any",
+            "name": ""
+          }
+        ],
+        "inputs": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "outputs": [
+          6
+        ],
+        "node_type": "function",
+        "method_name": "phiflow_plot_and_save",
+        "is_valid": true,
+        "position": {
+          "x": 2709.5801106336166,
+          "y": 289.0822994647512
+        }
+      }
+    },
+    "edges": {
+      "0": {
+        "source": 7,
+        "target": 38,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "1": {
+        "source": 7,
+        "target": 38,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "2": {
+        "source": 13,
+        "target": 39,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "3": {
+        "source": 15,
+        "target": 39,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "4": {
+        "source": 14,
+        "target": 39,
+        "source_output": 0,
+        "target_input": 2
+      },
+      "5": {
+        "source": 19,
+        "target": 40,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "6": {
+        "source": 19,
+        "target": 40,
+        "source_output": 0,
+        "target_input": 2
+      },
+      "7": {
+        "source": 38,
+        "target": 41,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "8": {
+        "source": 41,
+        "target": 40,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "9": {
+        "source": 39,
+        "target": 42,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "10": {
+        "source": 41,
+        "target": 43,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "11": {
+        "source": 17,
+        "target": 43,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "12": {
+        "source": 17,
+        "target": 43,
+        "source_output": 0,
+        "target_input": 2
+      },
+      "13": {
+        "source": 40,
+        "target": 45,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "14": {
+        "source": 43,
+        "target": 49,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "15": {
+        "source": 34,
+        "target": 50,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "16": {
+        "source": 33,
+        "target": 50,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "17": {
+        "source": 32,
+        "target": 50,
+        "source_output": 0,
+        "target_input": 2
+      },
+      "18": {
+        "source": 31,
+        "target": 50,
+        "source_output": 0,
+        "target_input": 3
+      },
+      "19": {
+        "source": 45,
+        "target": 51,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "20": {
+        "source": 49,
+        "target": 51,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "21": {
+        "source": 21,
+        "target": 51,
+        "source_output": 0,
+        "target_input": 2
+      },
+      "22": {
+        "source": 22,
+        "target": 51,
+        "source_output": 0,
+        "target_input": 3
+      },
+      "23": {
+        "source": 23,
+        "target": 51,
+        "source_output": 0,
+        "target_input": 4
+      },
+      "24": {
+        "source": 50,
+        "target": 51,
+        "source_output": 0,
+        "target_input": 5
+      },
+      "25": {
+        "source": 51,
+        "target": 52,
+        "source_output": 1,
+        "target_input": 0
+      },
+      "26": {
+        "source": 26,
+        "target": 52,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "27": {
+        "source": 29,
+        "target": 52,
+        "source_output": 0,
+        "target_input": 2
+      },
+      "28": {
+        "source": 27,
+        "target": 52,
+        "source_output": 0,
+        "target_input": 3
+      },
+      "29": {
+        "source": 28,
+        "target": 52,
+        "source_output": 0,
+        "target_input": 4
+      },
+      "30": {
+        "source": 50,
+        "target": 52,
+        "source_output": 0,
+        "target_input": 5
+      }
+    }
+  },
+  "version": 1,
+  "author": "dealiix-platform",
+  "date_time_utc": "2025-12-31T10:03:13.127Z"
+}
