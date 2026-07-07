@@ -15,28 +15,27 @@ The project uses PhiFlow for physics simulations and numerical computing.
 ## Development Commands
 
 ### Environment Setup
+
+This is a uv project (`pyproject.toml` + `uv.lock`); `requirements.in` / `requirements.txt` are legacy.
+
 ```bash
-# Create and activate virtual environment
-uv venv
+# Create .venv and install all deps (incl. the dev group) from the lockfile
+uv sync
+
+# Then activate, or prefix commands with `uv run` (e.g. `uv run python main.py`)
 source .venv/bin/activate  # Linux/Mac
-
-# Install dependencies using uv pip sync (recommended)
-uv pip sync requirements.txt
-
-# Or install directly
-uv pip install -r requirements.txt
 ```
 
 ### Package Management
 ```bash
-# Add a new package (recommended workflow)
-echo "<package-name>" >> requirements.in
-uv pip compile requirements.in -o requirements.txt
-uv pip sync requirements.txt
+# Add a runtime dependency (updates pyproject.toml + uv.lock, then syncs)
+uv add <package-name>
 
-# Alternative: direct install (must still update requirements.txt)
-uv pip install <package-name>
-uv pip freeze > requirements.txt
+# Add a dev-only dependency
+uv add --dev <package-name>
+
+# Re-resolve the lockfile and sync the environment
+uv lock && uv sync
 ```
 
 ### Running Workflows

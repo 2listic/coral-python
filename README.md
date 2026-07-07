@@ -4,40 +4,42 @@ Coral for python libraries
 ## Installation
 
 ### Prerequisites
-- Python 3.6+
-- [uv](https://github.com/astral-sh/uv) installed 
+- Python 3.12+
+- [uv](https://github.com/astral-sh/uv) installed
 
 ## Setup
 
+This is a [uv project](https://docs.astral.sh/uv/concepts/projects/): dependencies are declared in
+`pyproject.toml` and pinned in `uv.lock`.
+
 ```bash
-# Create virtual environment
-uv venv
-
-# Activate virtual environment
-source .venv/bin/activate  # Linux/Mac
-# .venv\Scripts\activate  # Windows
-
-# Install dependencies without extras
-uv pip sync requirements.txt
+# Create .venv and install all dependencies (incl. the dev group) from the lockfile
+uv sync
 ```
+
+Then either activate the environment (`source .venv/bin/activate`) or prefix commands with `uv run`
+(e.g. `uv run python main.py`). `uv run` auto-syncs the environment against `uv.lock` before running.
 
 ### Managing Dependencies
 
-#### Install new packages with [uv pip compile](https://docs.astral.sh/uv/pip/compile/)
-
 ```bash
-# Add the package to requirements.in
+# Add a runtime dependency (updates pyproject.toml + uv.lock, then syncs the env)
+uv add <package-name>
 
-echo "jax" >> requirements.in
+# Add a dev-only dependency
+uv add --dev <package-name>
 
-#Recompile requirements.txt
-uv pip compile requirements.in -o requirements.txt
-
-# Sync your environment
-uv pip sync requirements.txt
+# Re-resolve / update the lockfile and sync the environment
+uv lock
+uv sync
 ```
 
+> `requirements.in` / `requirements.txt` are retained for reference only; `pyproject.toml` + `uv.lock`
+> are now the source of truth for dependencies.
+
 ## Usage
+
+> Run the commands below inside an activated venv, or prefix each with `uv run` (e.g. `uv run python main.py`).
 
 ### 1. Running a stand-alone Phi-flow simulation
 
