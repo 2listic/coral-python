@@ -10,8 +10,8 @@ This directory contains registry JSON files used for testing the node type syste
 
 These files are auto-generated using:
 ```bash
-python main.py --generate-registry --modules="math" --registry-output="tests/fixtures/valid_nodes/registry-math.json"
-python main.py --generate-registry --modules="phiflow" --registry-output="tests/fixtures/valid_nodes/registry-phiflow.json"
+python main.py -p "math" register --output="tests/fixtures/valid_nodes/registry-math.json"
+python main.py -p "phiflow" register --output="tests/fixtures/valid_nodes/registry-phiflow.json"
 ```
 
 ## Usage in Tests

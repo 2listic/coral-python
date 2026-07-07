@@ -39,7 +39,12 @@ uv sync
 
 ## Usage
 
-> Run the commands below inside an activated venv, or prefix each with `uv run` (e.g. `uv run python main.py`).
+`main.py` is a **coral-compatible CLI**: a global `-p/--plugin` option naming the definition modules to load
+(comma-separated, e.g. `"math,string"`; empty = all) plus two subcommands — `register` (emit the node registry)
+and `run` (execute a workflow). `-p/--plugin` must precede the subcommand. This mirrors the C++ `coral` binary so
+the DealiiX platform can drive this backend via the [`coral-py` launcher](#coral-launcher-for-the-dealiix-platform).
+
+> Run the commands below inside an activated venv, or prefix each with `uv run` (e.g. `uv run python main.py run`).
 
 ### 1. Running a stand-alone Phi-flow simulation
 
@@ -50,26 +55,26 @@ python one_obstacle.py
 
 ### 2. Running the Workflow Executer
 
-Run with default workflow file (network-from-fe.json):
+Use the `run` subcommand. With no graph argument it defaults to `network-from-fe.json`:
 ```bash
-python main.py
+python main.py run
 ```
 
-Run with a specific workflow file:
+Run a specific workflow file:
 ```bash
-python main.py path/to/your/workflow.json
+python main.py run path/to/your/workflow.json
 ```
 
-Run with specific modules loaded:
+Load specific modules with `-p/--plugin` (before the subcommand):
 ```bash
 # Load only math operations
-python main.py workflow.json --modules="math"
+python main.py -p "math" run workflow.json
 
 # Load multiple modules
-python main.py workflow.json --modules="math,string,phiflow"
+python main.py -p "math,string,phiflow" run workflow.json
 ```
 
-**Default behavior**: When no `--modules` flag is provided, only the `phiflow` module is loaded (optimal for physics simulations). Primitives are always included.
+**Default behavior**: When `-p/--plugin` is omitted, all available modules are loaded. Primitives are always included.
 
 **Available modules**:
 - `phiflow` - PhiFlow physics simulation wrappers (default)
@@ -78,23 +83,34 @@ python main.py workflow.json --modules="math,string,phiflow"
 
 ### 3. Generating the Workflow Registry File
 
-Generate the default registry file registry-py.json:
+Use the `register` subcommand. It writes `node_types.json` into the current directory (the filename the
+DealiiX platform probes for):
 ```bash
-python main.py --generate-registry
+python main.py register
 ```
 
-Generate registry with specific modules:
+Generate the registry for specific modules:
 ```bash
-# Generate registry for math operations only
-python main.py --generate-registry --modules="math"
+# Math operations only
+python main.py -p "math" register
 
-# Generate registry for all modules
-python main.py --generate-registry --modules="math,string,phiflow"
+# Multiple modules
+python main.py -p "math,string,phiflow" register
 ```
 
-**Generate custom output path for registry file:**
+**Custom output filename:**
 ```bash
-python main.py --generate-registry --registry-output="custom_registry.json" --modules="math"
+python main.py register --output="custom_registry.json"
+```
+
+### Coral launcher (for the DealiiX platform)
+
+`coral-py` runs `main.py` inside this repo's uv project while preserving the caller's working directory, so
+`register` writes `node_types.json` into that directory. Point the platform's `coralBinaryPath` at it and set
+`coralPluginPath` to the module list:
+```bash
+./coral-py -p "math" register            # writes node_types.json into the current directory
+./coral-py -p "math" run workflow.json
 ```
 
 ### More info about the definitions package

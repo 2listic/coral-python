@@ -28,6 +28,17 @@ from . import math_ops, string_ops, phiflow_defs, primitives
 # Export PRIMITIVES_MAP for direct access
 PRIMITIVES_MAP = primitives.PRIMITIVES_MAP
 
+# Registry of loadable definition modules, keyed by the short name used in the CLI's -p/--plugin
+# option and the `include`/`exclude` lists below.
+_MODULES = {
+    'math': math_ops,
+    'string': string_ops,
+    'phiflow': phiflow_defs,
+}
+
+# Names of all loadable modules; used as the "load everything" default.
+AVAILABLE_MODULES = list(_MODULES.keys())
+
 
 def build_function_map(include: Optional[List[str]] = None, exclude: Optional[List[str]] = None) -> Dict[str, Any]:
     """
@@ -51,11 +62,7 @@ def build_function_map(include: Optional[List[str]] = None, exclude: Optional[Li
         # Load everything except string operations
         >>> build_function_map(exclude=['string'])
     """
-    modules = {
-        'math': math_ops,
-        'string': string_ops,
-        'phiflow': phiflow_defs,
-    }
+    modules = _MODULES
 
     # Determine which modules to load
     if include is None:
@@ -98,11 +105,7 @@ def build_class_map(include: Optional[List[str]] = None, exclude: Optional[List[
         # Load everything except math classes
         >>> build_class_map(exclude=['math'])
     """
-    modules = {
-        'math': math_ops,
-        'string': string_ops,
-        'phiflow': phiflow_defs,
-    }
+    modules = _MODULES
 
     # Determine which modules to load
     if include is None:
@@ -134,4 +137,5 @@ __all__ = [
     'FUNCTION_MAP',
     'CLASS_MAP',
     'PRIMITIVES_MAP',
+    'AVAILABLE_MODULES',
 ]

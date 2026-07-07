@@ -39,27 +39,27 @@ uv lock && uv sync
 ```
 
 ### Running Workflows
+
+`main.py` is a coral-compatible CLI: a global `-p/--plugin` option (comma-separated modules; empty = all) plus
+`register` / `run` subcommands. `-p/--plugin` must precede the subcommand.
 ```bash
-# Execute default workflow (network-from-fe.json) with default modules
-python main.py
+# Run a workflow graph (default file network-from-fe.json, all modules)
+python main.py run
+python main.py run path/to/workflow.json
+python main.py -p "math" run path/to/workflow.json
+python main.py -p "math,string,phiflow" run path/to/workflow.json
 
-# Execute specific workflow file
-python main.py path/to/workflow.json
-
-# Execute with specific modules loaded
-python main.py path/to/workflow.json --modules="math"
-python main.py path/to/workflow.json --modules="math,string,phiflow"
-
-# Generate registry from selected modules
-python main.py --generate-registry
-python main.py --generate-registry --modules="math"
-python main.py --generate-registry --modules="math,string,phiflow"
-
-# Generate registry to custom file
-python main.py --generate-registry --registry-output="custom-registry.json" --modules="math"
+# Generate the node registry (writes node_types.json into the cwd)
+python main.py register
+python main.py -p "math" register
+python main.py register --output="custom-registry.json"
 ```
 
-**Default module behavior**: When no `--modules` flag is provided, only the `phiflow` module is loaded (optimal for physics simulations). Primitives are always included.
+The `coral-py` launcher wraps this for the DealiiX platform: it runs `main.py` inside the uv project while
+preserving the caller's cwd (so `register` writes `node_types.json` there). Point the platform's `coralBinaryPath`
+at `coral-py` and set `coralPluginPath` to the module list.
+
+**Default module behavior**: When `-p/--plugin` is omitted, all available modules are loaded. Primitives are always included.
 
 **Available modules**:
 - `math` - Mathematical operations and Calculator class
@@ -116,7 +116,7 @@ The system is organized into four main modules:
    - **`definitions/string_ops.py`**: `StringProcessor` class and `print_result` function
    - **`definitions/phiflow_defs.py`**: PhiFlow physics simulation wrappers (if available)
 
-   **Module loading**: Use `--modules` flag to control which definitions are loaded. Default: `phiflow` only.
+   **Module loading**: Use the `-p/--plugin` option to control which definitions are loaded (comma-separated). Default when omitted: all modules. `AVAILABLE_MODULES` (in `definitions/__init__.py`) lists them.
 
 2. **registry.py** - Registry generation and type conversion:
    - `generate_registry()`: Introspects functions and classes to create JSON schema
@@ -135,9 +135,11 @@ The system is organized into four main modules:
      - Calling instance methods via method nodes
      - Storing results for downstream nodes
 
-4. **main.py** - CLI entry point with argparse interface:
-   - Accepts `--modules` flag to control which definition modules are loaded
-   - Passes module list to both `WorkflowExecutor` and `save_registry_to_file()`
+4. **main.py** - Coral-compatible CLI entry point (argparse):
+   - Global `-p/--plugin` option names the definition modules to load (comma-separated; empty = all)
+   - `register` subcommand → `save_registry_to_file()` (writes `node_types.json` into the cwd)
+   - `run` subcommand → `WorkflowExecutor(...).execute()`
+   - Wrapped by the `coral-py` launcher for the DealiiX platform
 
 ### Workflow JSON Structure
 
@@ -259,7 +261,7 @@ def get_functions() -> Dict[str, Any]:
 
 4. **Regenerate registry with the appropriate module**:
 ```bash
-python main.py --generate-registry --modules="math"
+python main.py -p "math" register
 ```
 
 5. The function is now available when the module is loaded
@@ -334,7 +336,7 @@ def get_classes() -> Dict[str, Any]:
 
 After updating the module, regenerate the registry:
 ```bash
-python main.py --generate-registry --modules="math"
+python main.py -p "math" register
 ```
 
 **How it works:**
