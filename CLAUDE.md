@@ -167,7 +167,6 @@ Edge format:
   - `inputs`: List of input indices
   - `outputs`: List of output indices (or `[-1]` for constructors/primitives)
   - `node_type`: "primitive", "function", "constructor", or "method"
-  - `is_valid: true`: required by the editor for drag-to-connect
 
 ### Data Flow
 

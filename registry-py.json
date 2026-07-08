@@ -7,8 +7,7 @@
       -1
     ],
     "node_type": "primitive",
-    "type": "int",
-    "is_valid": true
+    "type": "int"
   },
   "float": {
     "arguments": [],
@@ -18,8 +17,7 @@
       -1
     ],
     "node_type": "primitive",
-    "type": "float",
-    "is_valid": true
+    "type": "float"
   },
   "str": {
     "arguments": [],
@@ -29,8 +27,7 @@
       -1
     ],
     "node_type": "primitive",
-    "type": "str",
-    "is_valid": true
+    "type": "str"
   },
   "bool": {
     "arguments": [],
@@ -40,8 +37,7 @@
       -1
     ],
     "node_type": "primitive",
-    "type": "bool",
-    "is_valid": true
+    "type": "bool"
   },
   "any": {
     "arguments": [],
@@ -51,8 +47,7 @@
       -1
     ],
     "node_type": "primitive",
-    "type": "any",
-    "is_valid": true
+    "type": "any"
   },
   "none": {
     "arguments": [],
@@ -62,8 +57,7 @@
       -1
     ],
     "node_type": "primitive",
-    "type": "none",
-    "is_valid": true
+    "type": "none"
   },
   "print_result": {
     "arguments": [
@@ -78,8 +72,7 @@
     ],
     "outputs": [],
     "node_type": "function",
-    "type": "print_result",
-    "is_valid": true
+    "type": "print_result"
   },
   "add": {
     "arguments": [
@@ -107,8 +100,7 @@
       2
     ],
     "node_type": "function",
-    "type": "add",
-    "is_valid": true
+    "type": "add"
   },
   "multiply": {
     "arguments": [
@@ -136,8 +128,7 @@
       2
     ],
     "node_type": "function",
-    "type": "multiply",
-    "is_valid": true
+    "type": "multiply"
   },
   "math.sqrt": {
     "arguments": [
@@ -159,8 +150,7 @@
       1
     ],
     "node_type": "function",
-    "type": "math.sqrt",
-    "is_valid": true
+    "type": "math.sqrt"
   },
   "math.sin": {
     "arguments": [
@@ -182,8 +172,7 @@
       1
     ],
     "node_type": "function",
-    "type": "math.sin",
-    "is_valid": true
+    "type": "math.sin"
   },
   "math.cos": {
     "arguments": [
@@ -205,8 +194,7 @@
       1
     ],
     "node_type": "function",
-    "type": "math.cos",
-    "is_valid": true
+    "type": "math.cos"
   },
   "math.pow": {
     "arguments": [
@@ -234,8 +222,7 @@
       2
     ],
     "node_type": "function",
-    "type": "math.pow",
-    "is_valid": true
+    "type": "math.pow"
   },
   "test_tuple_return": {
     "arguments": [
@@ -275,8 +262,7 @@
       4
     ],
     "node_type": "function",
-    "type": "test_tuple_return",
-    "is_valid": true
+    "type": "test_tuple_return"
   },
   "phiflow_iterate": {
     "arguments": [
@@ -340,8 +326,7 @@
       8
     ],
     "node_type": "function",
-    "type": "phiflow_iterate",
-    "is_valid": true
+    "type": "phiflow_iterate"
   },
   "phiflow_plot_and_save": {
     "arguments": [
@@ -393,8 +378,7 @@
       6
     ],
     "node_type": "function",
-    "type": "phiflow_plot_and_save",
-    "is_valid": true
+    "type": "phiflow_plot_and_save"
   },
   "phiflow_union": {
     "arguments": [
@@ -446,8 +430,7 @@
       6
     ],
     "node_type": "function",
-    "type": "phiflow_union",
-    "is_valid": true
+    "type": "phiflow_union"
   },
   "Calculator": {
     "arguments": [
@@ -464,8 +447,7 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "Calculator",
-    "is_valid": true
+    "type": "Calculator"
   },
   "StringProcessor": {
     "arguments": [
@@ -482,8 +464,7 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "StringProcessor",
-    "is_valid": true
+    "type": "StringProcessor"
   },
   "PhiFlowBox": {
     "arguments": [
@@ -506,8 +487,7 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "PhiFlowBox",
-    "is_valid": true
+    "type": "PhiFlowBox"
   },
   "PhiFlowSphere": {
     "arguments": [
@@ -536,8 +516,7 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "PhiFlowSphere",
-    "is_valid": true
+    "type": "PhiFlowSphere"
   },
   "PhiFlowStaggeredGrid": {
     "arguments": [
@@ -566,8 +545,7 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "PhiFlowStaggeredGrid",
-    "is_valid": true
+    "type": "PhiFlowStaggeredGrid"
   },
   "PhiFlowCenteredGrid": {
     "arguments": [
@@ -596,8 +574,7 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "PhiFlowCenteredGrid",
-    "is_valid": true
+    "type": "PhiFlowCenteredGrid"
   },
   "PhiFlowCuboid": {
     "arguments": [
@@ -632,8 +609,7 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "PhiFlowCuboid",
-    "is_valid": true
+    "type": "PhiFlowCuboid"
   },
   "Calculator.add_to_value": {
     "arguments": [
@@ -661,8 +637,7 @@
       2
     ],
     "node_type": "method",
-    "type": "Calculator.add_to_value",
-    "is_valid": true
+    "type": "Calculator.add_to_value"
   },
   "Calculator.get_value": {
     "arguments": [
@@ -684,8 +659,7 @@
       1
     ],
     "node_type": "method",
-    "type": "Calculator.get_value",
-    "is_valid": true
+    "type": "Calculator.get_value"
   },
   "Calculator.multiply_value": {
     "arguments": [
@@ -713,8 +687,7 @@
       2
     ],
     "node_type": "method",
-    "type": "Calculator.multiply_value",
-    "is_valid": true
+    "type": "Calculator.multiply_value"
   },
   "StringProcessor.concatenate": {
     "arguments": [
@@ -742,8 +715,7 @@
       2
     ],
     "node_type": "method",
-    "type": "StringProcessor.concatenate",
-    "is_valid": true
+    "type": "StringProcessor.concatenate"
   },
   "StringProcessor.repeat": {
     "arguments": [
@@ -777,8 +749,7 @@
       3
     ],
     "node_type": "method",
-    "type": "StringProcessor.repeat",
-    "is_valid": true
+    "type": "StringProcessor.repeat"
   },
   "PhiFlowBox.get_box": {
     "arguments": [
@@ -800,8 +771,7 @@
       1
     ],
     "node_type": "method",
-    "type": "PhiFlowBox.get_box",
-    "is_valid": true
+    "type": "PhiFlowBox.get_box"
   },
   "PhiFlowSphere.get_sphere": {
     "arguments": [
@@ -823,8 +793,7 @@
       1
     ],
     "node_type": "method",
-    "type": "PhiFlowSphere.get_sphere",
-    "is_valid": true
+    "type": "PhiFlowSphere.get_sphere"
   },
   "PhiFlowStaggeredGrid.get_grid": {
     "arguments": [
@@ -846,8 +815,7 @@
       1
     ],
     "node_type": "method",
-    "type": "PhiFlowStaggeredGrid.get_grid",
-    "is_valid": true
+    "type": "PhiFlowStaggeredGrid.get_grid"
   },
   "PhiFlowCenteredGrid.get_grid": {
     "arguments": [
@@ -869,8 +837,7 @@
       1
     ],
     "node_type": "method",
-    "type": "PhiFlowCenteredGrid.get_grid",
-    "is_valid": true
+    "type": "PhiFlowCenteredGrid.get_grid"
   },
   "PhiFlowCuboid.get_cuboid": {
     "arguments": [
@@ -892,7 +859,6 @@
       1
     ],
     "node_type": "method",
-    "type": "PhiFlowCuboid.get_cuboid",
-    "is_valid": true
+    "type": "PhiFlowCuboid.get_cuboid"
   }
 }

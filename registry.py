@@ -68,14 +68,13 @@ def _add_function_node(registry: Dict, func_name: str, func: callable) -> None:
     arguments.extend(output_arguments)
 
     # `type` is the function name — the single node identifier (the editor looks entries up as
-    # registry[type], and graphs reference nodes by type); `is_valid` is required for drag-to-connect.
+    # registry[type], and graphs reference nodes by type).
     registry[func_name] = {
         "arguments": arguments,
         "inputs": inputs,
         "outputs": outputs,
         "node_type": "function",
         "type": func_name,
-        "is_valid": True,
     }
 
 
@@ -101,7 +100,6 @@ def _add_constructor(registry: Dict, class_name: str, cls: type) -> None:
         "outputs": [-1],
         "node_type": "constructor",
         "type": class_name,
-        "is_valid": True,
     }
 
 
@@ -144,7 +142,6 @@ def _add_methods(registry: Dict, class_name: str, cls: type) -> None:
             "outputs": outputs,
             "node_type": "method",
             "type": fully_qualified_name,
-            "is_valid": True,
         }
 
 
@@ -155,8 +152,7 @@ def generate_registry(
 
     Introspects the given function/class maps and primitive type names and returns a dict keyed by
     each node's ``type`` string (primitives by type name, functions by name, constructors by class
-    name, methods by ``Class.method``). Every entry is marked ``is_valid: true``, as the editor
-    requires for drag-to-connect.
+    name, methods by ``Class.method``).
 
     Args:
         function_map: Mapping of function name -> callable.
@@ -186,7 +182,6 @@ def generate_registry(
             "outputs": [-1],
             "node_type": "primitive",
             "type": prim_type,
-            "is_valid": True,
         }
 
     # Add functions

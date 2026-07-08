@@ -340,7 +340,7 @@ class TestModuleExclusionInclusion:
 
 
 class TestPlatformRegistryFormat:
-    """Test the DealiiX-platform-native registry format: keyed by type, function types, is_valid."""
+    """Test the DealiiX-platform-native registry format: keyed by type, function types, required keys."""
 
     def _math_registry(self):
         """Build a math-module registry for these tests."""
@@ -367,13 +367,6 @@ class TestPlatformRegistryFormat:
 
         assert add_entry['node_type'] == 'function'
         assert add_entry['type'] == 'add'
-
-    def test_all_entries_marked_valid(self):
-        """Every entry is marked `is_valid: true` (required by the editor for drag-to-connect)."""
-        registry = self._math_registry()
-
-        assert registry  # non-empty
-        assert all(entry.get('is_valid') is True for entry in registry.values())
 
     def test_every_entry_has_platform_required_keys(self):
         """Every entry carries the keys the platform's registry validator requires.
