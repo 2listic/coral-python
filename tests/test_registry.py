@@ -350,3 +350,53 @@ class TestModuleExclusionInclusion:
         assert has_type(registry, 'int')
         assert has_type(registry, 'float')
         assert has_type(registry, 'str')
+
+
+class TestPlatformRegistryFormat:
+    """Test the DealiiX-platform-native registry format: keyed by type, function types, is_valid."""
+
+    def _math_registry(self):
+        """Build a math-module registry for these tests."""
+        function_map = build_function_map(include=['math'])
+        class_map = build_class_map(include=['math'])
+        return generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
+
+    def test_registry_keyed_by_type(self):
+        """Every entry is keyed by its own `type`, and known entries are reachable by that key."""
+        registry = self._math_registry()
+
+        for key, entry in registry.items():
+            assert entry['type'] == key
+
+        assert 'int' in registry                       # primitive
+        assert 'add' in registry                       # function
+        assert 'Calculator' in registry                # constructor
+        assert 'Calculator.add_to_value' in registry   # method
+
+    def test_functions_have_type_equal_to_method_name(self):
+        """Function entries carry a `type` mirroring their `method_name`."""
+        registry = self._math_registry()
+        add_entry = registry['add']
+
+        assert add_entry['node_type'] == 'function'
+        assert add_entry['type'] == 'add'
+        assert add_entry['method_name'] == 'add'
+
+    def test_all_entries_marked_valid(self):
+        """Every entry is marked `is_valid: true` (required by the editor for drag-to-connect)."""
+        registry = self._math_registry()
+
+        assert registry  # non-empty
+        assert all(entry.get('is_valid') is True for entry in registry.values())
+
+    def test_every_entry_has_platform_required_keys(self):
+        """Every entry carries the keys the platform's registry validator requires.
+
+        The platform skips any entry missing `node_type`, `arguments`, `inputs`, or `outputs` — so
+        even primitives (which take no inputs) must include an empty `arguments` list.
+        """
+        registry = self._math_registry()
+
+        for key, entry in registry.items():
+            for required in ('node_type', 'arguments', 'inputs', 'outputs'):
+                assert required in entry, f"{key} missing {required}"

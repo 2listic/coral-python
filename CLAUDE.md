@@ -157,12 +157,17 @@ Edge format:
 - **CRITICAL**: `target_input` determines parameter ordering for function/method calls
 
 **Registry Files** (e.g., `registry-py.json`):
-- Auto-generated schema describing all available node types
+- Auto-generated schema describing all available node types, in the DealiiX platform format
+- **Keyed by each node's `type`** (primitives by type name, functions by name, constructors by class
+  name, methods by `Class.method`) — the editor looks entries up as `registry[type]`
 - Each entry has:
-  - `arguments`: Array with `connection_type` ("input"/"output") and `type`
+  - `type`: the node type string (equals the entry's key)
+  - `arguments`: Array with `connection_type` ("input"/"output"), `type`, and `name` (empty `[]` for primitives)
   - `inputs`: List of input indices
   - `outputs`: List of output indices (or `[-1]` for constructors/primitives)
   - `node_type`: "primitive", "function", "constructor", or "method"
+  - `method_name`: present on functions and methods (functions: the name; methods: `Class.method`)
+  - `is_valid: true`: required by the editor for drag-to-connect
 
 ### Data Flow
 

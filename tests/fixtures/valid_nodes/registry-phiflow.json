@@ -1,59 +1,71 @@
 {
-  "0": {
-    "value": null,
+  "int": {
+    "arguments": [],
+    "value": "",
     "inputs": [],
     "outputs": [
       -1
     ],
     "node_type": "primitive",
-    "type": "int"
+    "type": "int",
+    "is_valid": true
   },
-  "1": {
-    "value": null,
+  "float": {
+    "arguments": [],
+    "value": "",
     "inputs": [],
     "outputs": [
       -1
     ],
     "node_type": "primitive",
-    "type": "float"
+    "type": "float",
+    "is_valid": true
   },
-  "2": {
-    "value": null,
+  "str": {
+    "arguments": [],
+    "value": "",
     "inputs": [],
     "outputs": [
       -1
     ],
     "node_type": "primitive",
-    "type": "str"
+    "type": "str",
+    "is_valid": true
   },
-  "3": {
-    "value": null,
+  "bool": {
+    "arguments": [],
+    "value": "",
     "inputs": [],
     "outputs": [
       -1
     ],
     "node_type": "primitive",
-    "type": "bool"
+    "type": "bool",
+    "is_valid": true
   },
-  "4": {
-    "value": null,
+  "any": {
+    "arguments": [],
+    "value": "",
     "inputs": [],
     "outputs": [
       -1
     ],
     "node_type": "primitive",
-    "type": "any"
+    "type": "any",
+    "is_valid": true
   },
-  "5": {
-    "value": null,
+  "none": {
+    "arguments": [],
+    "value": "",
     "inputs": [],
     "outputs": [
       -1
     ],
     "node_type": "primitive",
-    "type": "none"
+    "type": "none",
+    "is_valid": true
   },
-  "6": {
+  "phiflow_iterate": {
     "arguments": [
       {
         "connection_type": "input",
@@ -115,9 +127,11 @@
       8
     ],
     "node_type": "function",
-    "method_name": "phiflow_iterate"
+    "method_name": "phiflow_iterate",
+    "type": "phiflow_iterate",
+    "is_valid": true
   },
-  "7": {
+  "phiflow_plot_and_save": {
     "arguments": [
       {
         "connection_type": "input",
@@ -167,9 +181,11 @@
       6
     ],
     "node_type": "function",
-    "method_name": "phiflow_plot_and_save"
+    "method_name": "phiflow_plot_and_save",
+    "type": "phiflow_plot_and_save",
+    "is_valid": true
   },
-  "8": {
+  "phiflow_union": {
     "arguments": [
       {
         "connection_type": "input",
@@ -219,9 +235,11 @@
       6
     ],
     "node_type": "function",
-    "method_name": "phiflow_union"
+    "method_name": "phiflow_union",
+    "type": "phiflow_union",
+    "is_valid": true
   },
-  "9": {
+  "PhiFlowBox": {
     "arguments": [
       {
         "connection_type": "input",
@@ -242,9 +260,10 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "PhiFlowBox"
+    "type": "PhiFlowBox",
+    "is_valid": true
   },
-  "10": {
+  "PhiFlowSphere": {
     "arguments": [
       {
         "connection_type": "input",
@@ -271,9 +290,10 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "PhiFlowSphere"
+    "type": "PhiFlowSphere",
+    "is_valid": true
   },
-  "11": {
+  "PhiFlowStaggeredGrid": {
     "arguments": [
       {
         "connection_type": "input",
@@ -300,9 +320,10 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "PhiFlowStaggeredGrid"
+    "type": "PhiFlowStaggeredGrid",
+    "is_valid": true
   },
-  "12": {
+  "PhiFlowCenteredGrid": {
     "arguments": [
       {
         "connection_type": "input",
@@ -329,9 +350,10 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "PhiFlowCenteredGrid"
+    "type": "PhiFlowCenteredGrid",
+    "is_valid": true
   },
-  "13": {
+  "PhiFlowCuboid": {
     "arguments": [
       {
         "connection_type": "input",
@@ -364,13 +386,14 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "PhiFlowCuboid"
+    "type": "PhiFlowCuboid",
+    "is_valid": true
   },
-  "14": {
+  "PhiFlowBox.get_box": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "PhiFlowBox",
+        "type": "any",
         "name": "self"
       },
       {
@@ -387,13 +410,14 @@
     ],
     "node_type": "method",
     "method_name": "PhiFlowBox.get_box",
-    "type": "PhiFlowBox.get_box"
+    "type": "PhiFlowBox.get_box",
+    "is_valid": true
   },
-  "15": {
+  "PhiFlowSphere.get_sphere": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "PhiFlowSphere",
+        "type": "any",
         "name": "self"
       },
       {
@@ -410,13 +434,14 @@
     ],
     "node_type": "method",
     "method_name": "PhiFlowSphere.get_sphere",
-    "type": "PhiFlowSphere.get_sphere"
+    "type": "PhiFlowSphere.get_sphere",
+    "is_valid": true
   },
-  "16": {
+  "PhiFlowStaggeredGrid.get_grid": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "PhiFlowStaggeredGrid",
+        "type": "any",
         "name": "self"
       },
       {
@@ -433,13 +458,14 @@
     ],
     "node_type": "method",
     "method_name": "PhiFlowStaggeredGrid.get_grid",
-    "type": "PhiFlowStaggeredGrid.get_grid"
+    "type": "PhiFlowStaggeredGrid.get_grid",
+    "is_valid": true
   },
-  "17": {
+  "PhiFlowCenteredGrid.get_grid": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "PhiFlowCenteredGrid",
+        "type": "any",
         "name": "self"
       },
       {
@@ -456,13 +482,14 @@
     ],
     "node_type": "method",
     "method_name": "PhiFlowCenteredGrid.get_grid",
-    "type": "PhiFlowCenteredGrid.get_grid"
+    "type": "PhiFlowCenteredGrid.get_grid",
+    "is_valid": true
   },
-  "18": {
+  "PhiFlowCuboid.get_cuboid": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "PhiFlowCuboid",
+        "type": "any",
         "name": "self"
       },
       {
@@ -479,6 +506,7 @@
     ],
     "node_type": "method",
     "method_name": "PhiFlowCuboid.get_cuboid",
-    "type": "PhiFlowCuboid.get_cuboid"
+    "type": "PhiFlowCuboid.get_cuboid",
+    "is_valid": true
   }
 }
