@@ -78,7 +78,6 @@
     ],
     "outputs": [],
     "node_type": "function",
-    "method_name": "print_result",
     "type": "print_result",
     "is_valid": true
   },
@@ -108,7 +107,6 @@
       2
     ],
     "node_type": "function",
-    "method_name": "add",
     "type": "add",
     "is_valid": true
   },
@@ -138,7 +136,6 @@
       2
     ],
     "node_type": "function",
-    "method_name": "multiply",
     "type": "multiply",
     "is_valid": true
   },
@@ -162,7 +159,6 @@
       1
     ],
     "node_type": "function",
-    "method_name": "math.sqrt",
     "type": "math.sqrt",
     "is_valid": true
   },
@@ -186,7 +182,6 @@
       1
     ],
     "node_type": "function",
-    "method_name": "math.sin",
     "type": "math.sin",
     "is_valid": true
   },
@@ -210,7 +205,6 @@
       1
     ],
     "node_type": "function",
-    "method_name": "math.cos",
     "type": "math.cos",
     "is_valid": true
   },
@@ -240,7 +234,6 @@
       2
     ],
     "node_type": "function",
-    "method_name": "math.pow",
     "type": "math.pow",
     "is_valid": true
   },
@@ -282,7 +275,6 @@
       4
     ],
     "node_type": "function",
-    "method_name": "test_tuple_return",
     "type": "test_tuple_return",
     "is_valid": true
   },
@@ -330,7 +322,6 @@
       2
     ],
     "node_type": "method",
-    "method_name": "Calculator.add_to_value",
     "type": "Calculator.add_to_value",
     "is_valid": true
   },
@@ -354,7 +345,6 @@
       1
     ],
     "node_type": "method",
-    "method_name": "Calculator.get_value",
     "type": "Calculator.get_value",
     "is_valid": true
   },
@@ -384,7 +374,6 @@
       2
     ],
     "node_type": "method",
-    "method_name": "Calculator.multiply_value",
     "type": "Calculator.multiply_value",
     "is_valid": true
   }

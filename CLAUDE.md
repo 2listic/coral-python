@@ -146,11 +146,12 @@ The system is organized into four main modules:
 **Network Files** (e.g., `network-from-fe.json`):
 Located at: `workflow.nodes` and `workflow.edges`
 
-Node types:
-- Primitive: `{"value": <val>, "node_type": "primitive", "type": "<type>"}`
-- Function: `{"node_type": "function", "method_name": "<func_name>"}`
-- Constructor: `{"node_type": "constructor", "type": "<ClassName>"}`
-- Method: `{"node_type": "method", "method_name": "<ClassName>.<method_name>"}`
+Nodes are **lean**: each carries only its `type` (plus `value` for primitives); the executor infers
+the kind from `type`, so `node_type`/`method_name` are not part of the graph.
+- Primitive: `{"type": "<type>", "value": <val>}`
+- Function: `{"type": "<func_name>"}`
+- Constructor: `{"type": "<ClassName>"}`
+- Method: `{"type": "<ClassName>.<method_name>"}`
 
 Edge format:
 - `{"source": "<source_id>", "target": "<target_id>", "source_output": <idx>, "target_input": <idx>}`
@@ -166,7 +167,6 @@ Edge format:
   - `inputs`: List of input indices
   - `outputs`: List of output indices (or `[-1]` for constructors/primitives)
   - `node_type`: "primitive", "function", "constructor", or "method"
-  - `method_name`: present on functions and methods (functions: the name; methods: `Class.method`)
   - `is_valid: true`: required by the editor for drag-to-connect
 
 ### Data Flow
@@ -182,27 +182,28 @@ Edge format:
 
 ### Node Execution Model
 
-Each node type follows a specific execution pattern in [executor.py](executor.py):
+Each node's kind is inferred from its `type` by `WorkflowExecutor._classify()` (membership in
+`PRIMITIVES_MAP` / `FUNCTION_MAP` / `CLASS_MAP`, plus the `Class.method` split), then executed:
 
-**Primitive nodes** (`node_type: "primitive"`):
+**Primitive nodes** (`type` in `PRIMITIVES_MAP`):
 - Extract `value` and `type` from node definition
 - Convert value using `PRIMITIVES_MAP[type]` (handles string-to-type conversion from JSON)
 - Store result directly
 
-**Function nodes** (`node_type: "function"`):
-- Look up function in `FUNCTION_MAP` using `method_name`
+**Function nodes** (`type` in `FUNCTION_MAP`):
+- Look up function in `FUNCTION_MAP` using `type`
 - Collect inputs from incoming edges sorted by `target_input` index
 - Map inputs to function parameters positionally using `inspect.signature()`
 - Execute function with kwargs, store result
 
-**Constructor nodes** (`node_type: "constructor"`):
+**Constructor nodes** (`type` in `CLASS_MAP`):
 - Look up class in `CLASS_MAP` using `type` field
 - Collect constructor inputs from edges (sorted by `target_input`)
 - Map inputs to `__init__` parameters (excluding `self`)
 - Instantiate class, store instance
 
-**Method nodes** (`node_type: "method"`):
-- Parse fully qualified `method_name` (format: `"ClassName.method_name"`)
+**Method nodes** (`type` is `Class.method` with the class in `CLASS_MAP`):
+- Parse the fully qualified `type` (format: `"ClassName.method_name"`)
 - First input (lowest `target_input`) must be instance of `ClassName`
 - Remaining inputs are method parameters
 - Use `getattr(instance, method_name)` to get bound method

@@ -127,7 +127,6 @@
       8
     ],
     "node_type": "function",
-    "method_name": "phiflow_iterate",
     "type": "phiflow_iterate",
     "is_valid": true
   },
@@ -181,7 +180,6 @@
       6
     ],
     "node_type": "function",
-    "method_name": "phiflow_plot_and_save",
     "type": "phiflow_plot_and_save",
     "is_valid": true
   },
@@ -235,7 +233,6 @@
       6
     ],
     "node_type": "function",
-    "method_name": "phiflow_union",
     "type": "phiflow_union",
     "is_valid": true
   },
@@ -409,7 +406,6 @@
       1
     ],
     "node_type": "method",
-    "method_name": "PhiFlowBox.get_box",
     "type": "PhiFlowBox.get_box",
     "is_valid": true
   },
@@ -433,7 +429,6 @@
       1
     ],
     "node_type": "method",
-    "method_name": "PhiFlowSphere.get_sphere",
     "type": "PhiFlowSphere.get_sphere",
     "is_valid": true
   },
@@ -457,7 +452,6 @@
       1
     ],
     "node_type": "method",
-    "method_name": "PhiFlowStaggeredGrid.get_grid",
     "type": "PhiFlowStaggeredGrid.get_grid",
     "is_valid": true
   },
@@ -481,7 +475,6 @@
       1
     ],
     "node_type": "method",
-    "method_name": "PhiFlowCenteredGrid.get_grid",
     "type": "PhiFlowCenteredGrid.get_grid",
     "is_valid": true
   },
@@ -505,7 +498,6 @@
       1
     ],
     "node_type": "method",
-    "method_name": "PhiFlowCuboid.get_cuboid",
     "type": "PhiFlowCuboid.get_cuboid",
     "is_valid": true
   }

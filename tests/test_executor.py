@@ -113,7 +113,7 @@ class TestFunctionNodeExecution:
                 "nodes": {
                     "n1": {"node_type": "primitive", "type": "float", "value": 5.0},
                     "n2": {"node_type": "primitive", "type": "float", "value": 3.0},
-                    "n3": {"node_type": "function", "method_name": "add"}
+                    "n3": {"type": "add"}
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},
@@ -135,7 +135,7 @@ class TestFunctionNodeExecution:
                 "nodes": {
                     "n1": {"node_type": "primitive", "type": "float", "value": 4.0},
                     "n2": {"node_type": "primitive", "type": "float", "value": 2.5},
-                    "n3": {"node_type": "function", "method_name": "multiply"}
+                    "n3": {"type": "multiply"}
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},
@@ -157,9 +157,9 @@ class TestFunctionNodeExecution:
                 "nodes": {
                     "n1": {"node_type": "primitive", "type": "float", "value": 2.0},
                     "n2": {"node_type": "primitive", "type": "float", "value": 3.0},
-                    "n3": {"node_type": "function", "method_name": "add"},
+                    "n3": {"type": "add"},
                     "n4": {"node_type": "primitive", "type": "float", "value": 2.0},
-                    "n5": {"node_type": "function", "method_name": "multiply"}
+                    "n5": {"type": "multiply"}
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},
@@ -216,7 +216,7 @@ class TestMethodNodeExecution:
                     "n1": {"node_type": "primitive", "type": "float", "value": 10.0},
                     "n2": {"node_type": "constructor", "type": "Calculator"},
                     "n3": {"node_type": "primitive", "type": "float", "value": 5.0},
-                    "n4": {"node_type": "method", "method_name": "Calculator.add_to_value"}
+                    "n4": {"type": "Calculator.add_to_value"}
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n2", "source_output": 0, "target_input": 0},
@@ -243,7 +243,7 @@ class TestTopologicalSorting:
                 "nodes": {
                     "n1": {"node_type": "primitive", "type": "int", "value": 1},
                     "n2": {"node_type": "primitive", "type": "int", "value": 2},
-                    "n3": {"node_type": "function", "method_name": "add"}
+                    "n3": {"type": "add"}
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},
@@ -283,7 +283,7 @@ class TestEdgeOrdering:
                 "nodes": {
                     "n1": {"node_type": "primitive", "type": "float", "value": 2.0},
                     "n2": {"node_type": "primitive", "type": "float", "value": 3.0},
-                    "n3": {"node_type": "function", "method_name": "math.pow"}
+                    "n3": {"type": "math.pow"}
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},

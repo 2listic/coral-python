@@ -248,8 +248,8 @@ class TestErrorHandling:
             results = executor.execute()
             # If it doesn't fail, at least check it ran
             assert isinstance(results, dict)
-        except (KeyError, AttributeError):
-            # Expected - missing PhiFlow functions
+        except (KeyError, AttributeError, ValueError):
+            # Expected - missing PhiFlow functions (ValueError: unknown node type for the module)
             pass
         except ImportError:
             pytest.skip("PhiFlow workflow file might not exist or have issues")

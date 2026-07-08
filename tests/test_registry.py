@@ -9,29 +9,16 @@ from pathlib import Path
 import json
 
 
-def find_by_method_name(registry, method_name):
-    """Helper to find registry entry by method_name."""
-    for node_data in registry.values():
-        if node_data.get('method_name') == method_name:
-            return node_data
-    return None
-
-
 def find_by_type(registry, type_name):
-    """Helper to find registry entry by type (for primitives and constructors)."""
+    """Helper to find a registry entry by its type (the node identifier)."""
     for node_data in registry.values():
         if node_data.get('type') == type_name:
             return node_data
     return None
 
 
-def has_method_name(registry, method_name):
-    """Check if registry contains an entry with given method_name."""
-    return find_by_method_name(registry, method_name) is not None
-
-
 def has_type(registry, type_name):
-    """Check if registry contains an entry with given type."""
+    """Check if the registry contains an entry with the given type."""
     return find_by_type(registry, type_name) is not None
 
 
@@ -72,14 +59,14 @@ class TestRegistryGeneration:
         registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
 
         # Check for math functions
-        assert has_method_name(registry, 'add')
-        assert has_method_name(registry, 'multiply')
-        assert has_method_name(registry, 'math.pow')
+        assert has_type(registry, 'add')
+        assert has_type(registry, 'multiply')
+        assert has_type(registry, 'math.pow')
 
         # Check for Calculator class
         assert has_type(registry, 'Calculator')
-        assert has_method_name(registry, 'Calculator.add_to_value')
-        assert has_method_name(registry, 'Calculator.multiply_value')
+        assert has_type(registry, 'Calculator.add_to_value')
+        assert has_type(registry, 'Calculator.multiply_value')
 
     def test_generate_registry_phiflow_module(self):
         """Test registry generation for phiflow module."""
@@ -89,7 +76,7 @@ class TestRegistryGeneration:
             registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
 
             # Check for PhiFlow definitions (using actual names from definitions)
-            assert has_type(registry, 'PhiFlowBox') or has_method_name(registry, 'phiflow_union')
+            assert has_type(registry, 'PhiFlowBox') or has_type(registry, 'phiflow_union')
             # Registry should not be empty
             assert len(registry) > 0
         except ImportError:
@@ -114,7 +101,7 @@ class TestRegistryGeneration:
         registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
 
         # Should have both math and string entries
-        assert has_method_name(registry, 'add')  # from math
+        assert has_type(registry, 'add')  # from math
         assert has_type(registry, 'StringProcessor')  # from string
 
     def test_generate_registry_empty_modules(self):
@@ -128,7 +115,7 @@ class TestRegistryGeneration:
         assert has_type(registry, 'float')
 
         # Should not have module-specific entries
-        assert not has_method_name(registry, 'add')
+        assert not has_type(registry, 'add')
         assert not has_type(registry, 'Calculator')
 
 
@@ -157,7 +144,7 @@ class TestRegistryStructure:
         function_map = build_function_map(include=['math'])
         class_map = build_class_map(include=['math'])
         registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
-        add_entry = find_by_method_name(registry, 'add')
+        add_entry = find_by_type(registry, 'add')
 
         assert add_entry is not None
         assert 'arguments' in add_entry
@@ -191,7 +178,7 @@ class TestRegistryStructure:
         function_map = build_function_map(include=['math'])
         class_map = build_class_map(include=['math'])
         registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
-        method_entry = find_by_method_name(registry, 'Calculator.add_to_value')
+        method_entry = find_by_type(registry, 'Calculator.add_to_value')
 
         assert method_entry is not None
         assert 'arguments' in method_entry
@@ -208,7 +195,7 @@ class TestRegistryStructure:
         function_map = build_function_map(include=['math'])
         class_map = build_class_map(include=['math'])
         registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
-        add_entry = find_by_method_name(registry, 'add')
+        add_entry = find_by_type(registry, 'add')
 
         assert add_entry is not None
         # Check arguments structure
@@ -234,7 +221,7 @@ class TestRegistryFileOperations:
         with open(output_file, 'r') as f:
             registry = json.load(f)
 
-        assert has_method_name(registry, 'add')
+        assert has_type(registry, 'add')
         assert has_type(registry, 'Calculator')
 
     def test_save_registry_default_filename(self, tmp_path, monkeypatch):
@@ -325,7 +312,7 @@ class TestModuleExclusionInclusion:
         registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
 
         # Should have math
-        assert has_method_name(registry, 'add')
+        assert has_type(registry, 'add')
 
         # Should not have string
         assert not has_type(registry, 'StringProcessor')
@@ -337,7 +324,7 @@ class TestModuleExclusionInclusion:
         registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
 
         # Should have math
-        assert has_method_name(registry, 'add')
+        assert has_type(registry, 'add')
         assert has_type(registry, 'Calculator')
 
     def test_primitives_not_excludable(self):
@@ -373,14 +360,13 @@ class TestPlatformRegistryFormat:
         assert 'Calculator' in registry                # constructor
         assert 'Calculator.add_to_value' in registry   # method
 
-    def test_functions_have_type_equal_to_method_name(self):
-        """Function entries carry a `type` mirroring their `method_name`."""
+    def test_functions_keyed_by_name(self):
+        """Function entries are keyed by their name via `type` (the sole identifier)."""
         registry = self._math_registry()
         add_entry = registry['add']
 
         assert add_entry['node_type'] == 'function'
         assert add_entry['type'] == 'add'
-        assert add_entry['method_name'] == 'add'
 
     def test_all_entries_marked_valid(self):
         """Every entry is marked `is_valid: true` (required by the editor for drag-to-connect)."""

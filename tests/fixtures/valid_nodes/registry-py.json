@@ -78,7 +78,6 @@
     ],
     "outputs": [],
     "node_type": "function",
-    "method_name": "print_result",
     "type": "print_result",
     "is_valid": true
   },
@@ -108,7 +107,6 @@
       2
     ],
     "node_type": "function",
-    "method_name": "add",
     "type": "add",
     "is_valid": true
   },
@@ -138,7 +136,6 @@
       2
     ],
     "node_type": "function",
-    "method_name": "multiply",
     "type": "multiply",
     "is_valid": true
   },
@@ -162,7 +159,6 @@
       1
     ],
     "node_type": "function",
-    "method_name": "math.sqrt",
     "type": "math.sqrt",
     "is_valid": true
   },
@@ -186,7 +182,6 @@
       1
     ],
     "node_type": "function",
-    "method_name": "math.sin",
     "type": "math.sin",
     "is_valid": true
   },
@@ -210,7 +205,6 @@
       1
     ],
     "node_type": "function",
-    "method_name": "math.cos",
     "type": "math.cos",
     "is_valid": true
   },
@@ -240,7 +234,6 @@
       2
     ],
     "node_type": "function",
-    "method_name": "math.pow",
     "type": "math.pow",
     "is_valid": true
   },
@@ -282,7 +275,6 @@
       4
     ],
     "node_type": "function",
-    "method_name": "test_tuple_return",
     "type": "test_tuple_return",
     "is_valid": true
   },
@@ -348,7 +340,6 @@
       8
     ],
     "node_type": "function",
-    "method_name": "phiflow_iterate",
     "type": "phiflow_iterate",
     "is_valid": true
   },
@@ -402,7 +393,6 @@
       6
     ],
     "node_type": "function",
-    "method_name": "phiflow_plot_and_save",
     "type": "phiflow_plot_and_save",
     "is_valid": true
   },
@@ -456,7 +446,6 @@
       6
     ],
     "node_type": "function",
-    "method_name": "phiflow_union",
     "type": "phiflow_union",
     "is_valid": true
   },
@@ -672,7 +661,6 @@
       2
     ],
     "node_type": "method",
-    "method_name": "Calculator.add_to_value",
     "type": "Calculator.add_to_value",
     "is_valid": true
   },
@@ -696,7 +684,6 @@
       1
     ],
     "node_type": "method",
-    "method_name": "Calculator.get_value",
     "type": "Calculator.get_value",
     "is_valid": true
   },
@@ -726,7 +713,6 @@
       2
     ],
     "node_type": "method",
-    "method_name": "Calculator.multiply_value",
     "type": "Calculator.multiply_value",
     "is_valid": true
   },
@@ -756,7 +742,6 @@
       2
     ],
     "node_type": "method",
-    "method_name": "StringProcessor.concatenate",
     "type": "StringProcessor.concatenate",
     "is_valid": true
   },
@@ -792,7 +777,6 @@
       3
     ],
     "node_type": "method",
-    "method_name": "StringProcessor.repeat",
     "type": "StringProcessor.repeat",
     "is_valid": true
   },
@@ -816,7 +800,6 @@
       1
     ],
     "node_type": "method",
-    "method_name": "PhiFlowBox.get_box",
     "type": "PhiFlowBox.get_box",
     "is_valid": true
   },
@@ -840,7 +823,6 @@
       1
     ],
     "node_type": "method",
-    "method_name": "PhiFlowSphere.get_sphere",
     "type": "PhiFlowSphere.get_sphere",
     "is_valid": true
   },
@@ -864,7 +846,6 @@
       1
     ],
     "node_type": "method",
-    "method_name": "PhiFlowStaggeredGrid.get_grid",
     "type": "PhiFlowStaggeredGrid.get_grid",
     "is_valid": true
   },
@@ -888,7 +869,6 @@
       1
     ],
     "node_type": "method",
-    "method_name": "PhiFlowCenteredGrid.get_grid",
     "type": "PhiFlowCenteredGrid.get_grid",
     "is_valid": true
   },
@@ -912,7 +892,6 @@
       1
     ],
     "node_type": "method",
-    "method_name": "PhiFlowCuboid.get_cuboid",
     "type": "PhiFlowCuboid.get_cuboid",
     "is_valid": true
   }

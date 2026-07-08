@@ -67,14 +67,13 @@ def _add_function_node(registry: Dict, func_name: str, func: callable) -> None:
     output_arguments, outputs = _process_return_type(sig.return_annotation, param_idx)
     arguments.extend(output_arguments)
 
-    # `type` mirrors the function name so every entry has a stable key (the editor looks entries up
-    # as registry[type]); `is_valid` is required by the editor for drag-to-connect.
+    # `type` is the function name — the single node identifier (the editor looks entries up as
+    # registry[type], and graphs reference nodes by type); `is_valid` is required for drag-to-connect.
     registry[func_name] = {
         "arguments": arguments,
         "inputs": inputs,
         "outputs": outputs,
         "node_type": "function",
-        "method_name": func_name,
         "type": func_name,
         "is_valid": True,
     }
@@ -144,7 +143,6 @@ def _add_methods(registry: Dict, class_name: str, cls: type) -> None:
             "inputs": inputs,
             "outputs": outputs,
             "node_type": "method",
-            "method_name": fully_qualified_name,
             "type": fully_qualified_name,
             "is_valid": True,
         }
