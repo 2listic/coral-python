@@ -297,18 +297,17 @@ def get_classes() -> Dict[str, Any]:
     return {}
 ```
 
-Then register the module in `definitions/__init__.py`:
+Then register the module in `definitions/__init__.py` — add the import and one entry to `_MODULES`
+(`build_function_map`/`build_class_map` read from `_MODULES`, so no other edit is needed):
 ```python
 from . import math_ops, string_ops, phiflow_defs, primitives, numpy_ops
 
-def build_function_map(include=None, exclude=None):
-    modules = {
-        'math': math_ops,
-        'string': string_ops,
-        'phiflow': phiflow_defs,
-        'numpy': numpy_ops,  # Add here
-    }
-    # ... rest of implementation
+_MODULES = {
+    'math': math_ops,
+    'string': string_ops,
+    'phiflow': phiflow_defs,
+    'numpy': numpy_ops,  # Add here
+}
 ```
 
 **Why wrappers are needed:**

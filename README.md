@@ -50,7 +50,7 @@ the DealiiX platform can drive this backend via the [`coral-py` launcher](#coral
 
 ```bash
 # Run a simulation and then check the mp4 or gif file produced
-python one_obstacle.py
+python phi_flow/one_obstacle.py
 ```
 
 ### 2. Running the Workflow Executer

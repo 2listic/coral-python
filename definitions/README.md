@@ -56,7 +56,7 @@ To add a new domain-specific module:
 1. Create a new file in `definitions/` (e.g., `mymodule.py`)
 2. Implement `get_functions()` and `get_classes()` that return dictionaries
 3. Import the module in `definitions/__init__.py`
-4. Add it to the `modules` dictionary in both `build_function_map()` and `build_class_map()`
+4. Add one entry to the `_MODULES` dictionary in `definitions/__init__.py`
 
 ### Example Module Template
 
@@ -89,19 +89,18 @@ def get_classes() -> Dict[str, Any]:
     }
 ```
 
-Then update `definitions/__init__.py`:
+Then update `definitions/__init__.py` — add the import and a single `_MODULES` entry. `AVAILABLE_MODULES`
+and both `build_function_map()` / `build_class_map()` read from `_MODULES`, so no other changes are needed:
 
 ```python
 from . import math_ops, string_ops, phiflow_defs, primitives, mymodule
 
-def build_function_map(include=None, exclude=None):
-    modules = {
-        'math': math_ops,
-        'string': string_ops,
-        'phiflow': phiflow_defs,
-        'mymodule': mymodule,  # Add here
-    }
-    # ... rest of implementation
+_MODULES = {
+    'math': math_ops,
+    'string': string_ops,
+    'phiflow': phiflow_defs,
+    'mymodule': mymodule,  # Add here
+}
 ```
 
 ## Benefits
