@@ -12,6 +12,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The project uses PhiFlow for physics simulations and numerical computing.
 
+> For the narrative — goals, architecture rationale, the two contracts with the DealiiX platform, and how to
+> extend the project — see [`docs/ONBOARDING.md`](docs/ONBOARDING.md) (Italian: `docs/ONBOARDING.it.md`). This
+> `CLAUDE.md` is the mechanics reference; `README.md` covers setup and commands.
+
 ## Development Commands
 
 ### Environment Setup

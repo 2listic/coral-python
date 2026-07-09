@@ -121,6 +121,14 @@ See [README.md](definitions/README.md) in the `definitions` directory for more d
 python main.py --help
 ```
 
+## Development
+
+Extending or modifying coral-python? Start with [`docs/ONBOARDING.md`](docs/ONBOARDING.md) — the onboarding
+guide covering goals, architecture, the two contracts with the DealiiX platform, how to add a library or
+change internals, design rationale, and an honest account of strengths and weaknesses. An Italian version is
+at [`docs/ONBOARDING.it.md`](docs/ONBOARDING.it.md). (This `README.md` is setup + commands; `CLAUDE.md` is the
+AI-assisted-development mechanics reference.)
+
 ## Testing
 
 Run All Tests:
