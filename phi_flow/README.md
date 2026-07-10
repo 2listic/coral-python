@@ -14,7 +14,9 @@ python phi_flow/examples/smoke_plume/smoke_plume.py
 python phi_flow/examples/parallel_simulations/parallel-simulation-script.py
 ```
 
-Output files (`.gif`, `.mp4`) are generated in the script's working directory.
+Output files (`.gif`, `.mp4`) are generated in the script's working directory. `.mp4` export calls
+matplotlib's `anim.save(..., writer='ffmpeg')`, which requires the `ffmpeg` binary installed and on
+`PATH` (it's not a pip package). `.gif` export works without it.
 
 ## Physics Background
 

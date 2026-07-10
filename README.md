@@ -6,6 +6,9 @@ Coral for python libraries
 ### Prerequisites
 - Python 3.12+
 - [uv](https://github.com/astral-sh/uv) installed
+- `ffmpeg` installed and on `PATH` (e.g. `apt install ffmpeg` / `brew install ffmpeg`) — required for `.mp4`
+  export from the PhiFlow scripts and the `phiflow_plot_and_save` workflow node, which call matplotlib's
+  `anim.save(..., writer='ffmpeg')`. Not needed for `.gif` export.
 
 ## Setup
 
