@@ -1,0 +1,23 @@
+[project]
+name = "coral-python"
+version = "0.1.0"
+description = "Python cross-validation backend for the DealiiX platform: executes JSON node-graph workflows and emits a node registry."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "phiflow",
+    "jax",
+    "h5py",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+]
+
+# Flat-script layout (main.py / executor.py / registry.py at the repo root, imported by
+# module name rather than as an installed package). Treat this as a non-packaged uv project:
+# `uv sync` installs the dependencies into .venv but does not try to build coral-python itself.
+[tool.uv]
+package = false

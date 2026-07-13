@@ -1,6 +1,7 @@
 {
-  "0": {
-    "value": null,
+  "int": {
+    "arguments": [],
+    "value": "",
     "inputs": [],
     "outputs": [
       -1
@@ -8,8 +9,9 @@
     "node_type": "primitive",
     "type": "int"
   },
-  "1": {
-    "value": null,
+  "float": {
+    "arguments": [],
+    "value": "",
     "inputs": [],
     "outputs": [
       -1
@@ -17,8 +19,9 @@
     "node_type": "primitive",
     "type": "float"
   },
-  "2": {
-    "value": null,
+  "str": {
+    "arguments": [],
+    "value": "",
     "inputs": [],
     "outputs": [
       -1
@@ -26,8 +29,9 @@
     "node_type": "primitive",
     "type": "str"
   },
-  "3": {
-    "value": null,
+  "bool": {
+    "arguments": [],
+    "value": "",
     "inputs": [],
     "outputs": [
       -1
@@ -35,8 +39,9 @@
     "node_type": "primitive",
     "type": "bool"
   },
-  "4": {
-    "value": null,
+  "any": {
+    "arguments": [],
+    "value": "",
     "inputs": [],
     "outputs": [
       -1
@@ -44,8 +49,9 @@
     "node_type": "primitive",
     "type": "any"
   },
-  "5": {
-    "value": null,
+  "none": {
+    "arguments": [],
+    "value": "",
     "inputs": [],
     "outputs": [
       -1
@@ -53,7 +59,7 @@
     "node_type": "primitive",
     "type": "none"
   },
-  "6": {
+  "print_result": {
     "arguments": [
       {
         "connection_type": "input",
@@ -66,9 +72,9 @@
     ],
     "outputs": [],
     "node_type": "function",
-    "method_name": "print_result"
+    "type": "print_result"
   },
-  "7": {
+  "add": {
     "arguments": [
       {
         "connection_type": "input",
@@ -94,9 +100,9 @@
       2
     ],
     "node_type": "function",
-    "method_name": "add"
+    "type": "add"
   },
-  "8": {
+  "multiply": {
     "arguments": [
       {
         "connection_type": "input",
@@ -122,9 +128,9 @@
       2
     ],
     "node_type": "function",
-    "method_name": "multiply"
+    "type": "multiply"
   },
-  "9": {
+  "math.sqrt": {
     "arguments": [
       {
         "connection_type": "input",
@@ -144,9 +150,9 @@
       1
     ],
     "node_type": "function",
-    "method_name": "math.sqrt"
+    "type": "math.sqrt"
   },
-  "10": {
+  "math.sin": {
     "arguments": [
       {
         "connection_type": "input",
@@ -166,9 +172,9 @@
       1
     ],
     "node_type": "function",
-    "method_name": "math.sin"
+    "type": "math.sin"
   },
-  "11": {
+  "math.cos": {
     "arguments": [
       {
         "connection_type": "input",
@@ -188,9 +194,9 @@
       1
     ],
     "node_type": "function",
-    "method_name": "math.cos"
+    "type": "math.cos"
   },
-  "12": {
+  "math.pow": {
     "arguments": [
       {
         "connection_type": "input",
@@ -216,9 +222,9 @@
       2
     ],
     "node_type": "function",
-    "method_name": "math.pow"
+    "type": "math.pow"
   },
-  "13": {
+  "test_tuple_return": {
     "arguments": [
       {
         "connection_type": "input",
@@ -256,9 +262,9 @@
       4
     ],
     "node_type": "function",
-    "method_name": "test_tuple_return"
+    "type": "test_tuple_return"
   },
-  "14": {
+  "Calculator": {
     "arguments": [
       {
         "connection_type": "input",
@@ -275,11 +281,11 @@
     "node_type": "constructor",
     "type": "Calculator"
   },
-  "15": {
+  "Calculator.add_to_value": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "Calculator",
+        "type": "any",
         "name": "self"
       },
       {
@@ -301,14 +307,13 @@
       2
     ],
     "node_type": "method",
-    "method_name": "Calculator.add_to_value",
     "type": "Calculator.add_to_value"
   },
-  "16": {
+  "Calculator.get_value": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "Calculator",
+        "type": "any",
         "name": "self"
       },
       {
@@ -324,14 +329,13 @@
       1
     ],
     "node_type": "method",
-    "method_name": "Calculator.get_value",
     "type": "Calculator.get_value"
   },
-  "17": {
+  "Calculator.multiply_value": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "Calculator",
+        "type": "any",
         "name": "self"
       },
       {
@@ -353,7 +357,6 @@
       2
     ],
     "node_type": "method",
-    "method_name": "Calculator.multiply_value",
     "type": "Calculator.multiply_value"
   }
 }

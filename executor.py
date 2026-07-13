@@ -69,6 +69,30 @@ class WorkflowExecutor:
 
         return order
 
+    def _classify(self, type_str: str) -> str:
+        """Infer a node's kind from its ``type`` using the loaded definition maps.
+
+        The graph protocol identifies every node by ``type`` (primitives by type name, functions by
+        name, constructors by class name, methods by ``Class.method``); the kind is derived here
+        rather than read from the node, so lean graphs that omit ``node_type`` behave the same as
+        full ones. Functions are checked before the method split so dotted names like ``math.sqrt``
+        resolve as functions, not methods.
+
+        Raises:
+            ValueError: if ``type_str`` matches no loaded primitive, function, class, or method.
+        """
+        if type_str in self.primitives_map:
+            return "primitive"
+        if type_str in self.function_map:
+            return "function"
+        if type_str in self.class_map:
+            return "constructor"
+        if "." in type_str and type_str.rsplit(".", 1)[0] in self.class_map:
+            return "method"
+        raise ValueError(
+            f"Unknown node type '{type_str}': not a loaded primitive, function, class, or method"
+        )
+
     def execute(self):
         """Execute the workflow"""
         order = self.get_execution_order()
@@ -76,7 +100,7 @@ class WorkflowExecutor:
 
         for node_id in order:
             node = self.nodes[node_id]
-            node_type = node.get("node_type", "function")
+            node_type = self._classify(node["type"])
 
             if node_type == "primitive":
                 # Elementary nodes just return their value with type conversion
@@ -100,7 +124,7 @@ class WorkflowExecutor:
 
             elif node_type == "function":
                 # function nodes execute a function with inputs source edges
-                func_name = node["method_name"]
+                func_name = node["type"]
                 func = self.function_map[func_name]
 
                 # Get incoming edges for this node
@@ -197,7 +221,7 @@ class WorkflowExecutor:
             elif node_type == "method":
                 # Method nodes call an instance method
                 # Parse fully qualified name: "ClassName.method_name"
-                fully_qualified_name = node["method_name"]
+                fully_qualified_name = node["type"]
                 class_name, method_name = fully_qualified_name.rsplit(".", 1)
 
                 # Get incoming edges

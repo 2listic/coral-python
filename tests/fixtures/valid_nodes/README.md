@@ -4,14 +4,18 @@ This directory contains registry JSON files used for testing the node type syste
 
 ## Registry Files
 
-- `registry-math.json` - Registry for math module (mathematical operations and Calculator class)
-- `registry-phiflow.json` - Registry for PhiFlow physics simulation module
-- `registry-py.json` - Default/combined registry file
+- `registry-math.json` - Registry for the math module (mathematical operations and Calculator class)
+- `registry-phiflow.json` - Registry for the PhiFlow physics simulation module
+- `registry-py.json` - Combined registry for all modules (math, string, phiflow)
+
+All files use the DealiiX platform registry format: entries are keyed by node `type` and each is
+marked `is_valid: true`.
 
 These files are auto-generated using:
 ```bash
-python main.py --generate-registry --modules="math" --registry-output="tests/fixtures/valid_nodes/registry-math.json"
-python main.py --generate-registry --modules="phiflow" --registry-output="tests/fixtures/valid_nodes/registry-phiflow.json"
+python main.py -p "math" register --output="tests/fixtures/valid_nodes/registry-math.json"
+python main.py -p "phiflow" register --output="tests/fixtures/valid_nodes/registry-phiflow.json"
+python main.py register --output="tests/fixtures/valid_nodes/registry-py.json"
 ```
 
 ## Usage in Tests

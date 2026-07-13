@@ -2,83 +2,29 @@
   "workflow": {
     "nodes": {
       "0": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "float"
-          },
-          {
-            "connection_type": "output",
-            "type": "float"
-          }
-        ],
-        "inputs": [
-          0
-        ],
-        "outputs": [
-          1
-        ],
-        "node_type": "function",
-        "method_name": "math.sqrt",
-        "is_valid": true,
+        "type": "math.sqrt",
         "position": {
           "x": 665.9375,
           "y": 244
         }
       },
       "1": {
-        "value": "2",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "float",
-        "is_valid": true,
+        "value": "2",
         "position": {
           "x": 357.15625,
           "y": 247.5
         }
       },
       "2": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "float"
-          },
-          {
-            "connection_type": "output",
-            "type": "float"
-          }
-        ],
-        "inputs": [
-          0
-        ],
-        "outputs": [
-          1
-        ],
-        "node_type": "function",
-        "method_name": "math.sin",
-        "is_valid": true,
+        "type": "math.sin",
         "position": {
           "x": 431.65625,
           "y": 393
         }
       },
       "3": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "any"
-          }
-        ],
-        "inputs": [
-          0
-        ],
-        "outputs": [],
-        "node_type": "function",
-        "method_name": "print_result",
-        "is_valid": true,
+        "type": "print_result",
         "position": {
           "x": 724.65625,
           "y": 401

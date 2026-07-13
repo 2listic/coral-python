@@ -51,8 +51,8 @@ def _process_return_type(return_annotation, param_idx: int):
     return [], []
 
 
-def _add_function_node(registry: Dict, node_id: int, func_name: str, func: callable) -> int:
-    """Add a function node to the registry and return next node_id"""
+def _add_function_node(registry: Dict, func_name: str, func: callable) -> None:
+    """Add a function node to the registry, keyed by its name."""
     sig = inspect.signature(func)
 
     # Process input parameters
@@ -67,18 +67,19 @@ def _add_function_node(registry: Dict, node_id: int, func_name: str, func: calla
     output_arguments, outputs = _process_return_type(sig.return_annotation, param_idx)
     arguments.extend(output_arguments)
 
-    registry[str(node_id)] = {
+    # `type` is the function name — the single node identifier (the editor looks entries up as
+    # registry[type], and graphs reference nodes by type).
+    registry[func_name] = {
         "arguments": arguments,
         "inputs": inputs,
         "outputs": outputs,
         "node_type": "function",
-        "method_name": func_name,
+        "type": func_name,
     }
-    return node_id + 1
 
 
-def _add_constructor(registry: Dict, node_id: int, class_name: str, cls: type) -> int:
-    """Add a constructor node to the registry and return next node_id"""
+def _add_constructor(registry: Dict, class_name: str, cls: type) -> None:
+    """Add a constructor node to the registry, keyed by the class name."""
     init_sig = inspect.signature(cls.__init__)
 
     # Process constructor parameters (skip 'self')
@@ -93,18 +94,17 @@ def _add_constructor(registry: Dict, node_id: int, class_name: str, cls: type) -
         inputs.append(param_idx)
         param_idx += 1
 
-    registry[str(node_id)] = {
+    registry[class_name] = {
         "arguments": arguments,
         "inputs": inputs,
         "outputs": [-1],
         "node_type": "constructor",
-        "type": class_name
+        "type": class_name,
     }
-    return node_id + 1
 
 
-def _add_methods(registry: Dict, node_id: int, class_name: str, cls: type) -> int:
-    """Add all public methods of a class to the registry and return next node_id"""
+def _add_methods(registry: Dict, class_name: str, cls: type) -> None:
+    """Add all public methods of a class to the registry, keyed by 'Class.method'."""
     for method_name in dir(cls):
         # Skip private and dunder methods
         if method_name.startswith('_'):
@@ -136,52 +136,65 @@ def _add_methods(registry: Dict, node_id: int, class_name: str, cls: type) -> in
 
         fully_qualified_name = f"{class_name}.{method_name}"
 
-        registry[str(node_id)] = {
+        registry[fully_qualified_name] = {
             "arguments": arguments,
             "inputs": inputs,
             "outputs": outputs,
             "node_type": "method",
-            "method_name": fully_qualified_name,
-            "type": fully_qualified_name
+            "type": fully_qualified_name,
         }
-        node_id += 1
-
-    return node_id
 
 
 def generate_registry(
     function_map: Dict[str, callable], primitives: List[str] = None, class_map: Dict[str, type] = None
 ) -> Dict:
-    """Generate a registry JSON from definitions"""
+    """Generate the node registry in the DealiiX platform format.
+
+    Introspects the given function/class maps and primitive type names and returns a dict keyed by
+    each node's ``type`` string (primitives by type name, functions by name, constructors by class
+    name, methods by ``Class.method``).
+
+    Args:
+        function_map: Mapping of function name -> callable.
+        primitives: List of primitive type names to include (always added).
+        class_map: Optional mapping of class name -> class (adds constructors and methods).
+
+    Returns:
+        The registry dict keyed by node ``type``.
+
+    Raises:
+        ValueError: if ``primitives`` or ``function_map`` is None.
+    """
 
     if primitives is None or function_map is None:
         raise ValueError("primitives and function_map must be provided")
 
     registry = {}
-    node_id = 0
 
-    # Add primitive types
+    # Add primitive types, keyed by the primitive type name. Primitives take no inputs, but the
+    # empty `arguments` list is required: the platform's registry validator skips any entry lacking
+    # an `arguments` key.
     for prim_type in primitives:
-        registry[str(node_id)] = {
-            "value": None,
+        registry[prim_type] = {
+            "arguments": [],
+            "value": "",
             "inputs": [],
             "outputs": [-1],
             "node_type": "primitive",
             "type": prim_type,
         }
-        node_id += 1
 
     # Add functions
     for func_name, func in function_map.items():
-        node_id = _add_function_node(registry, node_id, func_name, func)
+        _add_function_node(registry, func_name, func)
 
     # Add class constructors and methods
     if class_map:
         for class_name, cls in class_map.items():
-            node_id = _add_constructor(registry, node_id, class_name, cls)
+            _add_constructor(registry, class_name, cls)
 
         for class_name, cls in class_map.items():
-            node_id = _add_methods(registry, node_id, class_name, cls)
+            _add_methods(registry, class_name, cls)
 
     return registry
 

@@ -2,660 +2,221 @@
   "workflow": {
     "nodes": {
       "7": {
-        "value": "100",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "float",
-        "is_valid": true,
+        "value": "100",
         "position": {
           "x": 70.03667203790297,
           "y": 137.90803590670052
         }
       },
       "13": {
-        "value": "50",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "float",
-        "is_valid": true,
+        "value": "50",
         "position": {
           "x": 124.55833747868672,
           "y": 312.7979999970585
         }
       },
       "14": {
-        "value": "5",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "float",
-        "is_valid": true,
+        "value": "5",
         "position": {
           "x": 98.13827531375492,
           "y": 557.470749611427
         }
       },
       "15": {
-        "value": "9.5",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "float",
-        "is_valid": true,
+        "value": "9.5",
         "position": {
           "x": 115.36875063871042,
           "y": 441.4522157567264
         }
       },
       "17": {
-        "value": "200",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "int",
-        "is_valid": true,
+        "value": "200",
         "position": {
           "x": 802.2432890176724,
           "y": 516.2100729129198
         }
       },
       "19": {
-        "value": "64",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "int",
-        "is_valid": true,
+        "value": "64",
         "position": {
           "x": 804.4516595293679,
           "y": 302.44420743338173
         }
       },
       "21": {
-        "value": "50",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "int",
-        "is_valid": true,
+        "value": "50",
         "position": {
           "x": 1526.8776428253366,
           "y": 689.7215054177414
         }
       },
       "22": {
-        "value": "0.5",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "float",
-        "is_valid": true,
+        "value": "0.5",
         "position": {
           "x": 1480.5794687992932,
           "y": 822.1774347342322
         }
       },
       "23": {
-        "value": "3",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "int",
-        "is_valid": true,
+        "value": "3",
         "position": {
           "x": 1477.096307426024,
           "y": 935.9834225263783
         }
       },
       "26": {
-        "value": "simulation.mp4",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "str",
-        "is_valid": true,
+        "value": "simulation.mp4",
         "position": {
           "x": 2118.0889514499736,
           "y": 787.0272760951017
         }
       },
       "27": {
-        "value": "15",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "int",
-        "is_valid": true,
+        "value": "15",
         "position": {
           "x": 2078.183843839894,
           "y": 995.4817404467145
         }
       },
       "28": {
-        "value": "150",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "int",
-        "is_valid": true,
+        "value": "150",
         "position": {
           "x": 2078.150296083115,
           "y": 1101.6659513023124
         }
       },
       "29": {
-        "value": "80",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "int",
-        "is_valid": true,
+        "value": "80",
         "position": {
           "x": 2126.8559733597726,
           "y": 891.2574254671499
         }
       },
       "31": {
-        "value": "10",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "float",
-        "is_valid": true,
+        "value": "10",
         "position": {
           "x": 1342.6514565166847,
           "y": 123.01146445601489
         }
       },
       "32": {
-        "value": "15",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "float",
-        "is_valid": true,
+        "value": "15",
         "position": {
           "x": 1337.965084312094,
           "y": 25.130396403032414
         }
       },
       "33": {
-        "value": "60",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "float",
-        "is_valid": true,
+        "value": "60",
         "position": {
           "x": 1338.5681890028923,
           "y": -83.42278897360073
         }
       },
       "34": {
-        "value": "50",
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "float",
-        "is_valid": true,
+        "value": "50",
         "position": {
           "x": 1341.5820301371482,
           "y": -207.61745440570436
         }
       },
       "36": {
-        "value": null,
-        "inputs": [],
-        "outputs": [
-          -1
-        ],
-        "node_type": "primitive",
         "type": "none",
-        "is_valid": true,
+        "value": null,
         "position": {
           "x": 1819.185507960884,
           "y": -216.6183987416331
         }
       },
       "38": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "float",
-            "name": "x"
-          },
-          {
-            "connection_type": "input",
-            "type": "float",
-            "name": "y"
-          }
-        ],
-        "inputs": [
-          0,
-          1
-        ],
-        "outputs": [
-          -1
-        ],
-        "node_type": "constructor",
         "type": "PhiFlowBox",
-        "is_valid": true,
         "position": {
           "x": 560.050773885825,
           "y": 117.84083829398213
         }
       },
       "39": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "float",
-            "name": "x"
-          },
-          {
-            "connection_type": "input",
-            "type": "float",
-            "name": "y"
-          },
-          {
-            "connection_type": "input",
-            "type": "float",
-            "name": "radius"
-          }
-        ],
-        "inputs": [
-          0,
-          1,
-          2
-        ],
-        "outputs": [
-          -1
-        ],
-        "node_type": "constructor",
         "type": "PhiFlowSphere",
-        "is_valid": true,
         "position": {
           "x": 583.6332239434627,
           "y": 407.6370953076763
         }
       },
       "40": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "any",
-            "name": "domain_box"
-          },
-          {
-            "connection_type": "input",
-            "type": "int",
-            "name": "resolution_x"
-          },
-          {
-            "connection_type": "input",
-            "type": "int",
-            "name": "resolution_y"
-          }
-        ],
-        "inputs": [
-          0,
-          1,
-          2
-        ],
-        "outputs": [
-          -1
-        ],
-        "node_type": "constructor",
         "type": "PhiFlowStaggeredGrid",
-        "is_valid": true,
         "position": {
           "x": 1298.9393072915784,
           "y": 249.15614843810573
         }
       },
       "41": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "PhiFlowBox",
-            "name": "self"
-          },
-          {
-            "connection_type": "output",
-            "type": "any",
-            "name": ""
-          }
-        ],
-        "inputs": [
-          0
-        ],
-        "outputs": [
-          1
-        ],
-        "node_type": "method",
-        "method_name": "PhiFlowBox.get_box",
         "type": "PhiFlowBox.get_box",
-        "is_valid": true,
         "position": {
           "x": 913.5085188820058,
           "y": 119.04180249358025
         }
       },
       "42": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "PhiFlowSphere",
-            "name": "self"
-          },
-          {
-            "connection_type": "output",
-            "type": "any",
-            "name": ""
-          }
-        ],
-        "inputs": [
-          0
-        ],
-        "outputs": [
-          1
-        ],
-        "node_type": "method",
-        "method_name": "PhiFlowSphere.get_sphere",
         "type": "PhiFlowSphere.get_sphere",
-        "is_valid": true,
         "position": {
           "x": 917.4607143930223,
           "y": 690.018268597996
         }
       },
       "43": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "any",
-            "name": "domain_box"
-          },
-          {
-            "connection_type": "input",
-            "type": "int",
-            "name": "resolution_x"
-          },
-          {
-            "connection_type": "input",
-            "type": "int",
-            "name": "resolution_y"
-          }
-        ],
-        "inputs": [
-          0,
-          1,
-          2
-        ],
-        "outputs": [
-          -1
-        ],
-        "node_type": "constructor",
         "type": "PhiFlowCenteredGrid",
-        "is_valid": true,
         "position": {
           "x": 1303.5323833025097,
           "y": 511.0199042738674
         }
       },
       "45": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "PhiFlowStaggeredGrid",
-            "name": "self"
-          },
-          {
-            "connection_type": "output",
-            "type": "any",
-            "name": ""
-          }
-        ],
-        "inputs": [
-          0
-        ],
-        "outputs": [
-          1
-        ],
-        "node_type": "method",
-        "method_name": "PhiFlowStaggeredGrid.get_grid",
         "type": "PhiFlowStaggeredGrid.get_grid",
-        "is_valid": true,
         "position": {
           "x": 1758.8348621333253,
           "y": 306.3188240955864
         }
       },
       "49": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "PhiFlowCenteredGrid",
-            "name": "self"
-          },
-          {
-            "connection_type": "output",
-            "type": "any",
-            "name": ""
-          }
-        ],
-        "inputs": [
-          0
-        ],
-        "outputs": [
-          1
-        ],
-        "node_type": "method",
-        "method_name": "PhiFlowCenteredGrid.get_grid",
         "type": "PhiFlowCenteredGrid.get_grid",
-        "is_valid": true,
         "position": {
           "x": 1722.8076458521364,
           "y": 472.2196909222935
         }
       },
       "50": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "float",
-            "name": "center_x"
-          },
-          {
-            "connection_type": "input",
-            "type": "float",
-            "name": "center_y"
-          },
-          {
-            "connection_type": "input",
-            "type": "float",
-            "name": "half_size_x"
-          },
-          {
-            "connection_type": "input",
-            "type": "float",
-            "name": "half_size_y"
-          }
-        ],
-        "inputs": [
-          0,
-          1,
-          2,
-          3
-        ],
-        "outputs": [
-          -1
-        ],
-        "node_type": "constructor",
         "type": "PhiFlowCuboid",
-        "is_valid": true,
         "position": {
           "x": 1942.7310154398988,
           "y": -77.85734938335152
         }
       },
       "51": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "any",
-            "name": "velocity_grid"
-          },
-          {
-            "connection_type": "input",
-            "type": "any",
-            "name": "smoke_grid"
-          },
-          {
-            "connection_type": "input",
-            "type": "int",
-            "name": "time_steps"
-          },
-          {
-            "connection_type": "input",
-            "type": "float",
-            "name": "dt"
-          },
-          {
-            "connection_type": "input",
-            "type": "int",
-            "name": "substeps"
-          },
-          {
-            "connection_type": "input",
-            "type": "any",
-            "name": "obstacles"
-          },
-          {
-            "connection_type": "output",
-            "type": "any",
-            "name": ""
-          },
-          {
-            "connection_type": "output",
-            "type": "any",
-            "name": ""
-          },
-          {
-            "connection_type": "output",
-            "type": "any",
-            "name": ""
-          }
-        ],
-        "inputs": [
-          0,
-          1,
-          2,
-          3,
-          4,
-          5
-        ],
-        "outputs": [
-          6,
-          7,
-          8
-        ],
-        "node_type": "function",
-        "method_name": "phiflow_iterate",
-        "is_valid": true,
+        "type": "phiflow_iterate",
         "position": {
           "x": 2255.309302939301,
           "y": 339.4883710973994
         }
       },
       "52": {
-        "arguments": [
-          {
-            "connection_type": "input",
-            "type": "any",
-            "name": "smoke_trajectory"
-          },
-          {
-            "connection_type": "input",
-            "type": "str",
-            "name": "output_filename"
-          },
-          {
-            "connection_type": "input",
-            "type": "int",
-            "name": "frame_time"
-          },
-          {
-            "connection_type": "input",
-            "type": "int",
-            "name": "fps"
-          },
-          {
-            "connection_type": "input",
-            "type": "int",
-            "name": "dpi"
-          },
-          {
-            "connection_type": "input",
-            "type": "any",
-            "name": "obstacles"
-          },
-          {
-            "connection_type": "output",
-            "type": "any",
-            "name": ""
-          }
-        ],
-        "inputs": [
-          0,
-          1,
-          2,
-          3,
-          4,
-          5
-        ],
-        "outputs": [
-          6
-        ],
-        "node_type": "function",
-        "method_name": "phiflow_plot_and_save",
-        "is_valid": true,
+        "type": "phiflow_plot_and_save",
         "position": {
           "x": 2709.5801106336166,
           "y": 289.0822994647512

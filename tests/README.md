@@ -13,8 +13,8 @@ tests/
 ├── test_modules.py             # Module loading tests
 ├── test_integration.py         # End-to-end workflow tests
 └── fixtures/
-    ├── valid_workflows/        # Valid workflow test files
-    └── invalid_workflows/      # Invalid workflows for error testing
+    ├── valid_workflows/        # Valid workflow test files (lean: nodes keyed by id, identified by type)
+    └── valid_nodes/            # Registry fixtures (node-type definitions)
 ```
 
 ## Running Tests

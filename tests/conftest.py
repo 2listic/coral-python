@@ -75,18 +75,15 @@ def simple_workflow_dict() -> Dict[str, Any]:
         "workflow": {
             "nodes": {
                 "node1": {
-                    "node_type": "primitive",
                     "type": "int",
                     "value": 5
                 },
                 "node2": {
-                    "node_type": "primitive",
                     "type": "int",
                     "value": 3
                 },
                 "node3": {
-                    "node_type": "function",
-                    "method_name": "add"
+                    "type": "add"
                 }
             },
             "edges": {
@@ -114,12 +111,10 @@ def circular_workflow_dict() -> Dict[str, Any]:
         "workflow": {
             "nodes": {
                 "node1": {
-                    "node_type": "function",
-                    "method_name": "add"
+                    "type": "add"
                 },
                 "node2": {
-                    "node_type": "function",
-                    "method_name": "multiply"
+                    "type": "multiply"
                 }
             },
             "edges": {

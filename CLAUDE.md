@@ -12,55 +12,58 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The project uses PhiFlow for physics simulations and numerical computing.
 
+> For the narrative — goals, architecture rationale, the two contracts with the DealiiX platform, and how to
+> extend the project — see [`docs/ONBOARDING.md`](docs/ONBOARDING.md) (Italian: `docs/ONBOARDING.it.md`). This
+> `CLAUDE.md` is the mechanics reference; `README.md` covers setup and commands.
+
 ## Development Commands
 
 ### Environment Setup
+
+This is a uv project (`pyproject.toml` + `uv.lock`); `requirements.in` / `requirements.txt` are legacy.
+
 ```bash
-# Create and activate virtual environment
-uv venv
+# Create .venv and install all deps (incl. the dev group) from the lockfile
+uv sync
+
+# Then activate, or prefix commands with `uv run` (e.g. `uv run python main.py`)
 source .venv/bin/activate  # Linux/Mac
-
-# Install dependencies using uv pip sync (recommended)
-uv pip sync requirements.txt
-
-# Or install directly
-uv pip install -r requirements.txt
 ```
 
 ### Package Management
 ```bash
-# Add a new package (recommended workflow)
-echo "<package-name>" >> requirements.in
-uv pip compile requirements.in -o requirements.txt
-uv pip sync requirements.txt
+# Add a runtime dependency (updates pyproject.toml + uv.lock, then syncs)
+uv add <package-name>
 
-# Alternative: direct install (must still update requirements.txt)
-uv pip install <package-name>
-uv pip freeze > requirements.txt
+# Add a dev-only dependency
+uv add --dev <package-name>
+
+# Re-resolve the lockfile and sync the environment
+uv lock && uv sync
 ```
 
 ### Running Workflows
+
+`main.py` is a coral-compatible CLI: a global `-p/--plugin` option (comma-separated modules; empty = all) plus
+`register` / `run` subcommands. `-p/--plugin` must precede the subcommand.
 ```bash
-# Execute default workflow (network-from-fe.json) with default modules
-python main.py
+# Run a workflow graph (default file network-from-fe.json, all modules)
+python main.py run
+python main.py run path/to/workflow.json
+python main.py -p "math" run path/to/workflow.json
+python main.py -p "math,string,phiflow" run path/to/workflow.json
 
-# Execute specific workflow file
-python main.py path/to/workflow.json
-
-# Execute with specific modules loaded
-python main.py path/to/workflow.json --modules="math"
-python main.py path/to/workflow.json --modules="math,string,phiflow"
-
-# Generate registry from selected modules
-python main.py --generate-registry
-python main.py --generate-registry --modules="math"
-python main.py --generate-registry --modules="math,string,phiflow"
-
-# Generate registry to custom file
-python main.py --generate-registry --registry-output="custom-registry.json" --modules="math"
+# Generate the node registry (writes node_types.json into the cwd)
+python main.py register
+python main.py -p "math" register
+python main.py register --output="custom-registry.json"
 ```
 
-**Default module behavior**: When no `--modules` flag is provided, only the `phiflow` module is loaded (optimal for physics simulations). Primitives are always included.
+The `coral-py` launcher wraps this for the DealiiX platform: it runs `main.py` inside the uv project while
+preserving the caller's cwd (so `register` writes `node_types.json` there). Point the platform's `coralBinaryPath`
+at `coral-py` and set `coralPluginPath` to the module list.
+
+**Default module behavior**: When `-p/--plugin` is omitted, all available modules are loaded. Primitives are always included.
 
 **Available modules**:
 - `math` - Mathematical operations and Calculator class
@@ -117,7 +120,7 @@ The system is organized into four main modules:
    - **`definitions/string_ops.py`**: `StringProcessor` class and `print_result` function
    - **`definitions/phiflow_defs.py`**: PhiFlow physics simulation wrappers (if available)
 
-   **Module loading**: Use `--modules` flag to control which definitions are loaded. Default: `phiflow` only.
+   **Module loading**: Use the `-p/--plugin` option to control which definitions are loaded (comma-separated). Default when omitted: all modules. `AVAILABLE_MODULES` (in `definitions/__init__.py`) lists them.
 
 2. **registry.py** - Registry generation and type conversion:
    - `generate_registry()`: Introspects functions and classes to create JSON schema
@@ -136,29 +139,35 @@ The system is organized into four main modules:
      - Calling instance methods via method nodes
      - Storing results for downstream nodes
 
-4. **main.py** - CLI entry point with argparse interface:
-   - Accepts `--modules` flag to control which definition modules are loaded
-   - Passes module list to both `WorkflowExecutor` and `save_registry_to_file()`
+4. **main.py** - Coral-compatible CLI entry point (argparse):
+   - Global `-p/--plugin` option names the definition modules to load (comma-separated; empty = all)
+   - `register` subcommand → `save_registry_to_file()` (writes `node_types.json` into the cwd)
+   - `run` subcommand → `WorkflowExecutor(...).execute()`
+   - Wrapped by the `coral-py` launcher for the DealiiX platform
 
 ### Workflow JSON Structure
 
 **Network Files** (e.g., `network-from-fe.json`):
 Located at: `workflow.nodes` and `workflow.edges`
 
-Node types:
-- Primitive: `{"value": <val>, "node_type": "primitive", "type": "<type>"}`
-- Function: `{"node_type": "function", "method_name": "<func_name>"}`
-- Constructor: `{"node_type": "constructor", "type": "<ClassName>"}`
-- Method: `{"node_type": "method", "method_name": "<ClassName>.<method_name>"}`
+Nodes are **lean**: each carries only its `type` (plus `value` for primitives); the executor infers
+the kind from `type`, so `node_type`/`method_name` are not part of the graph.
+- Primitive: `{"type": "<type>", "value": <val>}`
+- Function: `{"type": "<func_name>"}`
+- Constructor: `{"type": "<ClassName>"}`
+- Method: `{"type": "<ClassName>.<method_name>"}`
 
 Edge format:
 - `{"source": "<source_id>", "target": "<target_id>", "source_output": <idx>, "target_input": <idx>}`
 - **CRITICAL**: `target_input` determines parameter ordering for function/method calls
 
 **Registry Files** (e.g., `registry-py.json`):
-- Auto-generated schema describing all available node types
+- Auto-generated schema describing all available node types, in the DealiiX platform format
+- **Keyed by each node's `type`** (primitives by type name, functions by name, constructors by class
+  name, methods by `Class.method`) — the editor looks entries up as `registry[type]`
 - Each entry has:
-  - `arguments`: Array with `connection_type` ("input"/"output") and `type`
+  - `type`: the node type string (equals the entry's key)
+  - `arguments`: Array with `connection_type` ("input"/"output"), `type`, and `name` (empty `[]` for primitives)
   - `inputs`: List of input indices
   - `outputs`: List of output indices (or `[-1]` for constructors/primitives)
   - `node_type`: "primitive", "function", "constructor", or "method"
@@ -176,27 +185,28 @@ Edge format:
 
 ### Node Execution Model
 
-Each node type follows a specific execution pattern in [executor.py](executor.py):
+Each node's kind is inferred from its `type` by `WorkflowExecutor._classify()` (membership in
+`PRIMITIVES_MAP` / `FUNCTION_MAP` / `CLASS_MAP`, plus the `Class.method` split), then executed:
 
-**Primitive nodes** (`node_type: "primitive"`):
+**Primitive nodes** (`type` in `PRIMITIVES_MAP`):
 - Extract `value` and `type` from node definition
 - Convert value using `PRIMITIVES_MAP[type]` (handles string-to-type conversion from JSON)
 - Store result directly
 
-**Function nodes** (`node_type: "function"`):
-- Look up function in `FUNCTION_MAP` using `method_name`
+**Function nodes** (`type` in `FUNCTION_MAP`):
+- Look up function in `FUNCTION_MAP` using `type`
 - Collect inputs from incoming edges sorted by `target_input` index
 - Map inputs to function parameters positionally using `inspect.signature()`
 - Execute function with kwargs, store result
 
-**Constructor nodes** (`node_type: "constructor"`):
+**Constructor nodes** (`type` in `CLASS_MAP`):
 - Look up class in `CLASS_MAP` using `type` field
 - Collect constructor inputs from edges (sorted by `target_input`)
 - Map inputs to `__init__` parameters (excluding `self`)
 - Instantiate class, store instance
 
-**Method nodes** (`node_type: "method"`):
-- Parse fully qualified `method_name` (format: `"ClassName.method_name"`)
+**Method nodes** (`type` is `Class.method` with the class in `CLASS_MAP`):
+- Parse the fully qualified `type` (format: `"ClassName.method_name"`)
 - First input (lowest `target_input`) must be instance of `ClassName`
 - Remaining inputs are method parameters
 - Use `getattr(instance, method_name)` to get bound method
@@ -260,7 +270,7 @@ def get_functions() -> Dict[str, Any]:
 
 4. **Regenerate registry with the appropriate module**:
 ```bash
-python main.py --generate-registry --modules="math"
+python main.py -p "math" register
 ```
 
 5. The function is now available when the module is loaded
@@ -291,18 +301,17 @@ def get_classes() -> Dict[str, Any]:
     return {}
 ```
 
-Then register the module in `definitions/__init__.py`:
+Then register the module in `definitions/__init__.py` — add the import and one entry to `_MODULES`
+(`build_function_map`/`build_class_map` read from `_MODULES`, so no other edit is needed):
 ```python
 from . import math_ops, string_ops, phiflow_defs, primitives, numpy_ops
 
-def build_function_map(include=None, exclude=None):
-    modules = {
-        'math': math_ops,
-        'string': string_ops,
-        'phiflow': phiflow_defs,
-        'numpy': numpy_ops,  # Add here
-    }
-    # ... rest of implementation
+_MODULES = {
+    'math': math_ops,
+    'string': string_ops,
+    'phiflow': phiflow_defs,
+    'numpy': numpy_ops,  # Add here
+}
 ```
 
 **Why wrappers are needed:**
@@ -335,7 +344,7 @@ def get_classes() -> Dict[str, Any]:
 
 After updating the module, regenerate the registry:
 ```bash
-python main.py --generate-registry --modules="math"
+python main.py -p "math" register
 ```
 
 **How it works:**
