@@ -153,6 +153,19 @@ def temp_workflow_file(tmp_path, simple_workflow_dict):
 
 
 @pytest.fixture(autouse=True)
+def isolate_cwd(monkeypatch, tmp_path):
+    """Run every test from a disposable working directory.
+
+    Some workflows (e.g. the PhiFlow ones) write output files such as
+    ``simulation.mp4`` to a path that is relative to the current directory.
+    Pinning cwd to a per-test ``tmp_path`` guarantees those artifacts land in
+    a throwaway location instead of polluting the project's main directory,
+    while the JSON fixtures themselves stay untouched.
+    """
+    monkeypatch.chdir(tmp_path)
+
+
+@pytest.fixture(autouse=True)
 def reset_sys_path():
     """Ensure imports work correctly by adding project root to sys.path."""
     import sys
