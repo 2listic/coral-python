@@ -5,3 +5,9 @@
 __pycache__/
 
 .coverage
+
+# Simulation artifacts (e.g. simulation.mp4) written by workflow runs.
+# Tests redirect these into a temp dir (see tests/conftest.py::isolate_cwd).
+# Already-tracked example clips under phi_flow/ stay tracked.
+*.mp4
+*.gif
