@@ -12,6 +12,9 @@ tests/
 ├── test_registry.py            # Registry generation tests
 ├── test_modules.py             # Module loading tests
 ├── test_integration.py         # End-to-end workflow tests
+├── test_golden_registry.py     # Byte-for-byte registry contract pin (vs tests/golden/)
+├── test_characterization.py    # Pins run results + stdout for a math and a string graph
+├── golden/                     # Recorded node_types.json snapshots (permanent contract guard)
 └── fixtures/
     ├── valid_workflows/        # Valid workflow test files (lean: nodes keyed by id, identified by type)
     └── valid_nodes/            # Registry fixtures (node-type definitions)
@@ -128,6 +131,7 @@ def test_example(workflow_files, load_workflow):
 - Test files: `test_*.py`
 - Test classes: `Test*`
 - Test functions: `test_*`
+- **Docstrings**: every new test uses the canonical **GIVEN / WHEN / THEN** structure.
 
 ### Example Test
 ```python

@@ -127,17 +127,19 @@ discover() (no import) ─→ load(requested names) ─→ plugin.get_functions(
 
 ## Step 0 — Baseline & safety net
 
-- [ ] 0.1 Record the current green baseline: run `uv run pytest -q`, note the **exact test count** and
-      that all pass. Capture it at the top of a scratch note.
-- [ ] 0.2 *(needs D2)* If golden tests are approved: generate today's registry for each module set and
+- [x] 0.1 Record the current green baseline: run `uv run pytest -q`, note the **exact test count** and
+      that all pass. Capture it at the top of a scratch note. → **88 passed** (Py 3.14.6).
+- [x] 0.2 *(needs D2)* If golden tests are approved: generate today's registry for each module set and
       save under `tests/golden/` —
       `node_types.math.json`, `node_types.string.json`, `node_types.phiflow.json`, `node_types.all.json`
       (via `python main.py -p "<set>" register --output=...`). Add a test asserting current
       `save_registry_to_file(..., modules=<set>)` output equals each golden file **byte-for-byte**.
-- [ ] 0.3 Add characterization tests (if not already covered) pinning `run` results for one small
+      → `tests/test_golden_registry.py`.
+- [x] 0.3 Add characterization tests (if not already covered) pinning `run` results for one small
       math graph and one string graph — the executor's returned `results` dict and key stdout lines.
-- [ ] 0.4 Confirm the baseline suite (existing + new golden/characterization) is green.
-      `uv sync && uv run pytest` → all pass.
+      → `tests/test_characterization.py`.
+- [x] 0.4 Confirm the baseline suite (existing + new golden/characterization) is green.
+      `uv sync && uv run pytest` → all pass. → **94 passed**.
 
 ## Step 1 — Workspace root + `coral-core` (additive; no shims)
 
