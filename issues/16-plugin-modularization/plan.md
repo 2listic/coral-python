@@ -143,20 +143,28 @@ discover() (no import) ─→ load(requested names) ─→ plugin.get_functions(
 
 ## Step 1 — Workspace root + `coral-core` (additive; no shims)
 
-- [ ] 1.1 Create the virtual workspace root `pyproject.toml`: `[tool.uv.workspace] members =
+- [x] 1.1 Create the virtual workspace root `pyproject.toml`: `[tool.uv.workspace] members =
       ["packages/*"]` and `[tool.uv.sources]` cross-linking every internal package
       (`{ workspace = true }`). **No `[project]` table** at the root. The old
       `[tool.uv] package = false` / flat-project metadata stays at the root **for now** so the flat
       code keeps importing until Step 2 (it migrates into `coral-app` there).
-- [ ] 1.2 Create `packages/coral-core/` — `pyproject.toml` (hatchling; `name = "coral-core"`;
+      → **Reconciled the note's tension:** with a `[project]` still at the root, plain `uv sync`
+      syncs only the root + its deps (not sibling members), so `coral-core` wouldn't install and
+      `coral_core` tests would fail. Kept the flat `[project]`/`package = false` and added a
+      transitional `coral-core` dependency to it (resolved via the workspace source) so plain
+      `uv sync` installs the member editable *and* keeps the flat phiflow deps. `[tool.uv.sources]`
+      lists only `coral-core` (the only member that exists yet). Step 2 removes the root `[project]`
+      → virtual root installs all members itself, and the transitional dep goes away.
+- [x] 1.2 Create `packages/coral-core/` — `pyproject.toml` (hatchling; `name = "coral-core"`;
       `requires-python = ">=3.12"`; `dependencies = []`; wheel target `src/coral_core`) and
       `src/coral_core/__init__.py` with the `Plugin` ABC (two `@abstractmethod`s, `__all__ = ["Plugin"]`).
-- [ ] 1.3 `uv sync` — verify `coral-core` installs editable and the old flat code is untouched
-      (nothing imports `coral_core` yet).
-- [ ] 1.4 Add `tests/test_core_contract.py`: `Plugin` cannot be instantiated; a subclass missing
+- [x] 1.3 `uv sync` — verify `coral-core` installs editable and the old flat code is untouched
+      (nothing imports `coral_core` yet). → `coral_core.Plugin` importable; `executor`/`registry`/
+      `definitions` still import.
+- [x] 1.4 Add `tests/test_core_contract.py`: `Plugin` cannot be instantiated; a subclass missing
       either method cannot be instantiated; a complete subclass can. *(D3)* Add the
-      "no `from __future__ import annotations`" guard test.
-- [ ] 1.5 `uv sync && uv run pytest` → all green (baseline count + new core tests).
+      "no `from __future__ import annotations`" guard test (AST scan of `packages/*/src/**/*.py`).
+- [x] 1.5 `uv sync && uv run pytest` → all green (baseline count + new core tests). → **100 passed**.
 
 ## Step 2 — The atomic move (create app + plugins, migrate all code, delete the flat layout)
 
