@@ -10,7 +10,7 @@ repointed to ``coral_app`` when the flat modules are deleted.
 
 import math
 
-from executor import WorkflowExecutor
+from coral_app.executor import WorkflowExecutor
 
 
 def test_math_graph_results_and_stdout(workflow_files, capsys):

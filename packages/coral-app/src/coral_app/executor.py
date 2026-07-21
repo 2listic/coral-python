@@ -2,7 +2,7 @@ import json
 import inspect
 from typing import Any, List, Optional
 
-from definitions import PRIMITIVES_MAP, build_function_map, build_class_map
+from coral_app import PRIMITIVES_MAP, build_function_map, build_class_map
 
 
 class WorkflowExecutor:

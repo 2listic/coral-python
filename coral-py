@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Coral-compatible launcher for the Python backend.
 #
-# Runs main.py inside this repo's uv project while preserving the caller's working directory, so
-# `register` writes node_types.json into the cwd the platform passed and a relative `--touch-dir`
-# resolves there too. Point the DealiiX platform's coralBinaryPath at this file and set
-# coralPluginPath to the module list (e.g. "math,string").
+# Runs the `coral` console script (coral-app) inside this repo's uv workspace while preserving the
+# caller's working directory, so `register` writes node_types.json into the cwd the platform passed
+# and a relative `--touch-dir` resolves there too. Point the DealiiX platform's coralBinaryPath at
+# this file and set coralPluginPath to the module list (e.g. "math,string").
 #
 #   ./coral-py -p "math" register            # writes node_types.json into the current directory
 #   ./coral-py -p "math" run workflow.json    # executes the workflow graph
@@ -12,4 +12,4 @@
 # NOTE: --project (not --directory, and no cd) is what keeps the cwd unchanged.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec uv run --quiet --project "$HERE" python "$HERE/main.py" "$@"
+exec uv run --quiet --project "$HERE" coral "$@"

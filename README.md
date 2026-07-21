@@ -12,24 +12,26 @@ Coral for python libraries
 
 ## Setup
 
-This is a [uv project](https://docs.astral.sh/uv/concepts/projects/): dependencies are declared in
-`pyproject.toml` and pinned in `uv.lock`.
+This is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/): a monorepo of
+independently installable packages under `packages/*` (`coral-core`, `coral-app`, and one
+`coral-plugin-*` per plugin), wired together for development by the virtual root `pyproject.toml`
+and pinned in `uv.lock`.
 
 ```bash
-# Create .venv and install all dependencies (incl. the dev group) from the lockfile
+# Create .venv and install every workspace package editable (incl. the dev group) from the lockfile
 uv sync
 ```
 
 Then either activate the environment (`source .venv/bin/activate`) or prefix commands with `uv run`
-(e.g. `uv run python main.py`). `uv run` auto-syncs the environment against `uv.lock` before running.
+(e.g. `uv run coral --help`). `uv run` auto-syncs the environment against `uv.lock` before running.
 
 ### Managing Dependencies
 
 ```bash
-# Add a runtime dependency (updates pyproject.toml + uv.lock, then syncs the env)
-uv add <package-name>
+# Add a runtime dependency to a specific workspace package (updates its pyproject.toml + uv.lock)
+uv add --package coral-plugin-phiflow <package-name>
 
-# Add a dev-only dependency
+# Add a dev-only dependency (to the workspace root dev group)
 uv add --dev <package-name>
 
 # Re-resolve / update the lockfile and sync the environment
@@ -37,17 +39,20 @@ uv lock
 uv sync
 ```
 
-> `requirements.in` / `requirements.txt` are retained for reference only; `pyproject.toml` + `uv.lock`
-> are now the source of truth for dependencies.
+> Each package declares its own dependencies in its `packages/<name>/pyproject.toml`
+> (e.g. `coral-plugin-phiflow` owns `phiflow`/`jax`/`h5py`). `requirements.in` / `requirements.txt`
+> are retained for reference only; the per-package `pyproject.toml` files + `uv.lock` are the source
+> of truth for dependencies.
 
 ## Usage
 
-`main.py` is a **coral-compatible CLI**: a global `-p/--plugin` option naming the definition modules to load
-(comma-separated, e.g. `"math,string"`; empty = all) plus two subcommands — `register` (emit the node registry)
-and `run` (execute a workflow). `-p/--plugin` must precede the subcommand. This mirrors the C++ `coral` binary so
-the DealiiX platform can drive this backend via the [`coral-py` launcher](#coral-launcher-for-the-dealiix-platform).
+`coral` is a **coral-compatible CLI** (the `coral-app` console script): a global `-p/--plugin` option naming the
+plugins to load (comma-separated, e.g. `"math,string"`; empty = all installed) plus two subcommands — `register`
+(emit the node registry) and `run` (execute a workflow). `-p/--plugin` must precede the subcommand. This mirrors
+the C++ `coral` binary so the DealiiX platform can drive this backend via the
+[`coral-py` launcher](#coral-launcher-for-the-dealiix-platform).
 
-> Run the commands below inside an activated venv, or prefix each with `uv run` (e.g. `uv run python main.py run`).
+> Run the commands below inside an activated venv, or prefix each with `uv run` (e.g. `uv run coral run`).
 
 ### 1. Running a stand-alone Phi-flow simulation
 
@@ -60,27 +65,28 @@ python phi_flow/one_obstacle.py
 
 Use the `run` subcommand. With no graph argument it defaults to `network-from-fe.json`:
 ```bash
-python main.py run
+coral run
 ```
 
 Run a specific workflow file:
 ```bash
-python main.py run path/to/your/workflow.json
+coral run path/to/your/workflow.json
 ```
 
-Load specific modules with `-p/--plugin` (before the subcommand):
+Load specific plugins with `-p/--plugin` (before the subcommand):
 ```bash
 # Load only math operations
-python main.py -p "math" run workflow.json
+coral -p "math" run workflow.json
 
-# Load multiple modules
-python main.py -p "math,string,phiflow" run workflow.json
+# Load multiple plugins
+coral -p "math,string,phiflow" run workflow.json
 ```
 
-**Default behavior**: When `-p/--plugin` is omitted, all available modules are loaded. Primitives are always included.
+**Default behavior**: When `-p/--plugin` is omitted, all installed plugins are loaded (via entry-point
+discovery). Primitives are always included. An unknown `-p` name fails loud with `LookupError`.
 
-**Available modules**:
-- `phiflow` - PhiFlow physics simulation wrappers (default)
+**Available plugins** (each an installed `coral-plugin-*` package):
+- `phiflow` - PhiFlow physics simulation wrappers
 - `math` - Mathematical operations (`add`, `multiply`, `math.sqrt`, etc.) and `Calculator` class
 - `string` - String processing utilities (`StringProcessor` class)
 
@@ -89,39 +95,40 @@ python main.py -p "math,string,phiflow" run workflow.json
 Use the `register` subcommand. It writes `node_types.json` into the current directory (the filename the
 DealiiX platform probes for):
 ```bash
-python main.py register
+coral register
 ```
 
-Generate the registry for specific modules:
+Generate the registry for specific plugins:
 ```bash
 # Math operations only
-python main.py -p "math" register
+coral -p "math" register
 
-# Multiple modules
-python main.py -p "math,string,phiflow" register
+# Multiple plugins
+coral -p "math,string,phiflow" register
 ```
 
 **Custom output filename:**
 ```bash
-python main.py register --output="custom_registry.json"
+coral register --output="custom_registry.json"
 ```
 
 ### Coral launcher (for the DealiiX platform)
 
-`coral-py` runs `main.py` inside this repo's uv project while preserving the caller's working directory, so
-`register` writes `node_types.json` into that directory. Point the platform's `coralBinaryPath` at it and set
-`coralPluginPath` to the module list:
+`coral-py` runs the `coral` console script inside this repo's uv workspace while preserving the caller's working
+directory, so `register` writes `node_types.json` into that directory. Point the platform's `coralBinaryPath` at
+it and set `coralPluginPath` to the plugin list:
 ```bash
 ./coral-py -p "math" register            # writes node_types.json into the current directory
 ./coral-py -p "math" run workflow.json
 ```
 
-### More info about the definitions package
-See [README.md](definitions/README.md) in the `definitions` directory for more detailed information about how different module definitions are handled.
+### More info about the plugin packages
+Each plugin is a self-contained distribution under `packages/coral-plugin-*/`. See
+[`docs/ONBOARDING.md`](docs/ONBOARDING.md) for how discovery works and how to add a new plugin.
 
 ### 4. Getting help
 ```bash
-python main.py --help
+coral --help
 ```
 
 ## Development

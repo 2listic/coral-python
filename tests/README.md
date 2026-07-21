@@ -4,15 +4,19 @@ Comprehensive test suite for the coral-python workflow execution system.
 
 ## Test Structure
 
+Tests run from the workspace root against the editable-installed packages (`coral_app`, `coral_core`,
+and the `coral_plugin_*` distributions).
+
 ```
 tests/
 ├── __init__.py                 # Test package initialization
 ├── conftest.py                 # Pytest fixtures and configuration
+├── test_core_contract.py       # coral-core Plugin ABC + the "no __future__ annotations" guard (D3)
 ├── test_executor.py            # Core WorkflowExecutor tests
 ├── test_registry.py            # Registry generation tests
-├── test_modules.py             # Module loading tests
+├── test_modules.py             # Plugin discovery / function+class map building tests
 ├── test_integration.py         # End-to-end workflow tests
-├── test_golden_registry.py     # Byte-for-byte registry contract pin (vs tests/golden/)
+├── test_golden_registry.py     # Registry contract pin: math/string/phiflow byte-identical, all by content
 ├── test_characterization.py    # Pins run results + stdout for a math and a string graph
 ├── golden/                     # Recorded node_types.json snapshots (permanent contract guard)
 └── fixtures/
@@ -85,10 +89,10 @@ pytest -n auto
 
 ## Test Categories
 
-### Unit Tests (`test_executor.py`, `test_registry.py`, `test_modules.py`)
+### Unit Tests (`test_core_contract.py`, `test_executor.py`, `test_registry.py`, `test_modules.py`)
 - Test individual components in isolation
 - Fast execution
-- No external dependencies (except PhiFlow for some module tests)
+- No external dependencies (except PhiFlow for some plugin tests)
 
 ### Integration Tests (`test_integration.py`)
 - Test complete workflows using real JSON files
@@ -136,7 +140,7 @@ def test_example(workflow_files, load_workflow):
 ### Example Test
 ```python
 import pytest
-from executor import WorkflowExecutor
+from coral_app.executor import WorkflowExecutor
 
 class TestMyFeature:
     """Test description."""
@@ -199,13 +203,13 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
-          python-version: '3.10'
+          python-version: '3.12'
       - name: Install dependencies
         run: |
           pip install uv
-          uv pip sync requirements.txt
+          uv sync
       - name: Run tests
-        run: pytest --cov=. --cov-report=xml
+        run: uv run pytest --cov=. --cov-report=xml
       - name: Upload coverage
         uses: codecov/codecov-action@v2
 ```

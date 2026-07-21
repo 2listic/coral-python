@@ -3,19 +3,20 @@
 Presents the same command surface as the C++ ``coral`` binary so the DealiiX platform can drive this
 backend by changing only the executable and plugin paths:
 
-    main.py -p <plugin> register           # write the node registry (node_types.json) into the cwd
-    main.py -p <plugin> run <graph.json>    # execute a workflow graph
+    coral -p <plugin> register           # write the node registry (node_types.json) into the cwd
+    coral -p <plugin> run <graph.json>    # execute a workflow graph
 
-For this Python backend ``-p/--plugin`` names the definition modules to load (comma-separated, e.g.
-``"math,string"``); an empty value loads every available module. ``-p/--plugin`` must appear before the
-subcommand. See the integration plan in issue #12.
+For this Python backend ``-p/--plugin`` names the plugins to load (comma-separated, e.g.
+``"math,string"``); an empty value loads every installed plugin (via entry-point discovery).
+``-p/--plugin`` must appear before the subcommand. Exposed as the ``coral`` console script and
+wrapped by the ``coral-py`` launcher. See the integration plan in issue #12.
 """
 
 import argparse
 
-from definitions import AVAILABLE_MODULES
-from registry import save_registry_to_file
-from executor import WorkflowExecutor
+from coral_app import discover
+from coral_app.registry import save_registry_to_file
+from coral_app.executor import WorkflowExecutor
 
 # Fixed filename the DealiiX platform probes for after `register`.
 DEFAULT_REGISTRY_FILENAME = "node_types.json"
@@ -31,16 +32,16 @@ def main():
     in the current working directory; ``run`` executes a workflow graph via ``WorkflowExecutor``.
     """
     parser = argparse.ArgumentParser(
-        prog="main.py",
+        prog="coral",
         description="Coral-compatible CLI: generate the node registry or run a workflow graph.",
     )
-    # Global option mirroring coral's plugin flag. For the Python backend it names the definition
-    # modules to load (comma-separated); an empty value means "load all available modules".
+    # Global option mirroring coral's plugin flag. For the Python backend it names the plugins to
+    # load (comma-separated); an empty value means "load every installed plugin".
     parser.add_argument(
         "-p", "--plugin",
         default="",
         metavar="MODULES",
-        help="Comma-separated definition modules to load (e.g. 'math,string'); empty loads all. "
+        help="Comma-separated plugins to load (e.g. 'math,string'); empty loads all installed. "
              "Must precede the subcommand.",
     )
 
@@ -84,15 +85,15 @@ def main():
 
 
 def _resolve_modules(plugin_value):
-    """Resolve the ``-p/--plugin`` value into an explicit list of module names.
+    """Resolve the ``-p/--plugin`` value into an explicit list of plugin names.
 
-    Splits a comma-separated value into module names, ignoring blank entries. An empty or
-    whitespace-only value resolves to all available modules — this is passed explicitly (rather
-    than relying on ``None``) because ``save_registry_to_file``/``WorkflowExecutor`` default a
-    ``None`` module list to ``['phiflow']`` only.
+    Splits a comma-separated value into plugin names, ignoring blank entries. An empty or
+    whitespace-only value resolves to every installed plugin (``discover()``) — this is passed
+    explicitly (rather than relying on ``None``) because ``save_registry_to_file``/
+    ``WorkflowExecutor`` default a ``None`` module list to ``['phiflow']`` only.
     """
     modules = [m.strip() for m in plugin_value.split(",") if m.strip()]
-    return modules if modules else list(AVAILABLE_MODULES)
+    return modules if modules else discover()
 
 
 if __name__ == "__main__":

@@ -3,8 +3,8 @@ Tests for module loading and function/class mapping.
 """
 
 import pytest
-from executor import WorkflowExecutor
-from definitions import build_function_map, build_class_map, PRIMITIVES_MAP
+from coral_app.executor import WorkflowExecutor
+from coral_app import build_function_map, build_class_map, PRIMITIVES_MAP
 
 
 class TestPrimitivesMap:

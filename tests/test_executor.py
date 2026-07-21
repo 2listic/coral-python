@@ -4,7 +4,7 @@ Tests for the WorkflowExecutor core functionality - corrected workflow format.
 
 import pytest
 from pathlib import Path
-from executor import WorkflowExecutor
+from coral_app.executor import WorkflowExecutor
 
 
 class TestWorkflowExecutorInitialization:

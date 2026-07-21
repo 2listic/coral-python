@@ -3,7 +3,7 @@ Integration tests for end-to-end workflow execution using real workflow files.
 """
 
 import pytest
-from executor import WorkflowExecutor
+from coral_app.executor import WorkflowExecutor
 from pathlib import Path
 
 

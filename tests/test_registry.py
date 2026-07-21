@@ -3,8 +3,8 @@ Tests for registry generation and type conversion.
 """
 
 import pytest
-from registry import generate_registry, python_type_to_string, save_registry_to_file
-from definitions import PRIMITIVES_MAP, build_function_map, build_class_map
+from coral_app.registry import generate_registry, python_type_to_string, save_registry_to_file
+from coral_app import PRIMITIVES_MAP, build_function_map, build_class_map
 from pathlib import Path
 import json
 

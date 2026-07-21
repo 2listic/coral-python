@@ -2,7 +2,7 @@ import json
 import inspect
 from typing import Any, Dict, List, get_origin, get_args, Optional
 
-from definitions import PRIMITIVES_MAP, build_function_map, build_class_map
+from coral_app import PRIMITIVES_MAP, build_function_map, build_class_map
 
 # Reverse mapping for type-to-string conversion during registry generation
 _REVERSE_PRIMITIVES_MAP = {v: k for k, v in PRIMITIVES_MAP.items()}

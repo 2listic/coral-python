@@ -172,49 +172,54 @@ discover() (no import) ─→ load(requested names) ─→ plugin.get_functions(
 step ends green. No shims — the flat modules are deleted here, not bridged.*
 
 ### 2a — Plugin distributions
-- [ ] 2.1 Create `packages/coral-plugin-math/` — `pyproject.toml` (hatchling; `name =
+- [x] 2.1 Create `packages/coral-plugin-math/` — `pyproject.toml` (hatchling; `name =
       "coral-plugin-math"`; `dependencies = ["coral-core"]`; entry point
       `[project.entry-points."coral.plugins"] math = "coral_plugin_math:MathPlugin"`) and
       `src/coral_plugin_math/__init__.py` holding the real functions + `Calculator` and a
       `MathPlugin(Plugin)` whose `get_functions()` / `get_classes()` return today's math dicts.
-- [ ] 2.2 Same for `coral-plugin-string` (`StringProcessor`, `print_result`, `StringPlugin`,
+- [x] 2.2 Same for `coral-plugin-string` (`StringProcessor`, `print_result`, `StringPlugin`,
       entry-point `string`).
-- [ ] 2.3 Same for `coral-plugin-phiflow` (wrappers, `PhiFlowPlugin`, entry-point `phiflow`;
-      `dependencies = ["coral-core", "phiflow", "jax", "h5py"]`). *(D5)* Drop the `AVAILABLE`
-      try/except guard — installing the plugin guarantees the deps; a broken import fails loud.
+- [x] 2.3 Same for `coral-plugin-phiflow` (wrappers, `PhiFlowPlugin`, entry-point `phiflow`;
+      `dependencies = ["coral-core", "phiflow", "jax", "h5py"]`). *(D5)* Dropped the `AVAILABLE`
+      try/except guard — `from phi.flow import ...` is now unconditional at module top.
 
 ### 2b — Host distribution
-- [ ] 2.4 Create `packages/coral-app/` — `pyproject.toml` (hatchling; `name = "coral-app"`;
+- [x] 2.4 Create `packages/coral-app/` — `pyproject.toml` (hatchling; `name = "coral-app"`;
       `dependencies = ["coral-core"]`; project metadata migrated from the old root; *(D6)*
-      `[project.scripts] coral = "coral_app.cli:main"`; wheel target `src/coral_app`). Remove the
-      migrated metadata (and `[tool.uv] package = false`) from the root `pyproject.toml`.
-- [ ] 2.5 Move `executor.py`, `registry.py` into `src/coral_app/` **bodies unchanged** (only their
-      `definitions` imports are repointed in 2.7); move `main.py`'s logic into `src/coral_app/cli.py`.
-- [ ] 2.6 Move `PRIMITIVES_MAP` into the host (`src/coral_app/primitives.py`).
-- [ ] 2.7 Add `src/coral_app/__init__.py` with the host API: `PLUGIN_GROUP = "coral.plugins"`,
+      `[project.scripts] coral = "coral_app.cli:main"`; wheel target `src/coral_app`). Removed the
+      migrated metadata (and `[tool.uv] package = false`) from the root `pyproject.toml`, which is
+      now a **virtual** workspace root (no `[project]`; keeps `[dependency-groups] dev` +
+      `[tool.uv.workspace]` + `[tool.uv.sources]` for all five packages). `readme` omitted from
+      coral-app for now (README lives at repo root; per-package READMEs are a Step-4 concern).
+- [x] 2.5 Moved `executor.py`, `registry.py` into `src/coral_app/` **bodies unchanged** (only the
+      `from definitions import ...` line repointed to `from coral_app import ...`); moved `main.py`'s
+      logic into `src/coral_app/cli.py` (prog `coral`; empty `-p` → `discover()`).
+- [x] 2.6 Moved `PRIMITIVES_MAP` into the host (`src/coral_app/primitives.py`).
+- [x] 2.7 Added `src/coral_app/__init__.py` with the host API: `PLUGIN_GROUP = "coral.plugins"`,
       `discover()`, `load(name)`, `load_all(names)` (skeleton semantics), plus
-      `build_function_map(include=..., exclude=...)` / `build_class_map(...)` **with the same
-      signatures as today**, re-implemented over `discover`/`load`, merging in `include` order
-      (empty/`None` → `sorted(discover())`). *(D4)* Unknown/not-discoverable name → `LookupError`
-      (fail-loud, aborts). Repoint `coral_app.registry` / `coral_app.executor` at these + the host
-      `PRIMITIVES_MAP`.
+      `build_function_map(include=..., exclude=...)` / `build_class_map(...)` (same signatures),
+      re-implemented over `discover`/`load` via a shared `_selected()` helper, merging in `include`
+      order (empty/`None` → `sorted(discover())`). *(D4)* Unknown name → `LookupError` (fail-loud,
+      via `load`). Re-exports host `PRIMITIVES_MAP`; `registry`/`executor` import from `coral_app`.
 
 ### 2c — Cutover & cleanup (same step)
-- [ ] 2.8 *(D7)* Update all tests to import from `coral_app.*` / `coral_core.*`; drop
-      `from executor import` / `from registry import` / `from definitions import`.
-- [ ] 2.9 Delete the flat layout: root `executor.py`, `registry.py`, `main.py`, and the entire
-      `definitions/` package. *(D8)* Apply straggler decisions (delete stale `registry-py.json`).
-- [ ] 2.10 *(D6)* Update `coral-py` to launch the `coral` console script via
-      `uv run --quiet --project "$HERE" coral "$@"` (no `cd`); verify `register` writes
-      `node_types.json` into the **caller's** cwd and `run` executes.
-- [ ] 2.11 `uv sync` — verify all four packages install editable and the plugins register their entry
-      points (`python -c "from importlib.metadata import entry_points as e; print(sorted(x.name for x in e(group='coral.plugins')))"`
-      → `['math', 'phiflow', 'string']`).
-- [ ] 2.12 **Parity gate:** registry output via the new host equals the Step-0 golden files
-      byte-for-byte for `math`, `string`, `phiflow`, all; characterization `run` results unchanged.
-- [ ] 2.13 `uv sync && uv run pytest` → all green (baseline count + core tests, all migrated).
-- [ ] 2.14 Manual smoke through the launcher from a scratch cwd: `./coral-py -p "math" register` and
-      `./coral-py -p "math" run <graph>` behave as before.
+- [x] 2.8 *(D7)* Repointed all test imports to `coral_app.*` / `coral_core.*`. Golden test split:
+      `math`/`string`/`phiflow` stay **byte-identical**; the `all` case is now a **content**
+      (order-insensitive) comparison and sources its module list from `discover()` (see decision
+      recorded in this session — sorted discovery reorders only cross-module class keys).
+- [x] 2.9 Deleted the flat layout: root `executor.py`, `registry.py`, `main.py`, and the entire
+      `definitions/` package. *(D8)* Deleted stale root `registry-py.json` (confirmed unreferenced —
+      the `registry_files` fixture points at `tests/fixtures/valid_nodes/registry-py.json`, a
+      different file). Note: `definitions/README.md` went with the package (covers plan 4.4).
+- [x] 2.10 *(D6)* Updated `coral-py` to `exec uv run --quiet --project "$HERE" coral "$@"` (no `cd`).
+- [x] 2.11 `uv sync` — all four packages build+install editable; entry points →
+      `['math', 'phiflow', 'string']`.
+- [x] 2.12 **Parity gate:** single-module goldens byte-identical; `all` content-equal;
+      characterization `run` results unchanged (all via the suite).
+- [x] 2.13 `uv sync && uv run pytest` → **100 passed**.
+- [x] 2.14 Manual smoke through the launcher from a scratch cwd: `./coral-py -p "math" register`
+      wrote `node_types.json` into the caller's cwd; `./coral-py -p "math" run graph.json` executed
+      (final results `{'1': 2.0, '0': 1.414…, '2': 0.988…, '3': None}`).
 
 ## Step 3 — Acceptance matrix + packaging verification (the skeleton's §8, coral-flavored)
 
@@ -237,16 +242,22 @@ step ends green. No shims — the flat modules are deleted here, not bridged.*
 
 ## Step 4 — Documentation
 
-- [ ] 4.1 Update `README.md`: setup (`uv sync` over the workspace), the `coral` console script /
-      `coral-py`, install-a-plugin story.
-- [ ] 4.2 Update `CLAUDE.md`: the new package layout, entry-point discovery, `Plugin` ABC, where
-      `PRIMITIVES_MAP` lives.
-- [ ] 4.3 Update `docs/ONBOARDING.md` (+ `docs/ONBOARDING.it.md`): replace the `definitions/` +
-      `_MODULES` narrative with the core/app/plugin + entry-point architecture; refresh the
-      "add a new library (Persona A)" steps to "create a new plugin distribution"; update the
-      strengths/weaknesses (import-time cost and convention-not-contract are now resolved).
-- [ ] 4.4 Remove `definitions/README.md` with the `definitions/` package (relocate any still-useful
-      content into the relevant package README).
+*Done ahead of Step 3, at the user's request ("update plan and all relevant md file"). Also refreshed
+two docs the plan didn't enumerate but which referenced the old layout: `tests/README.md` (structure,
+example import, CI snippet) and `tests/fixtures/valid_nodes/README.md` (`python main.py …` → `coral …`).*
+
+- [x] 4.1 Updated `README.md`: setup (`uv sync` over the workspace), the `coral` console script /
+      `coral-py`, plugin story (available plugins, per-package deps, fail-loud on unknown `-p`).
+- [x] 4.2 Updated `CLAUDE.md`: new package layout (with a tree), entry-point discovery, `Plugin` ABC,
+      `PRIMITIVES_MAP` in the host, and an "Adding a New Plugin" section replacing "Adding Definitions".
+- [x] 4.3 `docs/ONBOARDING.md` fully rewritten: plugin monorepo architecture + new (border-aligned)
+      diagram, entry-point discovery, Persona A → "create a new plugin distribution", Persona B +
+      FAQ + strengths/weaknesses updated (lazy import resolved; plugin contract now ABC-enforced while
+      the registry↔executor seam stays convention-based). `docs/ONBOARDING.it.md` re-translated to
+      mirror it (verified: 28/28 code fences, all 20 anchors resolve, ASCII diagram byte-identical,
+      `definitions`/`_MODULES` only in the historical FAQ mention).
+- [x] 4.4 `definitions/README.md` removed with the `definitions/` package in Step 2.9 (no still-useful
+      content needed relocating).
 
 ---
 

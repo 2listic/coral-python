@@ -8,8 +8,17 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "coral-app",
     "coral-core",
-    "coral-python",
+    "coral-plugin-math",
+    "coral-plugin-phiflow",
+    "coral-plugin-string",
+]
+
+[manifest.dependency-groups]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
 ]
 
 [[package]]
@@ -88,25 +97,41 @@ wheels = [
 ]
 
 [[package]]
+name = "coral-app"
+version = "0.1.0"
+source = { editable = "packages/coral-app" }
+dependencies = [
+    { name = "coral-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "coral-core", editable = "packages/coral-core" }]
+
+[[package]]
 name = "coral-core"
 version = "0.0.0"
 source = { editable = "packages/coral-core" }
 
 [[package]]
-name = "coral-python"
-version = "0.1.0"
-source = { virtual = "." }
+name = "coral-plugin-math"
+version = "0.0.0"
+source = { editable = "packages/coral-plugin-math" }
+dependencies = [
+    { name = "coral-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "coral-core", editable = "packages/coral-core" }]
+
+[[package]]
+name = "coral-plugin-phiflow"
+version = "0.0.0"
+source = { editable = "packages/coral-plugin-phiflow" }
 dependencies = [
     { name = "coral-core" },
     { name = "h5py" },
     { name = "jax" },
     { name = "phiflow" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-cov" },
 ]
 
 [package.metadata]
@@ -117,11 +142,16 @@ requires-dist = [
     { name = "phiflow" },
 ]
 
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-cov" },
+[[package]]
+name = "coral-plugin-string"
+version = "0.0.0"
+source = { editable = "packages/coral-plugin-string" }
+dependencies = [
+    { name = "coral-core" },
 ]
+
+[package.metadata]
+requires-dist = [{ name = "coral-core", editable = "packages/coral-core" }]
 
 [[package]]
 name = "coverage"

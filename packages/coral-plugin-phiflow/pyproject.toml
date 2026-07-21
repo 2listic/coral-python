@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "coral-plugin-phiflow"
+version = "0.0.0"
+description = "Coral plugin: PhiFlow physics-simulation wrappers."
+requires-python = ">=3.12"
+# This plugin owns the heavy simulation stack. Declaring phiflow/jax/h5py as hard dependencies
+# means installing the plugin guarantees they are importable (D5): a broken/partial install fails
+# loud with ImportError rather than silently registering nothing. Lazy discovery still ensures an
+# unselected phiflow is never imported.
+dependencies = ["coral-core", "phiflow", "jax", "h5py"]
+
+[project.entry-points."coral.plugins"]
+phiflow = "coral_plugin_phiflow:PhiFlowPlugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/coral_plugin_phiflow"]

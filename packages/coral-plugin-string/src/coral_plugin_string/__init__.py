@@ -1,5 +1,15 @@
+"""coral-plugin-string — the StringProcessor class and print_result.
+
+Subclasses the coral-core ``Plugin`` contract; registered under the
+``coral.plugins`` entry-point group as ``string``.
+"""
+
 from typing import Any, Dict
- 
+
+from coral_core import Plugin
+
+__all__ = ["StringPlugin", "StringProcessor"]
+
 
 def print_result(value: Any) -> None:
     """Print the result with a message"""
@@ -25,15 +35,17 @@ class StringProcessor:
         return result
 
 
-def get_functions() -> Dict[str, Any]:
-    """Return string operation function definitions (none for this module)"""
-    return {
-        "print_result": print_result,
-    }
+class StringPlugin(Plugin):
+    """String operations: the StringProcessor class and print_result."""
 
+    def get_functions(self) -> Dict[str, Any]:
+        """Return string operation function definitions"""
+        return {
+            "print_result": print_result,
+        }
 
-def get_classes() -> Dict[str, Any]:
-    """Return string operation class definitions"""
-    return {
-        "StringProcessor": StringProcessor,
-    }
+    def get_classes(self) -> Dict[str, Any]:
+        """Return string operation class definitions"""
+        return {
+            "StringProcessor": StringProcessor,
+        }

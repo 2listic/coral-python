@@ -8,9 +8,11 @@ This complements `README.md` (setup + day-to-day commands) and `CLAUDE.md` (mech
 AI-assisted development). This document is the *story*: goals, architecture, rationale, and an honest
 account of strengths and weaknesses.
 
-*Last updated: 2026-07-09. Describes coral-python at the **local-MVP** stage — a coral-compatible backend
-running graphs end-to-end locally; see [Roadmap / deferred work](#roadmap--deferred-work) for what is still
-out of scope (remote/Slurm execution, pipeline stages).*
+*Last updated: 2026-07-21. Describes coral-python at the **local-MVP** stage — a coral-compatible backend
+running graphs end-to-end locally — now restructured as a **plugin monorepo** (a `coral-core` contract, a
+`coral-app` host, and one `coral-plugin-*` per capability, discovered via entry points). See
+[Roadmap / deferred work](#roadmap--deferred-work) for what is still out of scope (remote/Slurm execution,
+pipeline stages).*
 
 ## Contents
 
@@ -48,73 +50,95 @@ changing two settings (the executable path and the "plugin" value) and nothing e
 
 ## Architecture
 
-### Three layers, two independent consumers
+### A plugin monorepo: core, host, plugins
+
+The code lives in packages under `packages/*`, with a strict one-directional dependency rule:
+**core → nothing internal; app → core; each plugin → core; the host never imports a plugin.**
 
 ```
-                     ┌─────────────────────┐
-                     │   definitions/       │   the single source of truth:
-                     │   math_ops.py         │   Python functions & classes,
-                     │   string_ops.py       │   with type hints
-                     │   phiflow_defs.py     │
-                     │   primitives.py       │
-                     └──────────┬───────────┘
-                                │
-                build_function_map() / build_class_map() / PRIMITIVES_MAP
-                                │
-              ┌─────────────────┴──────────────────┐
-              │                                     │
-              ▼                                     ▼
-    ┌───────────────────┐                ┌───────────────────────┐
-    │   registry.py       │                │   executor.py           │
-    │   describes nodes    │                │   runs nodes            │
-    │   (JSON schema)       │                │   (executes a graph)    │
-    └─────────┬──────────┘                └───────────┬───────────┘
-              │                                        │
-              ▼                                        ▼
-      node_types.json                          graph results
-      (→ platform sidebar)                    (printed / returned)
+                   ┌──────────────────────────────┐
+                   │  coral-core                  │   the contract only: a Plugin
+                   │  Plugin (ABC):               │   ABC with two @abstractmethods.
+                   │    get_functions()           │   Depends on nothing internal.
+                   │    get_classes()             │
+                   └───────────────▲──────────────┘
+                                   │ subclass
+        ┌────────────────────────────────────────────────────┐
+        │  coral-plugin-math    -> MathPlugin                │   each declares itself under the
+        │  coral-plugin-string  -> StringPlugin              │   entry-point group "coral.plugins",
+        │  coral-plugin-phiflow -> PhiFlowPlugin             │   pointing at its Plugin class
+        └──────────────────────────▲─────────────────────────┘
+                                   │ discover() / load(name) — lazy: list without importing;
+                                   │                           import only the requested plugin
+        ┌──────────────────────────▲─────────────────────────┐
+        │  coral-app  (the host)                             │
+        │    discover / load / load_all                      │
+        │    build_function_map() / build_class_map()        │
+        │    PRIMITIVES_MAP                                  │
+        └───────────────┬─────────────────────┬──────────────┘
+                        │                     │
+              ┌───────────────────┐ ┌───────────────────┐
+              │  registry.py      │ │  executor.py      │
+              │  describes nodes  │ │  runs nodes       │
+              └─────────┬─────────┘ └─────────┬─────────┘
+                        ▼                     ▼
+                 node_types.json        graph results
 ```
 
-`registry.py` and `executor.py` **do not import each other.** Both import only from `definitions`
-(`from definitions import PRIMITIVES_MAP, build_function_map, build_class_map` — identical line in
-both files). This is deliberate: the registry's job is to *describe* what's callable; the
-executor's job is to *run* it. See [Extending internals](#extending-internals-or-contracts-persona-b)
-for why this decoupling matters.
+**Discovery is lazy and via standard metadata.** Plugins declare themselves under the
+`importlib.metadata` entry-point group `coral.plugins`, pointing at their `Plugin` **class**. The host's
+`discover()` lists installed plugin names *without importing any*; `load(name)` imports **only** that one
+plugin, checks it subclasses `Plugin` (`TypeError` otherwise), and instantiates it. An unknown name →
+`LookupError`. This is what lets a plugin that was unknown when the host was built — including a third-party
+one — be found and loaded purely from its installed metadata.
+
+**The contract is an enforced ABC, not a convention.** `coral-core`'s `Plugin` uses `@abstractmethod`, so a
+plugin that forgets `get_functions()` or `get_classes()` cannot even be instantiated. There is no `name`
+method — the entry-point name (`math` / `string` / `phiflow`) *is* the plugin's identity, and it's the string
+the platform's `-p` contract passes.
+
+Inside the host, `registry.py` and `executor.py` **do not import each other.** Both import only from
+`coral_app` (`from coral_app import PRIMITIVES_MAP, build_function_map, build_class_map` — identical line in
+both files). This is deliberate: the registry's job is to *describe* what's callable; the executor's job is to
+*run* it. See [Extending internals](#extending-internals-or-contracts-persona-b) for why this decoupling
+matters.
 
 ### The two contracts
 
 Everything the platform needs from coral-python reduces to two contracts:
 
-**1. The CLI contract.** `main.py` exposes the same surface as the C++ `coral` binary:
+**1. The CLI contract.** `coral` (the `coral-app` console script) exposes the same surface as the C++
+`coral` binary:
 
 ```
-main.py -p <modules> register [--output FILE]     # write the node registry
-main.py -p <modules> run <graph.json> [--touch-dir DIR]   # execute a graph
+coral -p <plugins> register [--output FILE]              # write the node registry
+coral -p <plugins> run <graph.json> [--touch-dir DIR]    # execute a graph
 ```
 
 `-p`/`--plugin` is repurposed: for C++ coral it's a path to a compiled plugin (`.so`); for
-coral-python it's a **comma-separated list of definition modules to load** (e.g. `"math,string"`;
-empty means "load everything" — see `main.py`'s `_resolve_modules`). This is the *only* semantic
-difference the platform has to know about, and it's just a string it already passes through
-opaquely. The `coral-py` launcher script wraps `main.py` so the platform can point its
-`coralBinaryPath` setting straight at it (see `README.md` for the exact invocation).
+coral-python it's a **comma-separated list of plugin names to load** (e.g. `"math,string"`;
+empty means "load every installed plugin" — see `coral_app/cli.py`'s `_resolve_modules`, which resolves
+empty to `discover()`). This is the *only* semantic difference the platform has to know about, and it's just
+a string it already passes through opaquely. The `coral-py` launcher script wraps the console script so the
+platform can point its `coralBinaryPath` setting straight at it (see `README.md` for the exact invocation).
 
 **2. The JSON contract.** Two JSON shapes:
 
 - **Registry** (`node_types.json`, produced by `register`) — a dict keyed by each node's `type`
   string, one entry per primitive/function/constructor/method. This is generated by
-  `registry.py:generate_registry()`.
+  `coral_app/registry.py:generate_registry()`.
 - **Graph** (consumed by `run`) — `{"workflow": {"nodes": {...}, "edges": {...}}, ...}`, where each
   node is *lean*: just `{"type": "...", "value": ...}` (primitives) or `{"type": "..."}`
   (everything else). No `node_type`, no `method_name` — the executor infers what a node **is**
-  purely from its `type` string (see `executor.py:_classify`). This matches exactly what the
+  purely from its `type` string (see `coral_app/executor.py:_classify`). This matches exactly what the
   platform exports.
 
 ### Data flow in practice
 
 ```
 1. Probe:    platform runs `coral-py -p "math,string" register`
-             → registry.py introspects math_ops.py + string_ops.py
+             → host discovers plugins, loads math + string (only those),
+               registry.py introspects their get_functions()/get_classes()
              → writes node_types.json
              → platform reads it, populates the sidebar
 
@@ -232,14 +256,15 @@ Two things worth being precise about:
 
 ## Installation
 
-coral-python is a [uv](https://docs.astral.sh/uv/) project (`pyproject.toml` + `uv.lock`):
+coral-python is a [uv **workspace**](https://docs.astral.sh/uv/concepts/projects/workspaces/) — a monorepo
+of packages under `packages/*`, wired together by a virtual root `pyproject.toml` + `uv.lock`:
 
 ```bash
-uv sync          # creates .venv, installs deps (incl. the dev group) from the lockfile
+uv sync          # creates .venv, installs every workspace package editable (incl. the dev group)
 ```
 
 Then either activate the venv (`source .venv/bin/activate`) or prefix commands with `uv run`. See
-`README.md` for the full setup section, dependency management (`uv add`), and running the test
+`README.md` for the full setup section, dependency management (`uv add --package …`), and running the test
 suite.
 
 ---
@@ -247,11 +272,11 @@ suite.
 ## Use
 
 ```bash
-# Generate the registry for one or more modules (writes node_types.json in the cwd)
-uv run python main.py -p "math" register
+# Generate the registry for one or more plugins (writes node_types.json in the cwd)
+uv run coral -p "math" register
 
-# Run a graph with those modules loaded
-uv run python main.py -p "math" run tests/fixtures/valid_workflows/network-from-fe-math.json
+# Run a graph with those plugins loaded
+uv run coral -p "math" run tests/fixtures/valid_workflows/network-from-fe-math.json
 ```
 
 Through the launcher (what the platform actually invokes):
@@ -261,9 +286,9 @@ Through the launcher (what the platform actually invokes):
 ./coral-py -p "math,string,phiflow" run graph.json
 ```
 
-`coral-py` runs `main.py` inside this project's `.venv` via `uv run --project`, **without changing
-the working directory** — so `register`'s output and the platform's configured working directory
-stay consistent with what the platform expects (see the comments in `coral-py`).
+`coral-py` runs the `coral` console script inside this workspace's `.venv` via `uv run --project`,
+**without changing the working directory** — so `register`'s output and the platform's configured working
+directory stay consistent with what the platform expects (see the comments in `coral-py`).
 
 On the platform side: Settings → Execution Mode → **Local / Coral**, with the *Coral binary path*
 pointed at `coral-py` and the *Coral plugin path* field holding the module list (that field accepts
@@ -279,74 +304,92 @@ solver, a mesh library, or a numerics package.
 
 ### The steps
 
-1. **Create `definitions/<name>_ops.py`.** It must expose exactly two zero-argument functions:
+You create a **new plugin distribution** under `packages/`. Nothing in `coral-core` or `coral-app`
+changes — the host discovers your plugin at runtime once it's installed.
 
-   ```python
-   def get_functions() -> Dict[str, Any]:
-       return {"my_function": my_function}
+1. **Create the package skeleton** `packages/coral-plugin-mycfd/`:
 
-   def get_classes() -> Dict[str, Any]:
-       return {"MyClass": MyClass}
+   ```
+   packages/coral-plugin-mycfd/
+   ├── pyproject.toml
+   └── src/coral_plugin_mycfd/__init__.py
    ```
 
-   This is a duck-typed contract — nothing enforces it via an abstract base class, but every module
-   in `definitions/` follows it (see `math_ops.py`, `string_ops.py`, `phiflow_defs.py`).
-
-2. **Write typed wrapper functions/classes**, not raw calls into the library. See
+2. **Write typed wrapper functions/classes** (not raw calls into the library) and a `Plugin`
+   subclass. See
    [why wrapping is necessary](#why-does-mathsqrt-need-a-wrapper-cant-we-load-python-functions-dynamically)
    below — the short version is: the registry can only produce a useful node if the function has
-   type-annotated parameters and a type-annotated return value.
+   type-annotated parameters and a type-annotated return value. The `Plugin` ABC *enforces* both
+   methods (forget one and the class can't be instantiated):
 
    ```python
-   # definitions/mycfd_ops.py
-   from mycfd import Solver  # the real library
+   # src/coral_plugin_mycfd/__init__.py
+   from typing import Any, Dict
+   from coral_core import Plugin
+   from mycfd import Solver  # the real library — a hard dependency of this plugin (see step 3)
 
    def create_solver(resolution: int) -> Any:
        """Wrap Solver's constructor with an explicit, registry-friendly signature."""
        return Solver(resolution=resolution)
 
-   def get_functions() -> Dict[str, Any]:
-       return {"create_solver": create_solver}
-
-   def get_classes() -> Dict[str, Any]:
-       return {}
+   class MyCFDPlugin(Plugin):
+       def get_functions(self) -> Dict[str, Any]:
+           return {"create_solver": create_solver}
+       def get_classes(self) -> Dict[str, Any]:
+           return {}
    ```
 
-3. **If the library might not be installed everywhere**, guard the import the way
-   `phiflow_defs.py` does — try the import, set an `AVAILABLE` flag, define wrapper
-   functions/classes only under `if AVAILABLE:`, and return `{}` from `get_functions()`/
-   `get_classes()` when unavailable. This keeps coral-python importable and the other modules
-   working even when your library isn't installed.
+3. **Declare the entry point and dependencies** in `packages/coral-plugin-mycfd/pyproject.toml`. The
+   entry-point **name** (`mycfd`) is what `-p` references; the target is your `Plugin` **class**. Because
+   the plugin *declares* the real library as a hard dependency, installing the plugin guarantees it's
+   importable — a broken install fails loud with `ImportError` (there is **no** `try/except AVAILABLE`
+   guard; lazy discovery already means an unselected plugin is never imported):
 
-4. **Register the module** in `definitions/__init__.py` — add the import and one entry to
-   `_MODULES`:
+   ```toml
+   [build-system]
+   requires = ["hatchling"]
+   build-backend = "hatchling.build"
 
-   ```python
-   from . import math_ops, string_ops, phiflow_defs, primitives, mycfd_ops
+   [project]
+   name = "coral-plugin-mycfd"
+   version = "0.0.0"
+   requires-python = ">=3.12"
+   dependencies = ["coral-core", "mycfd"]
 
-   _MODULES = {
-       'math': math_ops,
-       'string': string_ops,
-       'phiflow': phiflow_defs,
-       'mycfd': mycfd_ops,  # add here
-   }
+   [project.entry-points."coral.plugins"]
+   mycfd = "coral_plugin_mycfd:MyCFDPlugin"
+
+   [tool.hatch.build.targets.wheel]
+   packages = ["src/coral_plugin_mycfd"]
    ```
 
-   `AVAILABLE_MODULES` and both `build_function_map`/`build_class_map` pick it up automatically —
-   no other code changes needed.
+4. **Cross-link the package** in the root `pyproject.toml` so `uv sync` installs it from the workspace
+   (`[tool.uv.workspace] members = ["packages/*"]` already covers the directory):
 
-5. **Regenerate and check the registry**, then run a graph:
+   ```toml
+   [tool.uv.sources]
+   coral-plugin-mycfd = { workspace = true }
+   ```
+
+5. **Sync, then regenerate and check the registry**, then run a graph:
 
    ```bash
-   uv run python main.py -p "mycfd" register --output=/tmp/check.json
+   uv sync
+   uv run coral -p "mycfd" register --output=/tmp/check.json
    # inspect /tmp/check.json — every function/class you exposed should have a sensible
    # arguments/inputs/outputs shape, not everything collapsed to "any"
-   uv run python main.py -p "mycfd" run my_test_graph.json
+   uv run coral -p "mycfd" run my_test_graph.json
    ```
+
+   `discover()` now lists `mycfd`; no host code changed.
+
+> **Do not add `from __future__ import annotations`** to any plugin (or host) module. It stringizes
+> annotations, which makes the registry read `"float"` instead of the type `float` and collapse every
+> socket to `"any"`. A guard test (`tests/test_core_contract.py`) enforces this across `packages/*/src`.
 
 ### Why does `math.sqrt` need a wrapper? Can't we load Python functions dynamically?
 
-This comes up immediately once you look at `math_ops.py` — `math.sqrt` isn't registered directly;
+This comes up immediately once you look at `coral-plugin-math` — `math.sqrt` isn't registered directly;
 instead there's a `math_sqrt(x: float) -> float` wrapper that calls it. The reason is structural,
 not stylistic:
 
@@ -386,7 +429,7 @@ whenever you're wrapping a C extension or an unannotated library.
 
 **When you don't need a wrapper:** if the function or class is pure Python *and already carries
 type hints*, register it directly — no wrapper required. That's exactly what `Calculator` in
-`math_ops.py` does: its `__init__` and methods are annotated Python, so `registry.py` introspects
+`coral-plugin-math` does: its `__init__` and methods are annotated Python, so `registry.py` introspects
 them without any adapter.
 
 ---
@@ -397,11 +440,11 @@ You want to change how coral-python works internally, or evolve its contract wit
 
 ### The decoupling is real, and it's your extension point
 
-Because `registry.py` and `executor.py` never import each other and both consume `definitions`
+Because `registry.py` and `executor.py` never import each other and both consume the host surface
 only through `build_function_map`/`build_class_map`/`PRIMITIVES_MAP`, you can rewrite the entire
-`definitions/` layer — a different introspection strategy, code generation, a plugin-discovery
-mechanism, whatever — and both the registry generator and the executor keep working *unchanged*,
-as long as:
+discovery/loading layer in `coral_app/__init__.py` — a different discovery strategy, eager vs. lazy
+loading, passing a host context into `PluginClass(...)`, whatever — and both the registry generator and
+the executor keep working *unchanged*, as long as:
 
 1. `build_function_map(include=...)` / `build_class_map(include=...)` keep returning
    `{name: callable}` / `{name: class}` dicts, and
@@ -409,7 +452,9 @@ as long as:
    for registry entries and `{type, value?}` for lean graph nodes.
 
 That's a genuinely useful seam: it means "improve the registry's type system" and "improve how
-nodes are discovered" are separable projects.
+plugins are discovered/loaded" are separable projects. The plugin *contract* itself (`coral-core`'s
+`Plugin` ABC) and the entry-point group name (`coral.plugins`) are the one part that's public API —
+once real third-party plugins exist, treat both as stable.
 
 **The cost of that decoupling:** it's enforced by *convention*, not by a shared interface or test
 that pins both sides together. `registry.py` and `executor.py` **independently** encode the same
@@ -426,10 +471,10 @@ assumptions — if you touch this boundary, update both and re-run the full suit
   non-primitive tuple element) collapses to `"any"`. A richer scheme (e.g. registering domain class
   names as their own protocol types, the way method `self` arguments already use the class name)
   would give more precise sockets and better validation on the canvas.
-- **Lazy module import.** `definitions/__init__.py` imports every module in `_MODULES` at package
-  import time — including `phiflow_defs`, which attempts the full PhiFlow/JAX import chain
-  regardless of whether `-p` selected it. Importing only the modules named in `include` would avoid
-  paying for unused dependencies.
+- **Lazy plugin import (done).** Entry-point discovery already imports only the plugins named in
+  `-p`: `discover()` enumerates names without importing, and `load(name)` imports just that one. An
+  unselected `phiflow` never triggers the PhiFlow/JAX import chain. (This was a weakness of the old
+  `definitions/` layer, now resolved by the plugin architecture.)
 - **Per-node execution status.** The CLI accepts `--touch-dir` for compatibility with the platform's
   live per-node status feature, but doesn't yet write anything there — `executor.py` would need to
   emit a status file per node as it executes.
@@ -452,32 +497,41 @@ Short version: the registry is annotation-driven, and Python doesn't expose runt
 annotations for C-implemented functions — there's nothing to introspect. Pure Python functions and
 classes *with* type hints (like `Calculator`) need no wrapper at all.
 
-### Does the registry/executor decoupling really let someone rewrite `definitions` under the same contract?
+### Does the registry/executor decoupling really let someone rewrite the discovery layer under the same contract?
 
 Yes — see [Extending internals](#the-decoupling-is-real-and-its-your-extension-point) above. It's a
 genuine architectural property (verified: neither module imports the other; both only touch
-`definitions`'s public surface), with one honest caveat: the split is convention-based, not
-contract-enforced, so changes on one side need a matching check on the other.
+`coral_app`'s public surface), with one honest caveat: the split *between `registry.py` and
+`executor.py`* is convention-based, not contract-enforced, so changes on one side need a matching check
+on the other. (The *plugin* contract, by contrast, is now an enforced ABC — see below.)
 
-### Why are `_MODULES` and the `build_*_map` functions defined in `definitions/__init__.py` instead of somewhere else?
+### Why discover plugins via entry points instead of a `_MODULES` dict in one package?
 
-This is a standard Python idiom: a package's `__init__.py` acting as a small **plugin registry** —
-it aggregates sibling modules (`math_ops`, `string_ops`, `phiflow_defs`, ...) that each satisfy a
-duck-typed contract (`get_functions()`/`get_classes()`), and exposes a couple of factory functions
-(`build_function_map`, `build_class_map`) as the package's public API. This is common and
-appropriate at this scale — you'd reach for something heavier (setuptools entry points, a decorator-
-based registration system) only if modules needed to be discoverable from *outside* this package
-(e.g. as installable third-party plugins), which isn't the case here.
+The earlier design kept a hardcoded `_MODULES` dict in a `definitions/__init__.py`, aggregating sibling
+modules that each satisfied a *duck-typed* `get_functions()`/`get_classes()` contract. That's a fine idiom
+at small scale, but it has two structural limits: every capability had to be a sibling module *inside one
+package* (so nothing could be installed independently or come from a third party), and the contract was
+enforced only by convention.
 
-Two things worth knowing if you work in this file:
-- `FUNCTION_MAP`/`CLASS_MAP` are also built **eagerly at import time**, "for backward compatibility"
-  per the comment — but neither `registry.py` nor `executor.py` actually uses them; both call
-  `build_function_map(include=...)`/`build_class_map(include=...)` with an explicit module list.
-  Those two globals are vestigial.
-- The two `build_*_map` functions duplicate the same include/exclude resolution logic. Also,
-  because both call `.update()` into a shared dict, if two modules define the same key (today,
-  `print_result` exists in both `math_ops.py` and `string_ops.py`) the later module silently wins.
-  Harmless today since the duplicate is identical, but worth knowing before adding a colliding name.
+The plugin architecture removes both limits:
+- **Discovery is via stdlib `importlib.metadata` entry points** (group `coral.plugins`). Any installed
+  distribution that declares an entry point is found — including one that didn't exist when the host was
+  built. The host reads standard metadata; a plugin never writes host-owned files or runs post-install
+  hooks. (Rejected alternatives: path-scanning + `inspect`, namespace-package scanning, and
+  `pluggy`/`stevedore` — which just wrap entry points. Canonical stdlib wins.)
+- **The contract is an ABC** (`coral_core.Plugin`), not a `typing.Protocol` or a bare `register()` hook, so
+  `@abstractmethod` *enforces* that a plugin implements both methods. The entry point resolves to the
+  **class**; the host instantiates it (`PluginClass()`), which is the natural place to later inject a
+  host-provided context object.
+
+Two things worth knowing if you work in `coral_app/__init__.py`:
+- `build_function_map` and `build_class_map` share a small `_selected(include, exclude)` helper that
+  resolves the name list (`include=None` → `sorted(discover())`, then `exclude` applied). Each then loads
+  the selected plugins and merges their maps.
+- Because merging calls `.update()` into a shared dict in selection order, if two plugins expose the same
+  key (today, `print_result` is in both `coral-plugin-math` and `coral-plugin-string`) the later one
+  silently wins. Harmless today since the duplicate is identical, but worth knowing before adding a
+  colliding name. The "all" order is `sorted(discover())`, so it's deterministic.
 
 ---
 
@@ -485,16 +539,20 @@ Two things worth knowing if you work in this file:
 
 **Strengths**
 
-- Clean three-layer separation (`definitions` → `registry`/`executor`) with a real, verifiable
-  decoupling between describing and running a graph.
+- Clean separation with a real, verifiable decoupling: a `coral-core` contract, a `coral-app` host, and
+  independently installable `coral-plugin-*` distributions; inside the host, `registry` and `executor`
+  stay decoupled (describe vs. run).
+- **Enforced plugin contract.** `coral-core.Plugin` is an ABC — a plugin that omits `get_functions()` or
+  `get_classes()` can't even be instantiated. No duck typing.
+- **Lazy, standards-based discovery.** Plugins are found via `importlib.metadata` entry points and
+  imported only when selected, so an unused `phiflow` never pays its import cost — and third-party plugins
+  can be added purely by installing them.
 - Genuinely coral-compatible: same CLI surface, same JSON schema as the C++ backend — the platform
   needs zero backend-specific code to drive it.
 - The lean, type-keyed graph protocol matches the platform's current export format exactly (no
   adapter needed on the platform side).
-- Graceful optional-dependency handling (`phiflow_defs.py`'s `AVAILABLE` guard) — the package stays
-  importable and other modules still work if PhiFlow isn't installed.
-- Small, well-tested surface: 88 passing tests covering registry generation, execution, and module
-  loading.
+- Small, well-tested surface: **100 passing tests** covering the contract, discovery/loading, registry
+  generation (with byte-level golden pins), and execution.
 
 **Weaknesses**
 
@@ -506,11 +564,9 @@ Two things worth knowing if you work in this file:
 - **C-extension methods are silently dropped.** `_add_methods`'s `inspect.isfunction` check filters
   out methods of C-implemented classes (e.g. `datetime`); only their constructors register. Wrapping
   in a pure-Python class is the only workaround.
-- **Import-time cost.** Importing `definitions` always attempts to import every module in
-  `_MODULES`, including heavy optional dependencies, regardless of which `-p` modules were
-  requested.
-- **Convention, not contract**, between `registry.py` and `executor.py` (see above) — a latent risk
-  for future changes.
+- **Convention, not contract, between `registry.py` and `executor.py`** (see above) — they independently
+  encode the same `type`-classification assumptions. The *plugin* contract is now ABC-enforced, but this
+  internal host seam is still convention-based — a latent risk for future changes.
 - **Manual-wrapping boilerplate** is the price of the annotation-driven registry; it doesn't scale
   to "wrap an entire large library" without some repetition.
 

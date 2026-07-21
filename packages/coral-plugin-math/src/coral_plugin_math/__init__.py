@@ -1,8 +1,19 @@
+"""coral-plugin-math — mathematical operations and the Calculator class.
+
+Subclasses the coral-core ``Plugin`` contract and exposes today's math surface
+through ``get_functions()`` / ``get_classes()``. Registered under the
+``coral.plugins`` entry-point group as ``math`` (see pyproject.toml).
+"""
+
 import math
 from typing import Any, Dict, Tuple
 
+from coral_core import Plugin
 
-# Print 
+__all__ = ["MathPlugin", "Calculator"]
+
+
+# Print
 
 def print_result(value: Any) -> None:
     """Print the result with a message"""
@@ -88,22 +99,24 @@ class Calculator:
         return self.value
 
 
-def get_functions() -> Dict[str, Any]:
-    """Return math function definitions"""
-    return {
-        "print_result": print_result,
-        "add": add,
-        "multiply": multiply,
-        "math.sqrt": math_sqrt,
-        "math.sin": math_sin,
-        "math.cos": math_cos,
-        "math.pow": math_pow,
-        "test_tuple_return": test_tuple_return,
-    }
+class MathPlugin(Plugin):
+    """Math operations and the Calculator class."""
 
+    def get_functions(self) -> Dict[str, Any]:
+        """Return math function definitions"""
+        return {
+            "print_result": print_result,
+            "add": add,
+            "multiply": multiply,
+            "math.sqrt": math_sqrt,
+            "math.sin": math_sin,
+            "math.cos": math_cos,
+            "math.pow": math_pow,
+            "test_tuple_return": test_tuple_return,
+        }
 
-def get_classes() -> Dict[str, Any]:
-    """Return math class definitions"""
-    return {
-        "Calculator": Calculator,
-    }
+    def get_classes(self) -> Dict[str, Any]:
+        """Return math class definitions"""
+        return {
+            "Calculator": Calculator,
+        }

@@ -1,18 +1,8 @@
-[project]
-name = "coral-python"
-version = "0.1.0"
-description = "Python cross-validation backend for the DealiiX platform: executes JSON node-graph workflows and emits a node registry."
-readme = "README.md"
-requires-python = ">=3.12"
-dependencies = [
-    "phiflow",
-    "jax",
-    "h5py",
-    # Transitional (issue #16, Step 1): the flat root project depends on coral-core so plain
-    # `uv sync` installs the new workspace member editable alongside the flat code. Removed in
-    # Step 2 when the root becomes a virtual workspace root (which installs all members itself).
-    "coral-core",
-]
+# Virtual uv workspace root (issue #16). There is intentionally no `[project]` table here: the
+# repo is a monorepo of independently installable distributions under packages/*, and this file
+# only wires them together for development. A virtual root means `uv sync` installs every member
+# editable and cross-linked. This file is dev/uv-only — pip never reads it and it is never baked
+# into any wheel.
 
 [dependency-groups]
 dev = [
@@ -20,23 +10,14 @@ dev = [
     "pytest-cov",
 ]
 
-# Flat-script layout (main.py / executor.py / registry.py at the repo root, imported by
-# module name rather than as an installed package). Treat this as a non-packaged uv project:
-# `uv sync` installs the dependencies into .venv but does not try to build coral-python itself.
-#
-# NOTE (issue #16, Step 1): this flat metadata is transitional. The root is now also the uv
-# workspace root (below); the flat code keeps importing here until Step 2 migrates it into the
-# `coral-app` package, at which point this `[project]`/`[tool.uv]` block is removed and the root
-# becomes a pure virtual workspace root.
-[tool.uv]
-package = false
-
-# uv workspace: the packages under packages/* are developed together and installed editable +
-# cross-linked by `uv sync`. `[tool.uv.sources]` tells uv to resolve internal package names from
-# the workspace checkout rather than a package index. Members/sources grow as packages land
-# (Step 2 adds coral-app + the plugins).
 [tool.uv.workspace]
 members = ["packages/*"]
 
+# Resolve these internal package names from the workspace checkout rather than a package index.
+# Dev/uv-only: NOT baked into wheels, so the pip end-user path (--find-links dist) is unaffected.
 [tool.uv.sources]
 coral-core = { workspace = true }
+coral-app = { workspace = true }
+coral-plugin-math = { workspace = true }
+coral-plugin-string = { workspace = true }
+coral-plugin-phiflow = { workspace = true }
