@@ -54,14 +54,7 @@ the C++ `coral` binary so the DealiiX platform can drive this backend via the
 
 > Run the commands below inside an activated venv, or prefix each with `uv run` (e.g. `uv run coral run`).
 
-### 1. Running a stand-alone Phi-flow simulation
-
-```bash
-# Run a simulation and then check the mp4 or gif file produced
-python phi_flow/one_obstacle.py
-```
-
-### 2. Running the Workflow Executer
+### 1. Running the Workflow Executer
 
 Use the `run` subcommand. With no graph argument it defaults to `network-from-fe.json`:
 ```bash
@@ -90,7 +83,7 @@ discovery). Primitives are always included. An unknown `-p` name fails loud with
 - `math` - Mathematical operations (`add`, `multiply`, `math.sqrt`, etc.) and `Calculator` class
 - `string` - String processing utilities (`StringProcessor` class)
 
-### 3. Generating the Workflow Registry File
+### 2. Generating the Workflow Registry File
 
 Use the `register` subcommand. It writes `node_types.json` into the current directory (the filename the
 DealiiX platform probes for):
@@ -126,7 +119,7 @@ it and set `coralPluginPath` to the plugin list:
 Each plugin is a self-contained distribution under `packages/coral-plugin-*/`. See
 [`docs/ONBOARDING.md`](docs/ONBOARDING.md) for how discovery works and how to add a new plugin.
 
-### 4. Getting help
+### 3. Getting help
 ```bash
 coral --help
 ```

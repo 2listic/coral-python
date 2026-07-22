@@ -82,14 +82,6 @@ entry-point group):
 - `string` - StringProcessor class
 - `phiflow` - PhiFlow physics simulation wrappers
 
-### Running Standalone PhiFlow Simulations
-```bash
-# Run a PhiFlow simulation directly (not through workflow system)
-python phi_flow/one_obstacle_absorb.py
-python phi_flow/multiple_obstacles.py
-# Check the generated .mp4 or .gif output file in phi_flow/ directory
-```
-
 ### Running Tests
 ```bash
 # Run all tests (from the workspace root, against the editable-installed packages)
@@ -277,12 +269,10 @@ Each node's kind is inferred from its `type` by `WorkflowExecutor._classify()` (
 
 ### PhiFlow Integration
 
-The `phi_flow/` directory contains physics simulation examples using the PhiFlow library:
-- Fluid dynamics simulations (smoke plumes, obstacles)
-- Uses JIT compilation for performance
-- Supports multiple backends (JAX, PyTorch, TensorFlow)
-- Wrapper classes in `packages/coral-plugin-phiflow/src/coral_plugin_phiflow/__init__.py` provide a simplified
-  API for workflow integration.
+PhiFlow physics simulations (fluid dynamics — smoke plumes, obstacles) are exposed to the workflow
+system by the `phiflow` plugin. Wrapper classes in
+`packages/coral-plugin-phiflow/src/coral_plugin_phiflow/__init__.py` provide a simplified,
+type-hinted API for workflow integration; the plugin owns the `phiflow`/`jax`/`h5py` dependencies.
 
 ## Key Constraints and Design Decisions
 
