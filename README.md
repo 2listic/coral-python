@@ -10,6 +10,29 @@ Coral for python libraries
   export from the PhiFlow scripts and the `phiflow_plot_and_save` workflow node, which call matplotlib's
   `anim.save(..., writer='ffmpeg')`. Not needed for `.gif` export.
 
+### As an end user (build wheels, install with pip)
+
+To just *run* `coral` (not develop it), build the wheels once and install only what you need with
+`pip`. The host works on its own; plugins are optional and additive.
+
+```bash
+# 1. Build a wheel for every package into ./dist (the build step uses uv)
+uv build --all-packages --wheel --out-dir dist
+
+# 2. Install the host into your target environment. `--find-links dist` lets pip resolve the
+#    internal coral-core dependency from the local wheels (it is not published on PyPI).
+pip install --find-links dist coral-app
+
+# 3. Optionally add plugins — each is discovered automatically and adds its own nodes:
+pip install --find-links dist coral-plugin-math
+pip install --find-links dist coral-plugin-string
+pip install --find-links dist coral-plugin-phiflow   # also pulls phiflow/jax/h5py from PyPI (heavy)
+```
+
+`coral-app` alone gives a working `coral` CLI with the built-in primitives; every `coral-plugin-*`
+you add is picked up via entry-point discovery. Verify with `coral --help` or `coral register`
+(writes `node_types.json`).
+
 ## Setup
 
 This is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/): a monorepo of
