@@ -88,9 +88,9 @@ def _resolve_modules(plugin_value):
     """Resolve the ``-p/--plugin`` value into an explicit list of plugin names.
 
     Splits a comma-separated value into plugin names, ignoring blank entries. An empty or
-    whitespace-only value resolves to every installed plugin (``discover()``) — this is passed
-    explicitly (rather than relying on ``None``) because ``save_registry_to_file``/
-    ``WorkflowExecutor`` default a ``None`` module list to ``['phiflow']`` only.
+    whitespace-only value resolves to every installed plugin (``discover()``). This matches the
+    ``None`` default of ``save_registry_to_file`` / ``WorkflowExecutor`` (both also fall back to
+    every discovered plugin); it is resolved here explicitly so the loaded set is logged verbatim.
     """
     modules = [m.strip() for m in plugin_value.split(",") if m.strip()]
     return modules if modules else discover()

@@ -2,7 +2,7 @@ import json
 import inspect
 from typing import Any, Dict, List, get_origin, get_args, Optional
 
-from coral_app import PRIMITIVES_MAP, build_function_map, build_class_map
+from coral_app import PRIMITIVES_MAP, build_function_map, build_class_map, discover
 
 # Reverse mapping for type-to-string conversion during registry generation
 _REVERSE_PRIMITIVES_MAP = {v: k for k, v in PRIMITIVES_MAP.items()}
@@ -219,10 +219,11 @@ def save_registry_to_file(filename: str = "registry-py.json", modules: Optional[
 
     Args:
         filename: Output path for the registry file
-        modules: List of module names to include. If None, defaults to ['phiflow']
+        modules: List of module names to include. If None, includes every discovered plugin.
     """
+    # None means "every discovered plugin" — the host never names a specific plugin.
     if modules is None:
-        modules = ['phiflow']
+        modules = discover()
 
     # Build function and class maps based on specified modules
     function_map = build_function_map(include=modules)

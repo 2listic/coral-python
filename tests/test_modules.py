@@ -148,17 +148,18 @@ class TestBuildClassMap:
 class TestWorkflowExecutorModuleLoading:
     """Test module loading in WorkflowExecutor."""
 
-    @pytest.mark.phiflow
-    def test_executor_default_module_phiflow(self, workflow_files):
-        """Test that executor defaults to phiflow module."""
-        try:
-            executor = WorkflowExecutor(str(workflow_files["obstacle"]))
+    def test_executor_default_modules_all_discovered(self, workflow_files):
+        """
+        GIVEN a WorkflowExecutor constructed without an explicit module list
+        WHEN its function map is built
+        THEN it loads every discovered plugin — the same set as ``build_function_map(None)`` —
+             with no plugin name hardcoded in the host.
+        """
+        from coral_app import build_function_map, discover
 
-            # Should have phiflow in function map
-            # (checking for at least some content, specific functions may vary)
-            assert isinstance(executor.function_map, dict)
-        except ImportError:
-            pytest.skip("PhiFlow not available")
+        executor = WorkflowExecutor(str(workflow_files["math"]))
+
+        assert set(executor.function_map) == set(build_function_map(include=discover()))
 
     @pytest.mark.math
     def test_executor_math_module_loading(self, workflow_files):

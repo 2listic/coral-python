@@ -2,7 +2,7 @@ import json
 import inspect
 from typing import Any, List, Optional
 
-from coral_app import PRIMITIVES_MAP, build_function_map, build_class_map
+from coral_app import PRIMITIVES_MAP, build_function_map, build_class_map, discover
 
 
 class WorkflowExecutor:
@@ -11,7 +11,7 @@ class WorkflowExecutor:
 
         Args:
             workflow_file: Path to the workflow JSON file
-            modules: List of module names to load. If None, defaults to ['phiflow']
+            modules: List of module names to load. If None, loads every discovered plugin.
         """
         with open(workflow_file, "r") as f:
             data = json.load(f)
@@ -29,9 +29,10 @@ class WorkflowExecutor:
 
         self.results = {}
 
-        # Build function and class maps based on specified modules
+        # Build function and class maps based on specified modules.
+        # None means "every discovered plugin" — the host never names a specific plugin.
         if modules is None:
-            modules = ['phiflow']
+            modules = discover()
 
         self.function_map = build_function_map(include=modules)
         self.class_map = build_class_map(include=modules)
