@@ -160,6 +160,7 @@ class TestWorkflowValidation:
 class TestModuleCompatibility:
     """Test that workflows work with their intended modules."""
 
+    @pytest.mark.phiflow
     @pytest.mark.integration
     def test_phiflow_workflows_with_phiflow_module(self, workflow_files):
         """Test that PhiFlow workflows work with phiflow module."""
@@ -176,6 +177,7 @@ class TestModuleCompatibility:
             except ImportError:
                 pytest.skip(f"PhiFlow not available for {workflow_name}")
 
+    @pytest.mark.math
     @pytest.mark.integration
     def test_math_workflows_with_math_module(self, workflow_files):
         """Test that math workflows work with math module."""
@@ -234,6 +236,7 @@ class TestErrorHandling:
         with pytest.raises(FileNotFoundError):
             executor = WorkflowExecutor("nonexistent_workflow.json")
 
+    @pytest.mark.math
     @pytest.mark.integration
     def test_workflow_with_wrong_module(self, workflow_files):
         """Test that using wrong module may cause errors."""
@@ -258,6 +261,7 @@ class TestErrorHandling:
 class TestExecutionPerformance:
     """Test workflow execution performance (non-critical)."""
 
+    @pytest.mark.math
     @pytest.mark.integration
     @pytest.mark.slow
     def test_math_workflow_execution_time(self, workflow_files):

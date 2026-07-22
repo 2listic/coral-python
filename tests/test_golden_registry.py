@@ -38,7 +38,11 @@ GOLDEN_CASES = {
 }
 
 
-@pytest.mark.parametrize("name", ["math", "string", "phiflow"])
+@pytest.mark.parametrize("name", [
+    pytest.param("math", marks=pytest.mark.math),
+    pytest.param("string", marks=pytest.mark.string),
+    pytest.param("phiflow", marks=pytest.mark.phiflow),
+])
 def test_single_module_registry_matches_golden_bytes(name, tmp_path):
     """Single-module registry output is byte-identical to the recorded golden.
 
@@ -58,6 +62,9 @@ def test_single_module_registry_matches_golden_bytes(name, tmp_path):
     )
 
 
+@pytest.mark.math
+@pytest.mark.string
+@pytest.mark.phiflow
 def test_all_modules_registry_matches_golden_content(tmp_path):
     """All-modules registry has the same entries and values as the recorded golden.
 

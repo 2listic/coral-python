@@ -10,9 +10,12 @@ repointed to ``coral_app`` when the flat modules are deleted.
 
 import math
 
+import pytest
+
 from coral_app.executor import WorkflowExecutor
 
 
+@pytest.mark.math
 def test_math_graph_results_and_stdout(workflow_files, capsys):
     """Math fixture graph pins results and stdout.
 
@@ -39,6 +42,7 @@ def test_math_graph_results_and_stdout(workflow_files, capsys):
     assert f"Print: {expected_sin}" in out
 
 
+@pytest.mark.string
 def test_string_graph_results_and_stdout(temp_workflow_file, capsys):
     """StringProcessor graph pins results and stdout.
 

@@ -52,6 +52,7 @@ class TestPythonTypeToString:
 class TestRegistryGeneration:
     """Test registry generation for different modules."""
 
+    @pytest.mark.math
     def test_generate_registry_math_module(self):
         """Test registry generation for math module."""
         function_map = build_function_map(include=['math'])
@@ -68,6 +69,7 @@ class TestRegistryGeneration:
         assert has_type(registry, 'Calculator.add_to_value')
         assert has_type(registry, 'Calculator.multiply_value')
 
+    @pytest.mark.phiflow
     def test_generate_registry_phiflow_module(self):
         """Test registry generation for phiflow module."""
         try:
@@ -82,6 +84,7 @@ class TestRegistryGeneration:
         except ImportError:
             pytest.skip("PhiFlow not available")
 
+    @pytest.mark.math
     def test_generate_registry_primitives_always_included(self):
         """Test that primitives are always included in registry."""
         function_map = build_function_map(include=['math'])
@@ -94,6 +97,8 @@ class TestRegistryGeneration:
         assert has_type(registry, 'str')
         assert has_type(registry, 'bool')
 
+    @pytest.mark.math
+    @pytest.mark.string
     def test_generate_registry_multiple_modules(self):
         """Test registry generation with multiple modules."""
         function_map = build_function_map(include=['math', 'string'])
@@ -139,6 +144,7 @@ class TestRegistryStructure:
         assert int_entry['node_type'] == 'primitive'
         assert int_entry['outputs'] == [-1]
 
+    @pytest.mark.math
     def test_function_entry_structure(self):
         """Test that function entries have correct structure."""
         function_map = build_function_map(include=['math'])
@@ -158,6 +164,7 @@ class TestRegistryStructure:
         assert 0 in add_entry['inputs']
         assert 1 in add_entry['inputs']
 
+    @pytest.mark.math
     def test_constructor_entry_structure(self):
         """Test that constructor entries have correct structure."""
         function_map = build_function_map(include=['math'])
@@ -173,6 +180,7 @@ class TestRegistryStructure:
         assert calc_entry['node_type'] == 'constructor'
         assert calc_entry['outputs'] == [-1]
 
+    @pytest.mark.math
     def test_method_entry_structure(self):
         """Test that method entries have correct structure."""
         function_map = build_function_map(include=['math'])
@@ -190,6 +198,7 @@ class TestRegistryStructure:
         # Method should have inputs (instance + parameters)
         assert len(method_entry['inputs']) >= 1
 
+    @pytest.mark.math
     def test_function_arguments_have_types(self):
         """Test that function arguments include type information."""
         function_map = build_function_map(include=['math'])
@@ -207,6 +216,8 @@ class TestRegistryStructure:
 
 class TestRegistryFileOperations:
     """Test saving registry to file."""
+
+    pytestmark = pytest.mark.math
 
     def test_save_registry_to_file(self, tmp_path):
         """Test saving registry to JSON file."""
@@ -251,6 +262,7 @@ class TestRegistryFileOperations:
 class TestRegistryConsistency:
     """Test consistency between generated registries and loaded files."""
 
+    @pytest.mark.math
     def test_generated_registry_matches_saved_file(self, tmp_path):
         """Test that generating and saving produces the same registry."""
         output_file = tmp_path / "test_registry.json"
@@ -305,6 +317,7 @@ class TestRegistryConsistency:
 class TestModuleExclusionInclusion:
     """Test module inclusion/exclusion in registry generation."""
 
+    @pytest.mark.math
     def test_exclude_module(self):
         """Test excluding specific modules."""
         function_map = build_function_map(include=['math'], exclude=['string'])
@@ -317,6 +330,7 @@ class TestModuleExclusionInclusion:
         # Should not have string
         assert not has_type(registry, 'StringProcessor')
 
+    @pytest.mark.math
     def test_include_specific_module(self):
         """Test including only specific modules."""
         function_map = build_function_map(include=['math'])
@@ -341,6 +355,8 @@ class TestModuleExclusionInclusion:
 
 class TestPlatformRegistryFormat:
     """Test the DealiiX-platform-native registry format: keyed by type, function types, required keys."""
+
+    pytestmark = pytest.mark.math
 
     def _math_registry(self):
         """Build a math-module registry for these tests."""

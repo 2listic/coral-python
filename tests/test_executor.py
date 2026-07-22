@@ -10,12 +10,15 @@ from coral_app.executor import WorkflowExecutor
 class TestWorkflowExecutorInitialization:
     """Test WorkflowExecutor initialization and setup."""
 
+    @pytest.mark.math
     def test_executor_with_file_path(self, workflow_files):
         """Test executor initialization with file path."""
         executor = WorkflowExecutor(str(workflow_files["math"]), modules=['math'])
         assert executor.nodes is not None
         assert executor.edges is not None
 
+    @pytest.mark.math
+    @pytest.mark.string
     def test_executor_loads_multiple_modules(self, workflow_files):
         """Test executor can load multiple modules."""
         executor = WorkflowExecutor(
@@ -41,7 +44,7 @@ class TestPrimitiveNodeExecution:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path))
+        executor = WorkflowExecutor(str(file_path), modules=[])
         results = executor.execute()
 
         assert "n1" in results
@@ -59,7 +62,7 @@ class TestPrimitiveNodeExecution:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path))
+        executor = WorkflowExecutor(str(file_path), modules=[])
         results = executor.execute()
 
         assert "n1" in results
@@ -77,7 +80,7 @@ class TestPrimitiveNodeExecution:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path))
+        executor = WorkflowExecutor(str(file_path), modules=[])
         results = executor.execute()
 
         assert "n1" in results
@@ -95,7 +98,7 @@ class TestPrimitiveNodeExecution:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path))
+        executor = WorkflowExecutor(str(file_path), modules=[])
         results = executor.execute()
 
         assert "n1" in results
@@ -105,6 +108,8 @@ class TestPrimitiveNodeExecution:
 
 class TestFunctionNodeExecution:
     """Test execution of function nodes."""
+
+    pytestmark = pytest.mark.math
 
     def test_simple_add_function(self, temp_workflow_file):
         """Test simple addition function execution."""
@@ -182,6 +187,8 @@ class TestFunctionNodeExecution:
 class TestConstructorNodeExecution:
     """Test execution of constructor nodes."""
 
+    pytestmark = pytest.mark.math
+
     def test_calculator_constructor(self, temp_workflow_file):
         """Test Calculator class instantiation."""
         workflow = {
@@ -207,6 +214,8 @@ class TestConstructorNodeExecution:
 
 class TestMethodNodeExecution:
     """Test execution of method nodes."""
+
+    pytestmark = pytest.mark.math
 
     def test_calculator_method(self, temp_workflow_file):
         """Test Calculator method execution."""
@@ -235,6 +244,8 @@ class TestMethodNodeExecution:
 
 class TestTopologicalSorting:
     """Test topological sorting and execution order."""
+
+    pytestmark = pytest.mark.math
 
     def test_simple_dag(self, temp_workflow_file):
         """Test topological sort on simple DAG."""
@@ -274,6 +285,8 @@ class TestTopologicalSorting:
 
 class TestEdgeOrdering:
     """Test that edge target_input ordering is respected."""
+
+    pytestmark = pytest.mark.math
 
     def test_input_order_matters(self, temp_workflow_file):
         """Test that parameter order follows target_input values."""

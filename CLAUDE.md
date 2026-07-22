@@ -112,7 +112,19 @@ pytest -m integration  # Integration tests with JSON network files
 pytest -m math         # Math plugin tests
 pytest -m phiflow      # PhiFlow tests
 pytest -m string       # String plugin tests
+```
 
+**Plugin-set-agnostic suite**: the suite passes under any install subset/superset, not only the
+fully-synced workspace. Discovery/load *mechanics* tests derive names from `discover()` (never a
+hardcoded catalog); any test needing a specific plugin's nodes is tagged `@pytest.mark.<plugin>`
+(`math`/`string`/`phiflow`, class-level `pytestmark` when the whole class needs it).
+`tests/conftest.py::pytest_collection_modifyitems` **auto-skips** a plugin-tagged test when that
+plugin isn't in `discover()` (keyed on the `packages/coral-plugin-*` the repo ships, so it tracks the
+set automatically) — a missing plugin yields clean skips, not `LookupError`. Verify a subset with
+`uv pip uninstall coral-plugin-<x>` then `uv run --no-sync pytest` (the `--no-sync` stops `uv run`
+from re-installing it); restore with `uv sync`.
+
+```bash
 # Verbose output with print statements
 pytest -v   # Verbose
 pytest -vv  # Extra verbose

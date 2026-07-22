@@ -115,8 +115,11 @@ discover() (no import) ─→ load(requested names) ─→ plugin.get_functions(
 - [x] **D7 — Test layout. DECIDED: Option 1 — single root `tests/` (for now).**
       One `tests/` tree (unit + integration + golden), run by one `pytest` from the root against the
       workspace-installed editable packages. A finer per-package / hybrid layout is deferred as a
-      future concern. The heavy **wheel/pip acceptance** stays a standalone `scripts/acceptance.sh`,
-      **not** collected by pytest (needs its own clean venv + `uv build`).
+      future concern. ~~The heavy **wheel/pip acceptance** stays a standalone `scripts/acceptance.sh`,
+      **not** collected by pytest (needs its own clean venv + `uv build`).~~ **Revised at Step 3
+      (this session):** the acceptance lives **in** the pytest suite as `tests/test_acceptance.py`
+      (marked `slow`) — `uv build` + a cache-backed `uv venv` run it in ~2s, so the "too heavy for
+      pytest" premise no longer holds and one copy avoids drift. See Step 3.4.
 - [x] **D8 — Stragglers (out-of-scope files). DECIDED.**
       Leave `phi_flow/` demos and root `network-from-fe.json` (the `run` default) untouched; keep
       `requirements.in` / `requirements.txt` as legacy reference. **Delete `registry-py.json`** —
@@ -223,22 +226,49 @@ step ends green. No shims — the flat modules are deleted here, not bridged.*
 
 ## Step 3 — Acceptance matrix + packaging verification (the skeleton's §8, coral-flavored)
 
-- [ ] 3.1 Add `tests/test_plugin_discovery.py`:
-      - `discover()` lists installed plugin names **without importing** them (assert the plugin
-        modules are absent from `sys.modules` before `load`).
-      - `load("bogus")` → `LookupError`; an entry point resolving to a non-`Plugin` → `TypeError`.
-      - *(D4)* `register` / host `build_*_map` with an unknown `-p` name → `LookupError` (fail-loud).
-      - **Laziness:** `load("math")` must not import `coral_plugin_phiflow`
-        (`assert "coral_plugin_phiflow" not in sys.modules`).
-- [ ] 3.2 Add a host-only registry test: with **no** plugin selected, `register` emits **only** the
-      primitives (six entries) — proving the host works with zero function/class plugins.
-- [ ] 3.3 Add a "plugin adds nodes" test: selecting `math` makes the math functions/`Calculator`
-      nodes appear in the registry.
-- [ ] 3.4 Wheel/pip acceptance (the faithful end-user path): `uv build --all-packages --wheel`, then
-      in a **clean** venv `pip install --find-links dist coral-app` (list = only primitives),
-      `+ coral-plugin-math`, `+ coral-plugin-phiflow`, uninstall one, and re-run the laziness check.
-      *(Scripted, not necessarily in the pytest run — decide with D7 whether to gate it in CI.)*
-- [ ] 3.5 `uv run pytest` → all green.
+- [x] 3.1 Added `tests/test_plugin_discovery.py`:
+      - `discover()` lists installed plugin names **without importing** them (asserted in a fresh
+        subprocess so `sys.modules` is a clean slate — within one pytest session other tests have
+        already imported the plugin modules).
+      - `load("bogus")` → `LookupError`; an entry point resolving to a non-`Plugin` → `TypeError`
+        (monkeypatched `coral_app.entry_points` to a fake `EntryPoint` → `builtins:int`).
+      - *(D4)* host `build_function_map` / `build_class_map` with an unknown `-p` name → `LookupError`
+        (fail-loud).
+      - **Laziness:** `load("math")` must not import `coral_plugin_phiflow` (also run in a fresh
+        subprocess for a clean `sys.modules`).
+- [x] 3.2 Added a host-only registry test (`TestHostWithoutPlugins`): with **no** plugin selected
+      (`modules=[]`), `register` emits **only** the six primitives — proving the host works with zero
+      function/class plugins.
+- [x] 3.3 Added a "plugin adds nodes" test (`TestPluginAddsNodes`): selecting `math` makes the math
+      functions (`add`, `math.sqrt`) and the `Calculator` constructor appear in the registry.
+- [x] 3.4 *(deviates from D7 — decided this session)* Wheel/pip acceptance implemented as
+      `tests/test_acceptance.py` (marked `slow`), **in the pytest suite** rather than a standalone
+      `scripts/acceptance.sh`. Rationale: D7 kept it out of pytest because it was "too heavy", but
+      using `uv build` + a cache-backed `uv venv`/`uv pip` makes the whole flow run in ~2s, so the
+      original reason for a separate script dissolves; keeping one copy avoids drift. The test builds
+      all wheels, then in a **clean** venv (pinned to the suite's interpreter for `requires-python
+      >=3.12`) installs `coral-app` (⇒ 6 primitives only), `+ coral-plugin-math` (⇒ `add`/`Calculator`),
+      `+ coral-plugin-phiflow` (⇒ both discovered), runs the laziness check, and uninstalls phiflow
+      (⇒ its nodes disappear). Subprocess failures surface via an `AcceptanceCommandError`
+      (subclasses `CalledProcessError`, widening `__str__` to include stderr). A plain-`pip`/CI gate
+      is deferred until there's a distinct need for it.
+- [x] 3.5 `uv run pytest` → all green. → **114 passed**.
+- [x] 3.6 *(added this session — plugin-set robustness)* Made the whole suite pass under any install
+      subset/superset, not just the fully-synced workspace (the user flagged that hardcoded plugin
+      names break when fewer/more plugins are installed):
+      - `test_plugin_discovery.py` rewritten **plugin-set-agnostic** — mechanics derive from
+        `discover()` / entry-point metadata; `TestPluginAddsNodes` parametrizes over `INSTALLED`; no
+        fixed catalog assertion (survives a superset too).
+      - `tests/conftest.py::pytest_collection_modifyitems` **auto-skips** any test tagged
+        `@pytest.mark.<plugin>` whose plugin isn't in `discover()`, keyed on the repo's
+        `packages/coral-plugin-*` (tracks the set automatically). Tagged every plugin-dependent test
+        across `test_executor` / `test_modules` / `test_registry` / `test_characterization` /
+        `test_integration` / `test_golden_registry`; pure-primitive executor tests pinned to
+        `modules=[]` (the `WorkflowExecutor` default `['phiflow']` otherwise made them depend on
+        phiflow). Documented in CLAUDE.md ("Plugin-set-agnostic suite").
+      - **Verified both directions:** full install → `114 passed, 0 skipped`; with
+        `coral-plugin-string` uninstalled (`uv run --no-sync pytest`) → `97 passed, 14 skipped, 0
+        failed` (clean skips, no `LookupError`); workspace restored via `uv sync`.
 
 ## Step 4 — Documentation
 
@@ -263,13 +293,16 @@ example import, CI snippet) and `tests/fixtures/valid_nodes/README.md` (`python 
 
 ## Contract-preservation checklist (verify at Steps 2 and 3)
 
-- [ ] `node_types.json` byte-identical to Step-0 goldens for `math`, `string`, `phiflow`, all.
-- [ ] `-p` semantics unchanged: comma-separated names; empty → all discovered.
-- [ ] Merge order deterministic; the `print_result` duplicate (math + string) still resolves
+- [x] `node_types.json` byte-identical to Step-0 goldens for `math`, `string`, `phiflow`; `all`
+      content-equal (order-insensitive — sorted discovery reorders only cross-module class keys).
+      → `tests/test_golden_registry.py`.
+- [x] `-p` semantics unchanged: comma-separated names; empty → all discovered.
+- [x] Merge order deterministic; the `print_result` duplicate (math + string) still resolves
       later-wins with no error.
-- [ ] `run` results and stdout unchanged for the characterization graphs.
-- [ ] `coral-py` writes `node_types.json` into the caller's cwd; `--touch-dir` still accepted
-      (still a no-op).
+- [x] `run` results and stdout unchanged for the characterization graphs.
+      → `tests/test_characterization.py`.
+- [x] `coral-py` writes `node_types.json` into the caller's cwd; `--touch-dir` still accepted
+      (still a no-op). → verified at Step 2.14 (manual launcher smoke).
 
 ## Rollback
 
