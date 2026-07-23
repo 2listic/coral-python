@@ -125,6 +125,11 @@ discover() (no import) ─→ load(requested names) ─→ plugin.get_functions(
       `requirements.in` / `requirements.txt` as legacy reference. **Delete `registry-py.json`** —
       but only after confirming no test references it; if one does, adjust rather than break the
       suite (the delete must not turn the suite red).
+      > **Superseded (post-merge cleanup, 2026-07-23):** once the `phi_flow/` demos were removed, the
+      > "no phiflow outside its plugin" goal was extended to these stragglers. `requirements.in` /
+      > `requirements.txt` were **deleted** (`uv.lock` + per-package `pyproject.toml` are the sole
+      > source of truth); the root `network-from-fe.json` was **moved to `examples/phiflow/`** and the
+      > CLI's phiflow-dependent `run` default was dropped (`run` now requires an explicit graph path).
 
 ---
 
