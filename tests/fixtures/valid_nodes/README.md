@@ -13,9 +13,9 @@ marked `is_valid: true`.
 
 These files are auto-generated using:
 ```bash
-python main.py -p "math" register --output="tests/fixtures/valid_nodes/registry-math.json"
-python main.py -p "phiflow" register --output="tests/fixtures/valid_nodes/registry-phiflow.json"
-python main.py register --output="tests/fixtures/valid_nodes/registry-py.json"
+coral -p "math" register --output="tests/fixtures/valid_nodes/registry-math.json"
+coral -p "phiflow" register --output="tests/fixtures/valid_nodes/registry-phiflow.json"
+coral register --output="tests/fixtures/valid_nodes/registry-py.json"
 ```
 
 ## Usage in Tests

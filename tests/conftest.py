@@ -189,3 +189,32 @@ def mock_print(monkeypatch):
 
     monkeypatch.setattr("builtins.print", _print)
     return printed_lines
+
+
+def _repo_plugin_names() -> list:
+    """Plugin names this repo ships, from ``packages/coral-plugin-<name>`` (the source of truth)."""
+    packages = Path(__file__).parent.parent / "packages"
+    prefix = "coral-plugin-"
+    return sorted(p.name[len(prefix):] for p in packages.glob(f"{prefix}*"))
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip plugin-tagged tests whose plugin isn't installed in this environment.
+
+    The suite runs against whatever plugins happen to be installed — the canonical fully-synced
+    workspace, but also any subset. A test tagged ``@pytest.mark.<plugin>`` (e.g. ``math``) needs
+    that plugin; when it isn't discoverable, skip it cleanly here instead of letting
+    ``build_*_map`` raise ``LookupError`` mid-test. Keyed on the plugins the repo actually ships
+    (``packages/coral-plugin-*``), so the guard tracks the plugin set automatically — no hardcoded
+    catalog to keep in sync.
+    """
+    from coral_app import discover
+
+    installed = set(discover())
+    for name in _repo_plugin_names():
+        if name in installed:
+            continue
+        skip = pytest.mark.skip(reason=f"plugin {name!r} not installed")
+        for item in items:
+            if name in item.keywords:
+                item.add_marker(skip)

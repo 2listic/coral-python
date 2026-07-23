@@ -3,8 +3,8 @@ Tests for module loading and function/class mapping.
 """
 
 import pytest
-from executor import WorkflowExecutor
-from definitions import build_function_map, build_class_map, PRIMITIVES_MAP
+from coral_app.executor import WorkflowExecutor
+from coral_app import build_function_map, build_class_map, PRIMITIVES_MAP
 
 
 class TestPrimitivesMap:
@@ -39,6 +39,7 @@ class TestPrimitivesMap:
 class TestBuildFunctionMap:
     """Test function map building."""
 
+    @pytest.mark.math
     def test_build_function_map_math(self):
         """Test building function map with math module."""
         func_map = build_function_map(include=['math'])
@@ -48,6 +49,7 @@ class TestBuildFunctionMap:
         assert 'math.pow' in func_map
         assert callable(func_map['add'])
 
+    @pytest.mark.string
     def test_build_function_map_string(self):
         """Test building function map with string module."""
         func_map = build_function_map(include=['string'])
@@ -55,6 +57,7 @@ class TestBuildFunctionMap:
         assert 'print_result' in func_map
         assert callable(func_map['print_result'])
 
+    @pytest.mark.phiflow
     def test_build_function_map_phiflow(self):
         """Test building function map with phiflow module."""
         try:
@@ -65,6 +68,8 @@ class TestBuildFunctionMap:
         except ImportError:
             pytest.skip("PhiFlow not available")
 
+    @pytest.mark.math
+    @pytest.mark.string
     def test_build_function_map_multiple_modules(self):
         """Test building function map with multiple modules."""
         func_map = build_function_map(include=['math', 'string'])
@@ -73,6 +78,7 @@ class TestBuildFunctionMap:
         assert 'add' in func_map
         assert 'print_result' in func_map
 
+    @pytest.mark.string
     def test_build_function_map_exclude(self):
         """Test excluding modules from function map."""
         func_map = build_function_map(include=['string'], exclude=['math'])
@@ -94,6 +100,7 @@ class TestBuildFunctionMap:
 class TestBuildClassMap:
     """Test class map building."""
 
+    @pytest.mark.math
     def test_build_class_map_math(self):
         """Test building class map with math module."""
         class_map = build_class_map(include=['math'])
@@ -101,6 +108,7 @@ class TestBuildClassMap:
         assert 'Calculator' in class_map
         assert isinstance(class_map['Calculator'], type)
 
+    @pytest.mark.string
     def test_build_class_map_string(self):
         """Test building class map with string module."""
         class_map = build_class_map(include=['string'])
@@ -108,6 +116,8 @@ class TestBuildClassMap:
         assert 'StringProcessor' in class_map
         assert isinstance(class_map['StringProcessor'], type)
 
+    @pytest.mark.math
+    @pytest.mark.string
     def test_build_class_map_multiple_modules(self):
         """Test building class map with multiple modules."""
         class_map = build_class_map(include=['math', 'string'])
@@ -116,6 +126,7 @@ class TestBuildClassMap:
         assert 'Calculator' in class_map
         assert 'StringProcessor' in class_map
 
+    @pytest.mark.math
     def test_build_class_map_exclude(self):
         """Test excluding modules from class map."""
         class_map = build_class_map(include=['math'], exclude=['string'])
@@ -137,17 +148,20 @@ class TestBuildClassMap:
 class TestWorkflowExecutorModuleLoading:
     """Test module loading in WorkflowExecutor."""
 
-    def test_executor_default_module_phiflow(self, workflow_files):
-        """Test that executor defaults to phiflow module."""
-        try:
-            executor = WorkflowExecutor(str(workflow_files["obstacle"]))
+    def test_executor_default_modules_all_discovered(self, workflow_files):
+        """
+        GIVEN a WorkflowExecutor constructed without an explicit module list
+        WHEN its function map is built
+        THEN it loads every discovered plugin — the same set as ``build_function_map(None)`` —
+             with no plugin name hardcoded in the host.
+        """
+        from coral_app import build_function_map, discover
 
-            # Should have phiflow in function map
-            # (checking for at least some content, specific functions may vary)
-            assert isinstance(executor.function_map, dict)
-        except ImportError:
-            pytest.skip("PhiFlow not available")
+        executor = WorkflowExecutor(str(workflow_files["math"]))
 
+        assert set(executor.function_map) == set(build_function_map(include=discover()))
+
+    @pytest.mark.math
     def test_executor_math_module_loading(self, workflow_files):
         """Test executor with math module."""
         executor = WorkflowExecutor(str(workflow_files["math"]), modules=['math'])
@@ -159,6 +173,8 @@ class TestWorkflowExecutorModuleLoading:
         # Should have Calculator class
         assert 'Calculator' in executor.class_map
 
+    @pytest.mark.math
+    @pytest.mark.string
     def test_executor_multiple_modules(self, workflow_files):
         """Test executor with multiple modules."""
         executor = WorkflowExecutor(
@@ -193,11 +209,13 @@ class TestWorkflowExecutorModuleLoading:
 class TestModuleAvailability:
     """Test which modules are available."""
 
+    @pytest.mark.math
     def test_math_module_available(self):
         """Test that math module is available."""
         func_map = build_function_map(include=['math'])
         assert len(func_map) > 0
 
+    @pytest.mark.string
     def test_string_module_available(self):
         """Test that string module is available."""
         func_map = build_function_map(include=['string'])
@@ -205,6 +223,7 @@ class TestModuleAvailability:
         # Should have at least some definitions
         assert len(func_map) > 0 or len(class_map) > 0
 
+    @pytest.mark.phiflow
     def test_phiflow_module_availability(self):
         """Test if phiflow module is available."""
         try:
@@ -217,6 +236,8 @@ class TestModuleAvailability:
 
 class TestFunctionExecution:
     """Test that loaded functions execute correctly."""
+
+    pytestmark = pytest.mark.math
 
     def test_math_add_function(self):
         """Test that add function works correctly."""
@@ -246,6 +267,7 @@ class TestFunctionExecution:
 class TestClassInstantiation:
     """Test that loaded classes can be instantiated."""
 
+    @pytest.mark.math
     def test_calculator_instantiation(self):
         """Test that Calculator class can be instantiated."""
         class_map = build_class_map(include=['math'])
@@ -254,6 +276,7 @@ class TestClassInstantiation:
         calc = Calculator(10.0)
         assert calc.value == 10.0
 
+    @pytest.mark.math
     def test_calculator_methods(self):
         """Test that Calculator methods work."""
         class_map = build_class_map(include=['math'])
@@ -265,6 +288,7 @@ class TestClassInstantiation:
         assert result == 15.0
         assert calc.value == 15.0
 
+    @pytest.mark.string
     def test_string_processor_instantiation(self):
         """Test that StringProcessor class can be instantiated."""
         class_map = build_class_map(include=['string'])
@@ -277,6 +301,7 @@ class TestClassInstantiation:
 class TestModuleIsolation:
     """Test that modules are properly isolated."""
 
+    @pytest.mark.math
     def test_math_only_no_string_functions(self):
         """Test that loading only math doesn't include string functions."""
         func_map = build_function_map(include=['math'])
@@ -287,6 +312,7 @@ class TestModuleIsolation:
         # Should not have string-specific functions
         assert 'phiflow_iterate' not in func_map or func_map.get('phiflow_iterate') is None
 
+    @pytest.mark.string
     def test_string_only_no_math_functions(self):
         """Test that loading only string doesn't include math functions."""
         func_map = build_function_map(include=['string'])
@@ -295,6 +321,7 @@ class TestModuleIsolation:
         # Should not have Calculator
         assert 'Calculator' not in class_map
 
+    @pytest.mark.math
     def test_explicit_module_list_respected(self):
         """Test that only specified modules are loaded."""
         func_map = build_function_map(include=['math'])
