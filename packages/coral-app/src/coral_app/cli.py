@@ -20,8 +20,6 @@ from coral_app.executor import WorkflowExecutor
 
 # Fixed filename the DealiiX platform probes for after `register`.
 DEFAULT_REGISTRY_FILENAME = "node_types.json"
-# Workflow used when `run` is given no graph argument (keeps the pre-refactor default reachable).
-DEFAULT_WORKFLOW_FILE = "network-from-fe.json"
 
 
 def main():
@@ -60,9 +58,7 @@ def main():
     run_parser = subparsers.add_parser("run", help="Execute a workflow graph from a JSON file.")
     run_parser.add_argument(
         "graph",
-        nargs="?",
-        default=DEFAULT_WORKFLOW_FILE,
-        help=f"Path to the workflow JSON graph (default: {DEFAULT_WORKFLOW_FILE}).",
+        help="Path to the workflow JSON graph to execute.",
     )
     run_parser.add_argument(
         "--touch-dir",

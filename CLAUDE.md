@@ -26,8 +26,8 @@ capability (`math`, `string`, `phiflow`) is its own `coral-plugin-*` distributio
 
 ### Environment Setup
 
-This is a uv **workspace** (virtual root `pyproject.toml` + `uv.lock`); `requirements.in` / `requirements.txt`
-are legacy reference only.
+This is a uv **workspace** (virtual root `pyproject.toml` + `uv.lock`); the per-package
+`pyproject.toml` files + `uv.lock` are the source of truth for dependencies.
 
 ```bash
 # Create .venv and install every workspace package editable (incl. the dev group) from the lockfile
@@ -55,11 +55,10 @@ uv lock && uv sync
 `-p/--plugin` option (comma-separated plugin names; empty = all installed) plus `register` / `run`
 subcommands. `-p/--plugin` must precede the subcommand.
 ```bash
-# Run a workflow graph (default file network-from-fe.json, all installed plugins)
-coral run
+# Run a workflow graph (graph path required; all installed plugins by default)
 coral run path/to/workflow.json
 coral -p "math" run path/to/workflow.json
-coral -p "math,string,phiflow" run path/to/workflow.json
+coral -p "math,string,phiflow" run examples/phiflow/network-from-fe.json
 
 # Generate the node registry (writes node_types.json into the cwd)
 coral register

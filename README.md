@@ -63,9 +63,8 @@ uv sync
 ```
 
 > Each package declares its own dependencies in its `packages/<name>/pyproject.toml`
-> (e.g. `coral-plugin-phiflow` owns `phiflow`/`jax`/`h5py`). `requirements.in` / `requirements.txt`
-> are retained for reference only; the per-package `pyproject.toml` files + `uv.lock` are the source
-> of truth for dependencies.
+> (e.g. `coral-plugin-phiflow` owns `phiflow`/`jax`/`h5py`); the per-package `pyproject.toml` files +
+> `uv.lock` are the source of truth for dependencies.
 
 ## Usage
 
@@ -79,14 +78,14 @@ the C++ `coral` binary so the DealiiX platform can drive this backend via the
 
 ### 1. Running the Workflow Executer
 
-Use the `run` subcommand. With no graph argument it defaults to `network-from-fe.json`:
-```bash
-coral run
-```
-
-Run a specific workflow file:
+Use the `run` subcommand with the path to a workflow graph:
 ```bash
 coral run path/to/your/workflow.json
+```
+
+An example phiflow workflow ships under `examples/phiflow/`:
+```bash
+coral -p "phiflow" run examples/phiflow/network-from-fe.json
 ```
 
 Load specific plugins with `-p/--plugin` (before the subcommand):
