@@ -40,6 +40,19 @@ source .venv/bin/activate  # Linux/Mac
 `uv sync` installs every workspace package **editable**, plugins included — entry-point discovery finds
 them from the checkout, so development never uses `pip` and never installs a plugin separately.
 
+### Code Quality
+
+A pre-commit hook runs `ruff format` and `ruff check` on staged Python files; both read
+`[tool.ruff]` in the root `pyproject.toml` (pinned rule set `E4/E7/E9/F/I`, 100 columns, Markdown
+excluded). Install it once per clone with `uv run pre-commit install`. Tests are deliberately not in
+the hook (no runners yet).
+
+```bash
+uv run pre-commit run --all-files   # everything the hook would do, over the whole repo
+uv run ruff format packages tests
+uv run ruff check packages tests
+```
+
 ### Package Management
 ```bash
 # Add a runtime dependency to a specific workspace package (updates its pyproject.toml + uv.lock)
