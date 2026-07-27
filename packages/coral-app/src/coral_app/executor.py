@@ -6,12 +6,12 @@ from coral_app import PRIMITIVES_MAP, build_function_map, build_class_map, disco
 
 
 class WorkflowExecutor:
-    def __init__(self, workflow_file: str, modules: Optional[List[str]] = None):
+    def __init__(self, workflow_file: str, plugins: Optional[List[str]] = None):
         """Initialize the workflow executor
 
         Args:
             workflow_file: Path to the workflow JSON file
-            modules: List of module names to load. If None, loads every discovered plugin.
+            plugins: List of plugin names to load. If None, loads every discovered plugin.
         """
         with open(workflow_file, "r") as f:
             data = json.load(f)
@@ -29,16 +29,16 @@ class WorkflowExecutor:
 
         self.results = {}
 
-        # Build function and class maps based on specified modules.
+        # Build function and class maps based on the specified plugins.
         # None means "every discovered plugin" — the host never names a specific plugin.
-        if modules is None:
-            modules = discover()
+        if plugins is None:
+            plugins = discover()
 
-        self.function_map = build_function_map(include=modules)
-        self.class_map = build_class_map(include=modules)
+        self.function_map = build_function_map(include=plugins)
+        self.class_map = build_class_map(include=plugins)
         self.primitives_map = PRIMITIVES_MAP
 
-        print(f"Loaded modules: {', '.join(modules)}")
+        print(f"Loaded plugins: {', '.join(plugins)}")
         print(f"Available functions: {len(self.function_map)}")
         print(f"Available classes: {len(self.class_map)}\n")
 

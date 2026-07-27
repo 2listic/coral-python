@@ -225,9 +225,9 @@ Running Specific Test Categories:
 ```bash
 pytest -m unit        # To be marked
 pytest -m integration # Integration tests with Json network files
-pytest -m math        # Math module tests
+pytest -m math        # Math plugin tests
 pytest -m phiflow     # PhiFlow tests (requires PhiFlow)
-pytest -m string      # String module tests
+pytest -m string      # String plugin tests
 ```
 
 Verbose Output:

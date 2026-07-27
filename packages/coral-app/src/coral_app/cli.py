@@ -38,7 +38,7 @@ def main():
     parser.add_argument(
         "-p", "--plugin",
         default="",
-        metavar="MODULES",
+        metavar="PLUGINS",
         help="Comma-separated plugins to load (e.g. 'math,string'); empty loads all installed. "
              "Must precede the subcommand.",
     )
@@ -67,12 +67,12 @@ def main():
     )
 
     args = parser.parse_args()
-    modules = _resolve_modules(args.plugin)
+    plugins = _resolve_plugins(args.plugin)
 
     if args.command == "register":
-        save_registry_to_file(args.output, modules=modules)
+        save_registry_to_file(args.output, plugins=plugins)
     elif args.command == "run":
-        executor = WorkflowExecutor(args.graph, modules=modules)
+        executor = WorkflowExecutor(args.graph, plugins=plugins)
         results = executor.execute()
         print(f"\nFinal results: {results}")
 
@@ -80,7 +80,7 @@ def main():
 # ── Private helpers ──
 
 
-def _resolve_modules(plugin_value):
+def _resolve_plugins(plugin_value):
     """Resolve the ``-p/--plugin`` value into an explicit list of plugin names.
 
     Splits a comma-separated value into plugin names, ignoring blank entries. An empty or
@@ -88,8 +88,8 @@ def _resolve_modules(plugin_value):
     ``None`` default of ``save_registry_to_file`` / ``WorkflowExecutor`` (both also fall back to
     every discovered plugin); it is resolved here explicitly so the loaded set is logged verbatim.
     """
-    modules = [m.strip() for m in plugin_value.split(",") if m.strip()]
-    return modules if modules else discover()
+    plugins = [p.strip() for p in plugin_value.split(",") if p.strip()]
+    return plugins if plugins else discover()
 
 
 if __name__ == "__main__":

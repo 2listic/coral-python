@@ -196,8 +196,8 @@ it finds them at runtime via entry-point discovery.
    `build_function_map`, `build_class_map` from `coral_app`.
 
    - **`registry.py`**: `generate_registry()` (introspects function/class maps + primitive names),
-     `python_type_to_string()`, `save_registry_to_file(filename, modules=...)`.
-   - **`executor.py`**: `WorkflowExecutor(workflow_file, modules=...)` — see [Data flow](#data-flow).
+     `python_type_to_string()`, `save_registry_to_file(filename, plugins=...)`.
+   - **`executor.py`**: `WorkflowExecutor(workflow_file, plugins=...)` — see [Data flow](#data-flow).
 
 4. **`coral-app/cli.py`** — Coral-compatible CLI entry point (argparse):
    - Global `-p/--plugin` names the plugins to load (comma-separated; empty = all installed).

@@ -20,12 +20,12 @@ def test_math_graph_results_and_stdout(workflow_files, capsys):
     """Math fixture graph pins results and stdout.
 
     GIVEN the math fixture graph float(2) -> math.sqrt -> math.sin -> print_result, with the
-          ``math`` module loaded,
+          ``math`` plugin loaded,
     WHEN the workflow is executed,
     THEN each node's result equals the exact computed value (print_result -> None) and the domain
          stdout lines for sqrt, sin, and the print appear verbatim.
     """
-    executor = WorkflowExecutor(str(workflow_files["math"]), modules=["math"])
+    executor = WorkflowExecutor(str(workflow_files["math"]), plugins=["math"])
     results = executor.execute()
 
     expected_sqrt = math.sqrt(2.0)
@@ -47,7 +47,7 @@ def test_string_graph_results_and_stdout(temp_workflow_file, capsys):
     """StringProcessor graph pins results and stdout.
 
     GIVEN a graph that builds StringProcessor(prefix="Hello, "), concatenates "world", then feeds
-          print_result, with the ``string`` module loaded,
+          print_result, with the ``string`` plugin loaded,
     WHEN the workflow is executed,
     THEN the constructor holds the prefix, concatenation yields "Hello, world", print_result returns
          None, and the concatenate and print stdout lines appear verbatim.
@@ -73,7 +73,7 @@ def test_string_graph_results_and_stdout(temp_workflow_file, capsys):
         }
     }
     path = temp_workflow_file(workflow)
-    results = WorkflowExecutor(str(path), modules=["string"]).execute()
+    results = WorkflowExecutor(str(path), plugins=["string"]).execute()
 
     assert results["prefix"] == "Hello, "
     assert results["text"] == "world"

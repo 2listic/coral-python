@@ -50,11 +50,11 @@ class TestPythonTypeToString:
 
 
 class TestRegistryGeneration:
-    """Test registry generation for different modules."""
+    """Test registry generation for different plugins."""
 
     @pytest.mark.math
-    def test_generate_registry_math_module(self):
-        """Test registry generation for math module."""
+    def test_generate_registry_math_plugin(self):
+        """Test registry generation for the math plugin."""
         function_map = build_function_map(include=['math'])
         class_map = build_class_map(include=['math'])
         registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
@@ -70,8 +70,8 @@ class TestRegistryGeneration:
         assert has_type(registry, 'Calculator.multiply_value')
 
     @pytest.mark.phiflow
-    def test_generate_registry_phiflow_module(self):
-        """Test registry generation for phiflow module."""
+    def test_generate_registry_phiflow_plugin(self):
+        """Test registry generation for the phiflow plugin."""
         try:
             function_map = build_function_map(include=['phiflow'])
             class_map = build_class_map(include=['phiflow'])
@@ -99,8 +99,8 @@ class TestRegistryGeneration:
 
     @pytest.mark.math
     @pytest.mark.string
-    def test_generate_registry_multiple_modules(self):
-        """Test registry generation with multiple modules."""
+    def test_generate_registry_multiple_plugins(self):
+        """Test registry generation with multiple plugins."""
         function_map = build_function_map(include=['math', 'string'])
         class_map = build_class_map(include=['math', 'string'])
         registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
@@ -109,8 +109,8 @@ class TestRegistryGeneration:
         assert has_type(registry, 'add')  # from math
         assert has_type(registry, 'StringProcessor')  # from string
 
-    def test_generate_registry_empty_modules(self):
-        """Test registry generation with no modules (only primitives)."""
+    def test_generate_registry_empty_plugins(self):
+        """Test registry generation with no plugins (only primitives)."""
         function_map = build_function_map(include=[])
         class_map = build_class_map(include=[])
         registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
@@ -119,7 +119,7 @@ class TestRegistryGeneration:
         assert has_type(registry, 'int')
         assert has_type(registry, 'float')
 
-        # Should not have module-specific entries
+        # Should not have plugin-specific entries
         assert not has_type(registry, 'add')
         assert not has_type(registry, 'Calculator')
 
@@ -223,7 +223,7 @@ class TestRegistryFileOperations:
         """Test saving registry to JSON file."""
         output_file = tmp_path / "test_registry.json"
 
-        save_registry_to_file(str(output_file), modules=['math'])
+        save_registry_to_file(str(output_file), plugins=['math'])
 
         # Check file was created
         assert output_file.exists()
@@ -240,7 +240,7 @@ class TestRegistryFileOperations:
         # Change to tmp directory
         monkeypatch.chdir(tmp_path)
 
-        save_registry_to_file(modules=['math'])
+        save_registry_to_file(plugins=['math'])
 
         # Check default file was created
         default_file = tmp_path / "registry-py.json"
@@ -249,7 +249,7 @@ class TestRegistryFileOperations:
     def test_registry_file_is_valid_json(self, tmp_path):
         """Test that saved registry is valid JSON."""
         output_file = tmp_path / "test_registry.json"
-        save_registry_to_file(str(output_file), modules=['math'])
+        save_registry_to_file(str(output_file), plugins=['math'])
 
         # Should be able to load without errors
         with open(output_file, 'r') as f:
@@ -273,7 +273,7 @@ class TestRegistryConsistency:
         generated = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
 
         # Save to file
-        save_registry_to_file(str(output_file), modules=['math'])
+        save_registry_to_file(str(output_file), plugins=['math'])
 
         # Load from file
         with open(output_file, 'r') as f:
@@ -314,12 +314,12 @@ class TestRegistryConsistency:
                     assert 'arguments' in entry_data, f"{entry_name} missing arguments"
 
 
-class TestModuleExclusionInclusion:
-    """Test module inclusion/exclusion in registry generation."""
+class TestPluginExclusionInclusion:
+    """Test plugin inclusion/exclusion in registry generation."""
 
     @pytest.mark.math
-    def test_exclude_module(self):
-        """Test excluding specific modules."""
+    def test_exclude_plugin(self):
+        """Test excluding specific plugins."""
         function_map = build_function_map(include=['math'], exclude=['string'])
         class_map = build_class_map(include=['math'], exclude=['string'])
         registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
@@ -331,8 +331,8 @@ class TestModuleExclusionInclusion:
         assert not has_type(registry, 'StringProcessor')
 
     @pytest.mark.math
-    def test_include_specific_module(self):
-        """Test including only specific modules."""
+    def test_include_specific_plugin(self):
+        """Test including only specific plugins."""
         function_map = build_function_map(include=['math'])
         class_map = build_class_map(include=['math'])
         registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
@@ -347,7 +347,7 @@ class TestModuleExclusionInclusion:
         class_map = build_class_map(include=[])
         registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
 
-        # Primitives should still be there even with no modules
+        # Primitives should still be there even with no plugins
         assert has_type(registry, 'int')
         assert has_type(registry, 'float')
         assert has_type(registry, 'str')
@@ -359,7 +359,7 @@ class TestPlatformRegistryFormat:
     pytestmark = pytest.mark.math
 
     def _math_registry(self):
-        """Build a math-module registry for these tests."""
+        """Build a math-plugin registry for these tests."""
         function_map = build_function_map(include=['math'])
         class_map = build_class_map(include=['math'])
         return generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)

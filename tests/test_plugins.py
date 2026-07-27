@@ -1,5 +1,5 @@
 """
-Tests for module loading and function/class mapping.
+Tests for plugin loading and function/class mapping.
 """
 
 import pytest
@@ -41,7 +41,7 @@ class TestBuildFunctionMap:
 
     @pytest.mark.math
     def test_build_function_map_math(self):
-        """Test building function map with math module."""
+        """Test building function map with the math plugin."""
         func_map = build_function_map(include=['math'])
 
         assert 'add' in func_map
@@ -51,7 +51,7 @@ class TestBuildFunctionMap:
 
     @pytest.mark.string
     def test_build_function_map_string(self):
-        """Test building function map with string module."""
+        """Test building function map with the string plugin."""
         func_map = build_function_map(include=['string'])
 
         assert 'print_result' in func_map
@@ -59,7 +59,7 @@ class TestBuildFunctionMap:
 
     @pytest.mark.phiflow
     def test_build_function_map_phiflow(self):
-        """Test building function map with phiflow module."""
+        """Test building function map with the phiflow plugin."""
         try:
             func_map = build_function_map(include=['phiflow'])
 
@@ -70,8 +70,8 @@ class TestBuildFunctionMap:
 
     @pytest.mark.math
     @pytest.mark.string
-    def test_build_function_map_multiple_modules(self):
-        """Test building function map with multiple modules."""
+    def test_build_function_map_multiple_plugins(self):
+        """Test building function map with multiple plugins."""
         func_map = build_function_map(include=['math', 'string'])
 
         # Should have both math and string functions
@@ -80,7 +80,7 @@ class TestBuildFunctionMap:
 
     @pytest.mark.string
     def test_build_function_map_exclude(self):
-        """Test excluding modules from function map."""
+        """Test excluding plugins from function map."""
         func_map = build_function_map(include=['string'], exclude=['math'])
 
         # Should have math
@@ -90,7 +90,7 @@ class TestBuildFunctionMap:
         assert 'add' not in func_map
 
     def test_build_function_map_empty(self):
-        """Test building function map with no modules."""
+        """Test building function map with no plugins."""
         func_map = build_function_map(include=[])
 
         # Should be empty or minimal
@@ -102,7 +102,7 @@ class TestBuildClassMap:
 
     @pytest.mark.math
     def test_build_class_map_math(self):
-        """Test building class map with math module."""
+        """Test building class map with the math plugin."""
         class_map = build_class_map(include=['math'])
 
         assert 'Calculator' in class_map
@@ -110,7 +110,7 @@ class TestBuildClassMap:
 
     @pytest.mark.string
     def test_build_class_map_string(self):
-        """Test building class map with string module."""
+        """Test building class map with the string plugin."""
         class_map = build_class_map(include=['string'])
 
         assert 'StringProcessor' in class_map
@@ -118,8 +118,8 @@ class TestBuildClassMap:
 
     @pytest.mark.math
     @pytest.mark.string
-    def test_build_class_map_multiple_modules(self):
-        """Test building class map with multiple modules."""
+    def test_build_class_map_multiple_plugins(self):
+        """Test building class map with multiple plugins."""
         class_map = build_class_map(include=['math', 'string'])
 
         # Should have both classes
@@ -128,7 +128,7 @@ class TestBuildClassMap:
 
     @pytest.mark.math
     def test_build_class_map_exclude(self):
-        """Test excluding modules from class map."""
+        """Test excluding plugins from class map."""
         class_map = build_class_map(include=['math'], exclude=['string'])
 
         # Should have Calculator
@@ -138,19 +138,19 @@ class TestBuildClassMap:
         assert 'StringProcessor' not in class_map
 
     def test_build_class_map_empty(self):
-        """Test building class map with no modules."""
+        """Test building class map with no plugins."""
         class_map = build_class_map(include=[])
 
         # Should be empty or minimal
         assert isinstance(class_map, dict)
 
 
-class TestWorkflowExecutorModuleLoading:
-    """Test module loading in WorkflowExecutor."""
+class TestWorkflowExecutorPluginLoading:
+    """Test plugin loading in WorkflowExecutor."""
 
-    def test_executor_default_modules_all_discovered(self, workflow_files):
+    def test_executor_default_plugins_all_discovered(self, workflow_files):
         """
-        GIVEN a WorkflowExecutor constructed without an explicit module list
+        GIVEN a WorkflowExecutor constructed without an explicit plugin list
         WHEN its function map is built
         THEN it loads every discovered plugin — the same set as ``build_function_map(None)`` —
              with no plugin name hardcoded in the host.
@@ -162,9 +162,9 @@ class TestWorkflowExecutorModuleLoading:
         assert set(executor.function_map) == set(build_function_map(include=discover()))
 
     @pytest.mark.math
-    def test_executor_math_module_loading(self, workflow_files):
-        """Test executor with math module."""
-        executor = WorkflowExecutor(str(workflow_files["math"]), modules=['math'])
+    def test_executor_math_plugin_loading(self, workflow_files):
+        """Test executor with the math plugin."""
+        executor = WorkflowExecutor(str(workflow_files["math"]), plugins=['math'])
 
         # Should have math functions
         assert 'add' in executor.function_map
@@ -175,11 +175,11 @@ class TestWorkflowExecutorModuleLoading:
 
     @pytest.mark.math
     @pytest.mark.string
-    def test_executor_multiple_modules(self, workflow_files):
-        """Test executor with multiple modules."""
+    def test_executor_multiple_plugins(self, workflow_files):
+        """Test executor with multiple plugins."""
         executor = WorkflowExecutor(
             str(workflow_files["math"]),
-            modules=['math', 'string']
+            plugins=['math', 'string']
         )
 
         # Should have both
@@ -187,8 +187,8 @@ class TestWorkflowExecutorModuleLoading:
         assert 'Calculator' in executor.class_map
         assert 'StringProcessor' in executor.class_map
 
-    def test_executor_no_modules(self, temp_workflow_file):
-        """Test executor with no modules (only primitives)."""
+    def test_executor_no_plugins(self, temp_workflow_file):
+        """Test executor with no plugins (only primitives)."""
         workflow = {
             "workflow": {
                 "nodes": {
@@ -198,7 +198,7 @@ class TestWorkflowExecutorModuleLoading:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=[])
+        executor = WorkflowExecutor(str(file_path), plugins=[])
 
         # Should still execute primitives
         results = executor.execute()
@@ -206,26 +206,26 @@ class TestWorkflowExecutorModuleLoading:
         assert results["1"] == 42
 
 
-class TestModuleAvailability:
-    """Test which modules are available."""
+class TestPluginAvailability:
+    """Test which plugins are available."""
 
     @pytest.mark.math
-    def test_math_module_available(self):
-        """Test that math module is available."""
+    def test_math_plugin_available(self):
+        """Test that the math plugin is available."""
         func_map = build_function_map(include=['math'])
         assert len(func_map) > 0
 
     @pytest.mark.string
-    def test_string_module_available(self):
-        """Test that string module is available."""
+    def test_string_plugin_available(self):
+        """Test that the string plugin is available."""
         func_map = build_function_map(include=['string'])
         class_map = build_class_map(include=['string'])
         # Should have at least some definitions
         assert len(func_map) > 0 or len(class_map) > 0
 
     @pytest.mark.phiflow
-    def test_phiflow_module_availability(self):
-        """Test if phiflow module is available."""
+    def test_phiflow_plugin_availability(self):
+        """Test if the phiflow plugin is available."""
         try:
             func_map = build_function_map(include=['phiflow'])
             # If we get here, phiflow is available
@@ -298,8 +298,8 @@ class TestClassInstantiation:
         assert processor.concatenate(" there") == "hello there"
 
 
-class TestModuleIsolation:
-    """Test that modules are properly isolated."""
+class TestPluginIsolation:
+    """Test that plugins are properly isolated."""
 
     @pytest.mark.math
     def test_math_only_no_string_functions(self):
@@ -322,8 +322,8 @@ class TestModuleIsolation:
         assert 'Calculator' not in class_map
 
     @pytest.mark.math
-    def test_explicit_module_list_respected(self):
-        """Test that only specified modules are loaded."""
+    def test_explicit_plugin_list_respected(self):
+        """Test that only the specified plugins are loaded."""
         func_map = build_function_map(include=['math'])
 
         # Should have exactly math functions

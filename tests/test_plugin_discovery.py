@@ -128,11 +128,11 @@ class TestLoad:
             import sys
             from importlib.metadata import entry_points
             from coral_app import PLUGIN_GROUP, discover, load
-            modules = {ep.name: ep.module for ep in entry_points(group=PLUGIN_GROUP)}
+            ep_modules = {ep.name: ep.module for ep in entry_points(group=PLUGIN_GROUP)}
             target = discover()[0]
             load(target)
-            assert modules[target] in sys.modules, f"load({target}) did not import its module"
-            for name, mod in modules.items():
+            assert ep_modules[target] in sys.modules, f"load({target}) did not import its module"
+            for name, mod in ep_modules.items():
                 if name != target:
                     assert mod not in sys.modules, f"load({target}) imported {mod}"
             print("ok")
@@ -164,14 +164,14 @@ class TestHostWithoutPlugins:
     """The host is a complete program even with zero function/class plugins."""
 
     def test_register_with_no_plugins_emits_only_primitives(self, tmp_path):
-        """GIVEN no plugin selected (empty module list)
+        """GIVEN no plugin selected (empty plugin list)
         WHEN the registry is generated
         THEN it contains exactly the six primitive node types."""
         from coral_app import PRIMITIVES_MAP
         from coral_app.registry import save_registry_to_file
 
         out = tmp_path / "node_types.host.json"
-        registry = save_registry_to_file(str(out), modules=[])
+        registry = save_registry_to_file(str(out), plugins=[])
 
         assert set(registry) == set(PRIMITIVES_MAP)
         assert len(registry) == 6
@@ -192,7 +192,7 @@ class TestPluginAddsNodes:
 
         plugin = load(name)
         out = tmp_path / f"node_types.{name}.json"
-        registry = save_registry_to_file(str(out), modules=[name])
+        registry = save_registry_to_file(str(out), plugins=[name])
 
         for func_name in plugin.get_functions():
             assert registry[func_name]["node_type"] == "function"

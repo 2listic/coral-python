@@ -117,7 +117,7 @@ coral -p <plugins> run <graph.json> [--touch-dir DIR]    # execute a graph
 
 `-p`/`--plugin` is repurposed: for C++ coral it's a path to a compiled plugin (`.so`); for
 coral-python it's a **comma-separated list of plugin names to load** (e.g. `"math,string"`;
-empty means "load every installed plugin" — see `coral_app/cli.py`'s `_resolve_modules`, which resolves
+empty means "load every installed plugin" — see `coral_app/cli.py`'s `_resolve_plugins`, which resolves
 empty to `discover()`). This is the *only* semantic difference the platform has to know about, and it's just
 a string it already passes through opaquely. The `coral-py` launcher script wraps the console script so the
 platform can point its `coralBinaryPath` setting straight at it (see `README.md` for the exact invocation).
@@ -300,7 +300,7 @@ Through the launcher (what the platform actually invokes):
 directory stay consistent with what the platform expects (see the comments in `coral-py`).
 
 On the platform side: Settings → Execution Mode → **Local / Coral**, with the *Coral binary path*
-pointed at `coral-py` and the *Coral plugin path* field holding the module list (that field accepts
+pointed at `coral-py` and the *Coral plugin path* field holding the plugin list (that field accepts
 free text precisely to support this — see dealiiX-platform PR #209). Then **Save & Sync** probes the
 registry, and **Execute** runs a graph.
 

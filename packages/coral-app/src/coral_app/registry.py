@@ -214,20 +214,20 @@ def python_type_to_string(py_type) -> str:
     return _REVERSE_PRIMITIVES_MAP[Any]
 
 
-def save_registry_to_file(filename: str = "registry-py.json", modules: Optional[List[str]] = None):
+def save_registry_to_file(filename: str = "registry-py.json", plugins: Optional[List[str]] = None):
     """Generate and save the registry to a JSON file
 
     Args:
         filename: Output path for the registry file
-        modules: List of module names to include. If None, includes every discovered plugin.
+        plugins: List of plugin names to include. If None, includes every discovered plugin.
     """
     # None means "every discovered plugin" — the host never names a specific plugin.
-    if modules is None:
-        modules = discover()
+    if plugins is None:
+        plugins = discover()
 
-    # Build function and class maps based on specified modules
-    function_map = build_function_map(include=modules)
-    class_map = build_class_map(include=modules)
+    # Build function and class maps based on the specified plugins
+    function_map = build_function_map(include=plugins)
+    class_map = build_class_map(include=plugins)
 
     # Always include primitives
     registry = generate_registry(function_map, list(PRIMITIVES_MAP.keys()), class_map)
@@ -236,5 +236,5 @@ def save_registry_to_file(filename: str = "registry-py.json", modules: Optional[
         json.dump(registry, f, indent=2)
 
     print(f"Registry saved to {filename}")
-    print(f"Loaded modules: {', '.join(modules)}")
+    print(f"Loaded plugins: {', '.join(plugins)}")
     return registry

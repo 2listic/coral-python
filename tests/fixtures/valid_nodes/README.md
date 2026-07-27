@@ -4,9 +4,9 @@ This directory contains registry JSON files used for testing the node type syste
 
 ## Registry Files
 
-- `registry-math.json` - Registry for the math module (mathematical operations and Calculator class)
-- `registry-phiflow.json` - Registry for the PhiFlow physics simulation module
-- `registry-py.json` - Combined registry for all modules (math, string, phiflow)
+- `registry-math.json` - Registry for the math plugin (mathematical operations and Calculator class)
+- `registry-phiflow.json` - Registry for the PhiFlow physics simulation plugin
+- `registry-py.json` - Combined registry for all plugins (math, string, phiflow)
 
 All files use the DealiiX platform registry format: entries are keyed by node `type` and each is
 marked `is_valid: true`.

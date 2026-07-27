@@ -13,17 +13,17 @@ class TestWorkflowExecutorInitialization:
     @pytest.mark.math
     def test_executor_with_file_path(self, workflow_files):
         """Test executor initialization with file path."""
-        executor = WorkflowExecutor(str(workflow_files["math"]), modules=['math'])
+        executor = WorkflowExecutor(str(workflow_files["math"]), plugins=['math'])
         assert executor.nodes is not None
         assert executor.edges is not None
 
     @pytest.mark.math
     @pytest.mark.string
-    def test_executor_loads_multiple_modules(self, workflow_files):
-        """Test executor can load multiple modules."""
+    def test_executor_loads_multiple_plugins(self, workflow_files):
+        """Test executor can load multiple plugins."""
         executor = WorkflowExecutor(
             str(workflow_files["math"]),
-            modules=['math', 'string']
+            plugins=['math', 'string']
         )
         # Should have both math and string functions
         assert 'add' in executor.function_map
@@ -44,7 +44,7 @@ class TestPrimitiveNodeExecution:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=[])
+        executor = WorkflowExecutor(str(file_path), plugins=[])
         results = executor.execute()
 
         assert "n1" in results
@@ -62,7 +62,7 @@ class TestPrimitiveNodeExecution:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=[])
+        executor = WorkflowExecutor(str(file_path), plugins=[])
         results = executor.execute()
 
         assert "n1" in results
@@ -80,7 +80,7 @@ class TestPrimitiveNodeExecution:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=[])
+        executor = WorkflowExecutor(str(file_path), plugins=[])
         results = executor.execute()
 
         assert "n1" in results
@@ -98,7 +98,7 @@ class TestPrimitiveNodeExecution:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=[])
+        executor = WorkflowExecutor(str(file_path), plugins=[])
         results = executor.execute()
 
         assert "n1" in results
@@ -127,7 +127,7 @@ class TestFunctionNodeExecution:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=['math'])
         results = executor.execute()
 
         assert "n3" in results
@@ -149,7 +149,7 @@ class TestFunctionNodeExecution:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=['math'])
         results = executor.execute()
 
         assert "n3" in results
@@ -175,7 +175,7 @@ class TestFunctionNodeExecution:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=['math'])
         results = executor.execute()
 
         assert "n3" in results
@@ -203,7 +203,7 @@ class TestConstructorNodeExecution:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=['math'])
         results = executor.execute()
 
         assert "n2" in results
@@ -235,7 +235,7 @@ class TestMethodNodeExecution:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=['math'])
         results = executor.execute()
 
         assert "n4" in results
@@ -263,7 +263,7 @@ class TestTopologicalSorting:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=['math'])
         execution_order = executor.get_execution_order()
 
         # n3 should come after n1 and n2
@@ -277,7 +277,7 @@ class TestTopologicalSorting:
     def test_cycle_detection(self, circular_workflow_dict, temp_workflow_file):
         """Test that circular dependencies are detected."""
         file_path = temp_workflow_file(circular_workflow_dict)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=['math'])
 
         with pytest.raises(ValueError, match="Cycle detected"):
             executor.get_execution_order()
@@ -305,7 +305,7 @@ class TestEdgeOrdering:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=['math'])
         results = executor.execute()
 
         assert "n3" in results

@@ -14,7 +14,7 @@ tests/
 ├── test_core_contract.py       # coral-core Plugin ABC + the "no __future__ annotations" guard (D3)
 ├── test_executor.py            # Core WorkflowExecutor tests
 ├── test_registry.py            # Registry generation tests
-├── test_modules.py             # Plugin discovery / function+class map building tests
+├── test_plugins.py             # Plugin discovery / function+class map building tests
 ├── test_integration.py         # End-to-end workflow tests
 ├── test_golden_registry.py     # Registry contract pin: math/string/phiflow byte-identical, all by content
 ├── test_characterization.py    # Pins run results + stdout for a math and a string graph
@@ -45,7 +45,7 @@ pytest -m integration
 # Run only unit tests
 pytest -m unit
 
-# Run only math module tests
+# Run only math plugin tests
 pytest -m math
 
 # Run only phiflow tests (requires PhiFlow installed)
@@ -89,7 +89,7 @@ pytest -n auto
 
 ## Test Categories
 
-### Unit Tests (`test_core_contract.py`, `test_executor.py`, `test_registry.py`, `test_modules.py`)
+### Unit Tests (`test_core_contract.py`, `test_executor.py`, `test_registry.py`, `test_plugins.py`)
 - Test individual components in isolation
 - Fast execution
 - No external dependencies (except PhiFlow for some plugin tests)
@@ -125,7 +125,7 @@ def test_example(workflow_files, load_workflow):
     workflow_data = load_workflow("math")
 
     # Execute workflow
-    executor = WorkflowExecutor(str(math_workflow_path), modules=['math'])
+    executor = WorkflowExecutor(str(math_workflow_path), plugins=['math'])
     results = executor.execute()
 ```
 
@@ -155,7 +155,7 @@ class TestMyFeature:
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=['math'])
         results = executor.execute()
 
         assert "expected_node" in results
@@ -167,8 +167,8 @@ class TestMyFeature:
 @pytest.mark.integration  # Integration test
 @pytest.mark.unit        # Unit test
 @pytest.mark.phiflow     # Requires PhiFlow
-@pytest.mark.math        # Uses math module
-@pytest.mark.string      # Uses string module
+@pytest.mark.math        # Uses the math plugin
+@pytest.mark.string      # Uses the string plugin
 @pytest.mark.slow        # Slow-running test
 ```
 
@@ -182,7 +182,7 @@ The test suite covers:
 4. **Method Node Execution**: Instance method calls
 5. **Topological Sorting**: DAG ordering, cycle detection
 6. **Edge Ordering**: Parameter order via `target_input`
-7. **Module Loading**: Dynamic function/class map building
+7. **Plugin Loading**: Dynamic function/class map building
 8. **Registry Generation**: Schema creation, type conversion
 9. **Integration**: Real workflow execution
 10. **Error Handling**: Missing nodes, invalid functions, cycles
@@ -256,7 +256,7 @@ def test_performance(workflow_files):
     import time
     start = time.time()
 
-    executor = WorkflowExecutor(str(workflow_files["math"]), modules=['math'])
+    executor = WorkflowExecutor(str(workflow_files["math"]), plugins=['math'])
     results = executor.execute()
 
     elapsed = time.time() - start
