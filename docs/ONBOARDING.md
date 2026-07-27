@@ -18,7 +18,7 @@ pipeline stages).*
 
 - [Goals & context](#goals--context)
 - [Architecture](#architecture)
-- [Installation](#installation)
+- [Development setup](#development-setup)
 - [Use](#use)
 - [Adding a new library](#adding-a-new-library-persona-a)
 - [Extending internals or contracts](#extending-internals-or-contracts-persona-b)
@@ -254,18 +254,27 @@ Two things worth being precise about:
 
 ---
 
-## Installation
+## Development setup
 
 coral-python is a [uv **workspace**](https://docs.astral.sh/uv/concepts/projects/workspaces/) — a monorepo
 of packages under `packages/*`, wired together by a virtual root `pyproject.toml` + `uv.lock`:
 
 ```bash
-uv sync          # creates .venv, installs every workspace package editable (incl. the dev group)
+uv sync          # creates .venv, installs the whole workspace (incl. the dev group) from the lockfile
 ```
 
+That installs every workspace package **editable**, plugins included, so entry-point discovery finds them
+straight from the checkout: developing needs `uv` only, never `pip`, and never a separate plugin install.
 Then either activate the venv (`source .venv/bin/activate`) or prefix commands with `uv run`. See
 `README.md` for the full setup section, dependency management (`uv add --package …`), and running the test
 suite.
+
+**The wheel is the boundary between the two audiences.** Everything in this guide is the developer side:
+uv, editable installs, the workspace. End users never touch uv — a developer runs
+`uv build --all-packages --wheel --out-dir dist` and ships `dist/`, and they install it with
+`pip install --find-links dist coral-app` plus whichever `coral-plugin-*` they want. See
+[Installation in `README.md`](../README.md#installation). Building wheels is a distribution step, not part
+of the development loop.
 
 ---
 

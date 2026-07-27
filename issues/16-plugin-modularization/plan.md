@@ -288,9 +288,7 @@ example import, CI snippet) and `tests/fixtures/valid_nodes/README.md` (`python 
 - [x] 4.3 `docs/ONBOARDING.md` fully rewritten: plugin monorepo architecture + new (border-aligned)
       diagram, entry-point discovery, Persona A → "create a new plugin distribution", Persona B +
       FAQ + strengths/weaknesses updated (lazy import resolved; plugin contract now ABC-enforced while
-      the registry↔executor seam stays convention-based). `docs/ONBOARDING.it.md` re-translated to
-      mirror it (verified: 28/28 code fences, all 20 anchors resolve, ASCII diagram byte-identical,
-      `definitions`/`_MODULES` only in the historical FAQ mention).
+      the registry↔executor seam stays convention-based).
 - [x] 4.4 `definitions/README.md` removed with the `definitions/` package in Step 2.9 (no still-useful
       content needed relocating).
 

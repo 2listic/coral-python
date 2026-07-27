@@ -19,7 +19,7 @@ capability (`math`, `string`, `phiflow`) is its own `coral-plugin-*` distributio
 [Package layout](#package-layout) below.
 
 > For the narrative — goals, architecture rationale, the two contracts with the DealiiX platform, and how to
-> extend the project — see [`docs/ONBOARDING.md`](docs/ONBOARDING.md) (Italian: `docs/ONBOARDING.it.md`). This
+> extend the project — see [`docs/ONBOARDING.md`](docs/ONBOARDING.md). This
 > `CLAUDE.md` is the mechanics reference; `README.md` covers setup and commands.
 
 ## Development Commands
@@ -37,6 +37,9 @@ uv sync
 source .venv/bin/activate  # Linux/Mac
 ```
 
+`uv sync` installs every workspace package **editable**, plugins included — entry-point discovery finds
+them from the checkout, so development never uses `pip` and never installs a plugin separately.
+
 ### Package Management
 ```bash
 # Add a runtime dependency to a specific workspace package (updates its pyproject.toml + uv.lock)
@@ -48,6 +51,18 @@ uv add --dev <package-name>
 # Re-resolve the lockfile and sync the environment
 uv lock && uv sync
 ```
+
+### Distribution (wheels)
+
+The wheel is the boundary between the two audiences: this repo's workflow is uv-only, end users are
+pip-only. Build one wheel per package into `dist/` and ship that directory:
+
+```bash
+uv build --all-packages --wheel --out-dir dist
+```
+
+End users then `pip install --find-links dist coral-app` (plus any `coral-plugin-*`) without uv — see
+Installation in `README.md`. Building is a distribution step, not part of the development loop.
 
 ### Running Workflows
 
