@@ -11,3 +11,8 @@ __pycache__/
 # Already-tracked example clips under phi_flow/ stay tracked.
 *.mp4
 *.gif
+*.h5
+*~
+
+# single files
+node_types.json
