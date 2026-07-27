@@ -18,6 +18,7 @@ def print_result(value: Any) -> None:
 
 class StringProcessor:
     """A class for string operations"""
+
     def __init__(self, prefix: str = ""):
         """Initialize with optional prefix"""
         self.prefix = prefix

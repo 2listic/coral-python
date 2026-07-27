@@ -47,15 +47,12 @@ def load(name: str) -> Plugin:
     """
     matches = entry_points(group=PLUGIN_GROUP, name=name)
     if not matches:
-        raise LookupError(
-            f"no plugin registered under {name!r} in group {PLUGIN_GROUP!r}"
-        )
+        raise LookupError(f"no plugin registered under {name!r} in group {PLUGIN_GROUP!r}")
     ep = next(iter(matches))
     plugin_cls = ep.load()
     if not (isinstance(plugin_cls, type) and issubclass(plugin_cls, Plugin)):
         raise TypeError(
-            f"plugin {name!r} resolved to {plugin_cls!r}, "
-            "which is not a coral_core.Plugin subclass"
+            f"plugin {name!r} resolved to {plugin_cls!r}, which is not a coral_core.Plugin subclass"
         )
     return plugin_cls()
 

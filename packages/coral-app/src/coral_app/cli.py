@@ -15,8 +15,8 @@ wrapped by the ``coral-py`` launcher. See the integration plan in issue #12.
 import argparse
 
 from coral_app import discover
-from coral_app.registry import save_registry_to_file
 from coral_app.executor import WorkflowExecutor
+from coral_app.registry import save_registry_to_file
 
 # Fixed filename the DealiiX platform probes for after `register`.
 DEFAULT_REGISTRY_FILENAME = "node_types.json"
@@ -36,11 +36,12 @@ def main():
     # Global option mirroring coral's plugin flag. For the Python backend it names the plugins to
     # load (comma-separated); an empty value means "load every installed plugin".
     parser.add_argument(
-        "-p", "--plugin",
+        "-p",
+        "--plugin",
         default="",
         metavar="PLUGINS",
         help="Comma-separated plugins to load (e.g. 'math,string'); empty loads all installed. "
-             "Must precede the subcommand.",
+        "Must precede the subcommand.",
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)

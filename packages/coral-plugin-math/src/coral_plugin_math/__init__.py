@@ -15,12 +15,14 @@ __all__ = ["MathPlugin", "Calculator"]
 
 # Print
 
+
 def print_result(value: Any) -> None:
     """Print the result with a message"""
     print(f"Print: {value}")
 
 
 # Basic math operations
+
 
 def add(a: float, b: float) -> float:
     """Add two numbers"""
@@ -37,6 +39,7 @@ def multiply(a: float, b: float) -> float:
 
 
 # Wrapper functions for math module with proper type hints
+
 
 def math_sqrt(x: float) -> float:
     """Calculate the square root of x"""
@@ -77,6 +80,7 @@ def test_tuple_return(x: float, y: float) -> Tuple[float, float, float]:
 
 class Calculator:
     """A simple calculator class"""
+
     def __init__(self, initial_value: float = 0.0):
         """Initialize calculator with an initial value"""
         self.value = initial_value

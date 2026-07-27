@@ -23,7 +23,6 @@ import textwrap
 from importlib.metadata import EntryPoint, entry_points
 
 import pytest
-
 from coral_app import (
     PLUGIN_GROUP,
     build_class_map,

@@ -1,8 +1,8 @@
-import json
 import inspect
-from typing import Any, Dict, List, get_origin, get_args, Optional
+import json
+from typing import Any, Dict, List, Optional, get_args, get_origin
 
-from coral_app import PRIMITIVES_MAP, build_function_map, build_class_map, discover
+from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
 
 # Reverse mapping for type-to-string conversion during registry generation
 _REVERSE_PRIMITIVES_MAP = {v: k for k, v in PRIMITIVES_MAP.items()}
@@ -13,17 +13,13 @@ def _create_input_argument(param_name: str, type_annotation) -> Dict:
     return {
         "connection_type": "input",
         "type": python_type_to_string(type_annotation),
-        "name": param_name
+        "name": param_name,
     }
 
 
 def _create_output_argument(type_annotation) -> Dict:
     """Create an output argument dictionary"""
-    return {
-        "connection_type": "output",
-        "type": python_type_to_string(type_annotation),
-        "name": ""
-    }
+    return {"connection_type": "output", "type": python_type_to_string(type_annotation), "name": ""}
 
 
 def _process_return_type(return_annotation, param_idx: int):
@@ -42,9 +38,11 @@ def _process_return_type(return_annotation, param_idx: int):
         return output_arguments, output_indices
 
     # Handle single return value (not None)
-    if (return_annotation is not None
-        and return_annotation != type(None)
-        and return_annotation != inspect.Signature.empty):
+    if (
+        return_annotation is not None
+        and return_annotation is not type(None)
+        and return_annotation is not inspect.Signature.empty
+    ):
         return [_create_output_argument(return_annotation)], [param_idx]
 
     # No return value
@@ -87,7 +85,7 @@ def _add_constructor(registry: Dict, class_name: str, cls: type) -> None:
     inputs = []
     param_idx = 0
     for param_name, param in init_sig.parameters.items():
-        if param_name == 'self':
+        if param_name == "self":
             continue
 
         arguments.append(_create_input_argument(param_name, param.annotation))
@@ -107,7 +105,7 @@ def _add_methods(registry: Dict, class_name: str, cls: type) -> None:
     """Add all public methods of a class to the registry, keyed by 'Class.method'."""
     for method_name in dir(cls):
         # Skip private and dunder methods
-        if method_name.startswith('_'):
+        if method_name.startswith("_"):
             continue
 
         method = getattr(cls, method_name)
@@ -123,7 +121,7 @@ def _add_methods(registry: Dict, class_name: str, cls: type) -> None:
 
         # Process method parameters (skip 'self')
         for param_name, param in sig.parameters.items():
-            if param_name == 'self':
+            if param_name == "self":
                 continue
 
             arguments.append(_create_input_argument(param_name, param.annotation))
@@ -146,7 +144,9 @@ def _add_methods(registry: Dict, class_name: str, cls: type) -> None:
 
 
 def generate_registry(
-    function_map: Dict[str, callable], primitives: List[str] = None, class_map: Dict[str, type] = None
+    function_map: Dict[str, callable],
+    primitives: List[str] = None,
+    class_map: Dict[str, type] = None,
 ) -> Dict:
     """Generate the node registry in the DealiiX platform format.
 
