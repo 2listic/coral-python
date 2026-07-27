@@ -148,7 +148,7 @@ packages/
 │   └── src/coral_core/__init__.py
 ├── coral-app/                     # the host: discovery, registry, executor, CLI. Depends on coral-core only.
 │   └── src/coral_app/
-│       ├── __init__.py            # PLUGIN_GROUP, discover/load/load_all, build_function_map/build_class_map
+│       ├── __init__.py            # PLUGIN_GROUP, discover/load, build_function_map/build_class_map
 │       ├── primitives.py          # PRIMITIVES_MAP lives here (host-only; no plugin references it)
 │       ├── registry.py            # registry generation (unchanged body)
 │       ├── executor.py            # graph execution (unchanged body)
@@ -186,7 +186,6 @@ it finds them at runtime via entry-point discovery.
    - `discover() -> list[str]`: lists installed plugin names, **sorted**, **without importing** any.
    - `load(name) -> Plugin`: imports **only** that plugin, validates it resolves to a `Plugin` subclass
      (`TypeError` otherwise), instantiates it (`PluginClass()`); unknown name → `LookupError`.
-   - `load_all(names)`.
    - `build_function_map(include=None, exclude=None)` / `build_class_map(...)`: same signatures as before, now
      re-backed by `discover`/`load`. `include=None` → `sorted(discover())`; names are merged in selection order
      (later wins on key collision, e.g. the `print_result` shared by math + string). An unknown name → `LookupError`.

@@ -24,7 +24,6 @@ __all__ = [
     "PLUGIN_GROUP",
     "discover",
     "load",
-    "load_all",
     "build_function_map",
     "build_class_map",
     "PRIMITIVES_MAP",
@@ -59,11 +58,6 @@ def load(name: str) -> Plugin:
             "which is not a coral_core.Plugin subclass"
         )
     return plugin_cls()
-
-
-def load_all(names: List[str]) -> List[Plugin]:
-    """Load several plugins by name, preserving the order given."""
-    return [load(name) for name in names]
 
 
 def _selected(include: Optional[List[str]], exclude: Optional[List[str]]) -> List[str]:

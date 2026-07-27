@@ -72,7 +72,7 @@ The code lives in packages under `packages/*`, with a strict one-directional dep
                                    │                           import only the requested plugin
         ┌──────────────────────────▲─────────────────────────┐
         │  coral-app  (the host)                             │
-        │    discover / load / load_all                      │
+        │    discover / load                                 │
         │    build_function_map() / build_class_map()        │
         │    PRIMITIVES_MAP                                  │
         └───────────────┬─────────────────────┬──────────────┘
