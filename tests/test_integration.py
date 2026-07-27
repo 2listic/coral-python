@@ -3,7 +3,7 @@ Integration tests for end-to-end workflow execution using real workflow files.
 """
 
 import pytest
-from executor import WorkflowExecutor
+from coral_app.executor import WorkflowExecutor
 from pathlib import Path
 
 
@@ -15,7 +15,7 @@ class TestPhiFlowWorkflows:
     def test_obstacle_workflow_execution(self, workflow_files):
         """Test obstacle workflow executes without errors."""
         try:
-            executor = WorkflowExecutor(str(workflow_files["obstacle"]), modules=['phiflow'])
+            executor = WorkflowExecutor(str(workflow_files["obstacle"]), plugins=['phiflow'])
             results = executor.execute()
 
             # Verify workflow executed and produced results
@@ -33,7 +33,7 @@ class TestPhiFlowWorkflows:
     def test_smoke_plume_workflow_execution(self, workflow_files):
         """Test smoke plume workflow executes without errors."""
         try:
-            executor = WorkflowExecutor(str(workflow_files["smoke_plume"]), modules=['phiflow'])
+            executor = WorkflowExecutor(str(workflow_files["smoke_plume"]), plugins=['phiflow'])
             results = executor.execute()
 
             # Verify workflow executed and produced results
@@ -50,7 +50,7 @@ class TestPhiFlowWorkflows:
     def test_default_workflow_execution(self, workflow_files):
         """Test smoke plume workflow executes without errors."""
         try:
-            executor = WorkflowExecutor(str(workflow_files["default"]), modules=['phiflow'])
+            executor = WorkflowExecutor(str(workflow_files["default"]), plugins=['phiflow'])
             results = executor.execute()
 
             # Verify workflow executed and produced results
@@ -70,7 +70,7 @@ class TestMathWorkflows:
     @pytest.mark.integration
     def test_math_workflow_execution(self, workflow_files):
         """Test math workflow executes and produces numeric results."""
-        executor = WorkflowExecutor(str(workflow_files["math"]), modules=['math'])
+        executor = WorkflowExecutor(str(workflow_files["math"]), plugins=['math'])
         results = executor.execute()
 
         # Verify workflow executed
@@ -87,7 +87,7 @@ class TestMathWorkflows:
     @pytest.mark.integration
     def test_classes_workflow_execution(self, workflow_files):
         """Test classes workflow (Calculator) executes correctly."""
-        executor = WorkflowExecutor(str(workflow_files["classes"]), modules=['math'])
+        executor = WorkflowExecutor(str(workflow_files["classes"]), plugins=['math'])
         results = executor.execute()
 
         # Verify workflow executed
@@ -108,7 +108,7 @@ class TestMathWorkflows:
     @pytest.mark.integration
     def test_functions_workflow_execution(self, workflow_files):
         """Test functions workflow executes correctly."""
-        executor = WorkflowExecutor(str(workflow_files["functions"]), modules=['math'])
+        executor = WorkflowExecutor(str(workflow_files["functions"]), plugins=['math'])
         results = executor.execute()
 
         # Verify workflow executed
@@ -157,34 +157,36 @@ class TestWorkflowValidation:
             assert isinstance(workflow['edges'], dict), f"Workflow {name} edges not a dict"
 
 
-class TestModuleCompatibility:
-    """Test that workflows work with their intended modules."""
+class TestPluginCompatibility:
+    """Test that workflows work with their intended plugins."""
 
+    @pytest.mark.phiflow
     @pytest.mark.integration
-    def test_phiflow_workflows_with_phiflow_module(self, workflow_files):
-        """Test that PhiFlow workflows work with phiflow module."""
+    def test_phiflow_workflows_with_phiflow_plugin(self, workflow_files):
+        """Test that PhiFlow workflows work with the phiflow plugin."""
         phiflow_workflows = ["obstacle", "smoke_plume"]
 
         for workflow_name in phiflow_workflows:
             try:
                 executor = WorkflowExecutor(
                     str(workflow_files[workflow_name]),
-                    modules=['phiflow']
+                    plugins=['phiflow']
                 )
                 results = executor.execute()
                 assert len(results) > 0
             except ImportError:
                 pytest.skip(f"PhiFlow not available for {workflow_name}")
 
+    @pytest.mark.math
     @pytest.mark.integration
-    def test_math_workflows_with_math_module(self, workflow_files):
-        """Test that math workflows work with math module."""
+    def test_math_workflows_with_math_plugin(self, workflow_files):
+        """Test that math workflows work with the math plugin."""
         math_workflows = ["math", "classes", "functions"]
 
         for workflow_name in math_workflows:
             executor = WorkflowExecutor(
                 str(workflow_files[workflow_name]),
-                modules=['math']
+                plugins=['math']
             )
             results = executor.execute()
             assert len(results) > 0
@@ -198,7 +200,7 @@ class TestWorkflowResults:
     @pytest.mark.integration
     def test_math_workflow_produces_expected_types(self, workflow_files):
         """Test that math workflow produces expected result types."""
-        executor = WorkflowExecutor(str(workflow_files["math"]), modules=['math'])
+        executor = WorkflowExecutor(str(workflow_files["math"]), plugins=['math'])
         results = executor.execute()
 
         # Check that results contain expected types
@@ -213,7 +215,7 @@ class TestWorkflowResults:
     @pytest.mark.integration
     def test_classes_workflow_creates_instances(self, workflow_files):
         """Test that classes workflow creates class instances."""
-        executor = WorkflowExecutor(str(workflow_files["classes"]), modules=['math'])
+        executor = WorkflowExecutor(str(workflow_files["classes"]), plugins=['math'])
         results = executor.execute()
 
         # Check for object instances (not just primitives)
@@ -234,22 +236,23 @@ class TestErrorHandling:
         with pytest.raises(FileNotFoundError):
             executor = WorkflowExecutor("nonexistent_workflow.json")
 
+    @pytest.mark.math
     @pytest.mark.integration
-    def test_workflow_with_wrong_module(self, workflow_files):
-        """Test that using wrong module may cause errors."""
-        # Try to run a PhiFlow workflow with only math module
+    def test_workflow_with_wrong_plugin(self, workflow_files):
+        """Test that using the wrong plugin may cause errors."""
+        # Try to run a PhiFlow workflow with only the math plugin
         # This should either skip missing functions or raise an error
         try:
             executor = WorkflowExecutor(
                 str(workflow_files["obstacle"]),
-                modules=['math']  # Wrong module for PhiFlow workflow
+                plugins=['math']  # Wrong plugin for PhiFlow workflow
             )
             # Execution may fail due to missing functions
             results = executor.execute()
             # If it doesn't fail, at least check it ran
             assert isinstance(results, dict)
         except (KeyError, AttributeError, ValueError):
-            # Expected - missing PhiFlow functions (ValueError: unknown node type for the module)
+            # Expected - missing PhiFlow functions (ValueError: unknown node type for the plugin)
             pass
         except ImportError:
             pytest.skip("PhiFlow workflow file might not exist or have issues")
@@ -258,6 +261,7 @@ class TestErrorHandling:
 class TestExecutionPerformance:
     """Test workflow execution performance (non-critical)."""
 
+    @pytest.mark.math
     @pytest.mark.integration
     @pytest.mark.slow
     def test_math_workflow_execution_time(self, workflow_files):
@@ -265,7 +269,7 @@ class TestExecutionPerformance:
         import time
 
         start = time.time()
-        executor = WorkflowExecutor(str(workflow_files["math"]), modules=['math'])
+        executor = WorkflowExecutor(str(workflow_files["math"]), plugins=['math'])
         results = executor.execute()
         elapsed = time.time() - start
 
@@ -311,12 +315,12 @@ class TestDeterministicExecution:
         """Test that math workflow produces same results on multiple runs."""
         results1 = WorkflowExecutor(
             str(workflow_files["math"]),
-            modules=['math']
+            plugins=['math']
         ).execute()
 
         results2 = WorkflowExecutor(
             str(workflow_files["math"]),
-            modules=['math']
+            plugins=['math']
         ).execute()
 
         # Results should be identical
