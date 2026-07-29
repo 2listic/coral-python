@@ -11,7 +11,6 @@ repointed to ``coral_app`` when the flat modules are deleted.
 import math
 
 import pytest
-
 from coral_app.executor import WorkflowExecutor
 
 
@@ -31,10 +30,10 @@ def test_math_graph_results_and_stdout(workflow_files, capsys):
     expected_sqrt = math.sqrt(2.0)
     expected_sin = math.sin(expected_sqrt)
 
-    assert results["1"] == 2.0            # float primitive "2" -> 2.0
+    assert results["1"] == 2.0  # float primitive "2" -> 2.0
     assert results["0"] == expected_sqrt  # math.sqrt(2.0)
-    assert results["2"] == expected_sin   # math.sin(sqrt(2.0))
-    assert results["3"] is None           # print_result returns None
+    assert results["2"] == expected_sin  # math.sin(sqrt(2.0))
+    assert results["3"] is None  # print_result returns None
 
     out = capsys.readouterr().out
     assert f"math.sqrt(2.0) = {expected_sqrt}" in out

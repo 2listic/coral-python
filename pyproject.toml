@@ -6,8 +6,10 @@
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.6.1",
     "pytest",
     "pytest-cov",
+    "ruff>=0.16.0",
 ]
 
 [tool.uv.workspace]
@@ -21,3 +23,30 @@ coral-app = { workspace = true }
 coral-plugin-math = { workspace = true }
 coral-plugin-string = { workspace = true }
 coral-plugin-phiflow = { workspace = true }
+
+# Formatter + linter config for the whole monorepo (issue #20). No `packages/*/pyproject.toml`
+# declares its own `[tool.ruff]`, so ruff walks up to this file for every source file it visits —
+# one config governs the workspace. Enforced on commit by `.pre-commit-config.yaml`.
+[tool.ruff]
+# The virtual root has no `[project]`, so ruff cannot infer `requires-python` — state it explicitly.
+target-version = "py312"
+# The existing code was written to ~100 columns, so this keeps the reflow churn honest.
+line-length = 100
+# Ruff 0.16 also formats python code blocks inside Markdown. Our docs hand-wrap their examples for
+# readability (ruff happily collapses an illustrative multi-line dict onto one line), and the
+# pre-commit hook only ever feeds ruff Python files -- so keep manual runs consistent with it.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+# Pinned with `select`, not `extend-select`, on purpose: ruff's default rule set widens between
+# releases (0.16 turned on bugbear/pyupgrade/simplify/pylint), and an upgrade must never silently
+# start rejecting commits. Widening the set is a deliberate, reviewable change to this line.
+#   E4/E7/E9 = pycodestyle imports, statements, runtime errors
+#   F        = pyflakes (unused imports/variables, undefined names)
+#   I        = import sorting
+#
+# Never add `FA` (flake8-future-annotations): it would demand `from __future__ import annotations`,
+# which is banned project-wide because it stringizes annotations and would make
+# `registry.py:python_type_to_string` collapse every socket to "any". See CLAUDE.md, Key
+# Constraints, guarded by tests/test_core_contract.py.
+select = ["E4", "E7", "E9", "F", "I"]

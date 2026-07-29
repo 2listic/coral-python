@@ -1,8 +1,8 @@
-import json
 import inspect
+import json
 from typing import Any, List, Optional
 
-from coral_app import PRIMITIVES_MAP, build_function_map, build_class_map, discover
+from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
 
 
 class WorkflowExecutor:
@@ -113,9 +113,9 @@ class WorkflowExecutor:
                     converter = self.primitives_map[prim_type]
                     if converter is type(None):
                         result = None
-                    elif converter is Any: # Don't convert value if type is Any
+                    elif converter is Any:  # Don't convert value if type is Any
                         result = raw_value
-                    else: # Cast value to correct type (may be a string in the JSON protocol)
+                    else:  # Cast value to correct type (may be a string in the JSON protocol)
                         result = converter(raw_value)
                 else:  # Not found type
                     raise ValueError(f"Not found primitive type: {prim_type}")
@@ -140,9 +140,7 @@ class WorkflowExecutor:
                 for edge in incoming_edges:
                     source_node_id = edge["source"]
                     if source_node_id not in self.results:
-                        raise ValueError(
-                            f"Node {source_node_id} hasn't been executed yet!"
-                        )
+                        raise ValueError(f"Node {source_node_id} hasn't been executed yet!")
                     result = self.results[source_node_id]
 
                     # Handle source_output for tuple returns
@@ -187,9 +185,7 @@ class WorkflowExecutor:
                 for edge in incoming_edges:
                     source_node_id = edge["source"]
                     if source_node_id not in self.results:
-                        raise ValueError(
-                            f"Node {source_node_id} hasn't been executed yet!"
-                        )
+                        raise ValueError(f"Node {source_node_id} hasn't been executed yet!")
                     result = self.results[source_node_id]
 
                     # Handle source_output for tuple returns
@@ -202,7 +198,7 @@ class WorkflowExecutor:
 
                 # Get constructor parameter names (skip 'self')
                 init_sig = inspect.signature(cls.__init__)
-                param_names = [name for name in init_sig.parameters.keys() if name != 'self']
+                param_names = [name for name in init_sig.parameters.keys() if name != "self"]
 
                 # Map inputs to parameters
                 if len(inputs) != len(param_names):
@@ -238,9 +234,7 @@ class WorkflowExecutor:
                 for edge in incoming_edges:
                     source_node_id = edge["source"]
                     if source_node_id not in self.results:
-                        raise ValueError(
-                            f"Node {source_node_id} hasn't been executed yet!"
-                        )
+                        raise ValueError(f"Node {source_node_id} hasn't been executed yet!")
                     result = self.results[source_node_id]
 
                     # Handle source_output for tuple returns
@@ -267,7 +261,7 @@ class WorkflowExecutor:
 
                 # Get method parameter names (skip 'self')
                 sig = inspect.signature(method)
-                param_names = [name for name in sig.parameters.keys() if name != 'self']
+                param_names = [name for name in sig.parameters.keys() if name != "self"]
 
                 # Map method inputs to parameters
                 if len(method_inputs) != len(param_names):
@@ -284,9 +278,11 @@ class WorkflowExecutor:
                 self.results[node_id] = result
 
             else:
-                raise ValueError(f"Unknown node type: {node_type}. Supported types: primitive, function, constructor, method")
+                raise ValueError(
+                    f"Unknown node type: {node_type}. Supported types: primitive, function, constructor, method"
+                )
 
             print()
 
-        print(f"All nodes executed successfully!")
+        print("All nodes executed successfully!")
         return self.results

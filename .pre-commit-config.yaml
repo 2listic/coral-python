@@ -1,0 +1,30 @@
+# Pre-commit hooks (issue #20): verify formatting and run static analysis before a commit lands.
+#
+# Local hooks on purpose. Ruff comes from the dev group pinned in `uv.lock`, so the hook and a
+# developer typing `uv run ruff` can never disagree about the version -- there is no second pin to
+# keep in step. `--frozen` skips lockfile re-resolution on every commit; `--force-exclude` makes
+# ruff honour the `extend-exclude` in pyproject.toml even for explicitly-passed paths, which is how
+# pre-commit invokes it.
+#
+# Tests are deliberately NOT wired in here: the project has no runners yet (see the issue). Run
+# them yourself with `uv run pytest`.
+#
+# Install with: uv run pre-commit install
+repos:
+  - repo: local
+    hooks:
+      # Rewrites offending files, which aborts the commit -- `git add` them and commit again.
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      # Reports only (no --fix): lint changes are never applied behind the author's back.
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --frozen ruff check --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true

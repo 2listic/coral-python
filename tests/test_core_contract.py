@@ -10,7 +10,6 @@ import ast
 from pathlib import Path
 
 import pytest
-
 from coral_core import Plugin
 
 

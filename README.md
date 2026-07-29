@@ -35,6 +35,16 @@ developer never runs `pip` and never installs a plugin separately.
 Then either activate the environment (`source .venv/bin/activate`) or prefix commands with `uv run`
 (e.g. `uv run coral --help`). `uv run` auto-syncs the environment against `uv.lock` before running.
 
+Finally, install the git hook — once per clone:
+
+```bash
+uv run pre-commit install
+```
+
+Every commit then runs `ruff format` and `ruff check` on the staged Python files. A formatting
+failure rewrites the files: `git add -u` and commit again. Tests are not in the hook (no runners
+yet) — run `uv run pytest` yourself.
+
 ### Managing Dependencies
 
 ```bash

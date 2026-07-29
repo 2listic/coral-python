@@ -83,8 +83,18 @@ class _CleanEnv:
 
     def install(self, *packages: str) -> None:
         """Install packages from the local wheelhouse (heavy deps come from uv's cache)."""
-        _run([UV, "pip", "install", "--python", str(self.python),
-              "--find-links", str(self.dist), *packages])
+        _run(
+            [
+                UV,
+                "pip",
+                "install",
+                "--python",
+                str(self.python),
+                "--find-links",
+                str(self.dist),
+                *packages,
+            ]
+        )
 
     def uninstall(self, *packages: str) -> None:
         _run([UV, "pip", "uninstall", "--python", str(self.python), *packages])

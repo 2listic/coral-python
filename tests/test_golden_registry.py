@@ -22,7 +22,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from coral_app import discover
 from coral_app.registry import save_registry_to_file
 
@@ -38,11 +37,14 @@ GOLDEN_CASES = {
 }
 
 
-@pytest.mark.parametrize("name", [
-    pytest.param("math", marks=pytest.mark.math),
-    pytest.param("string", marks=pytest.mark.string),
-    pytest.param("phiflow", marks=pytest.mark.phiflow),
-])
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("math", marks=pytest.mark.math),
+        pytest.param("string", marks=pytest.mark.string),
+        pytest.param("phiflow", marks=pytest.mark.phiflow),
+    ],
+)
 def test_single_plugin_registry_matches_golden_bytes(name, tmp_path):
     """Single-plugin registry output is byte-identical to the recorded golden.
 
