@@ -29,19 +29,19 @@ New test docstrings use GIVEN/WHEN/THEN. Tests needing a specific plugin are tag
 Today's ordering coverage is two cases (`tests/test_executor.py:238-271`). Add the missing ones
 against the **current** code so the refactor is measured against real behaviour, not assumptions.
 
-- [ ] Add to `tests/test_executor.py::TestTopologicalSorting`, all asserting only on order:
-  - [ ] parallel edges — one primitive into both ports of `add`; must order, not deadlock
-  - [ ] diamond — one source, two branches, one sink
-  - [ ] isolated node — a node with no edges at all
-  - [ ] empty graph — no nodes, no edges
-- [ ] Run them. They must pass now; if one fails, the refactor's target behaviour has changed and
+- [x] Add to `tests/test_executor.py::TestTopologicalSorting`, all asserting only on order:
+  - [x] parallel edges — one primitive into both ports of `add`; must order, not deadlock
+  - [x] diamond — one source, two branches, one sink
+  - [x] isolated node — a node with no edges at all
+  - [x] empty graph — no nodes, no edges
+- [x] Run them. They must pass now; if one fails, the refactor's target behaviour has changed and
       that must be resolved before continuing.
-- [ ] Fix `circular_workflow_dict` (`tests/conftest.py:101`). Its `add` and `multiply` nodes have
+- [x] Fix `circular_workflow_dict` (`tests/conftest.py:101`). Its `add` and `multiply` nodes have
       arity 2 but only one incoming edge each, so the fixture is invalid in two ways. Once validation
       is ordered as in step 4, check 4 fires before the cycle check and the message becomes an arity
       error — failing `test_cycle_detection`'s `match="Cycle detected"` (`tests/test_executor.py:270`).
-  - [ ] Add a primitive on port 1 of each node so arity is satisfied and the cycle is the only defect.
-  - [ ] Confirm the test still passes against the current code — it does, because neither cyclic node
+  - [x] Add a primitive on port 1 of each node so arity is satisfied and the cycle is the only defect.
+  - [x] Confirm the test still passes against the current code — it does, because neither cyclic node
         ever reaches in-degree 0.
 
 Checked, no action needed: all 6 files in `tests/fixtures/valid_workflows/` and all other workflow
