@@ -50,24 +50,24 @@ literals in `tests/*.py` pass the 7 validations, as does
 
 ## 2. The port table — `packages/coral-app/src/coral_app/nodeports.py`
 
-- [ ] Define the entry type: `kind` (`"primitive"` / `"function"` / `"constructor"` / `"method"`),
+- [x] Define the entry type: `kind` (`"primitive"` / `"function"` / `"constructor"` / `"method"`),
       `inputs` as a list of `(name, annotation)`, `outputs` as a list of annotations.
-- [ ] `build_port_table(function_map, class_map, primitives) -> dict[str, NodePorts]`, one entry per
+- [x] `build_port_table(function_map, class_map, primitives) -> dict[str, NodePorts]`, one entry per
       node type, keyed exactly as the graph's `type` field.
-- [ ] Derivation rules:
-  - [ ] function — `inspect.signature(func)`
-  - [ ] constructor — `inspect.signature(cls)`; already omits `self`; one output, the instance
-  - [ ] method — `inspect.signature(cls.method)`, **keeping `self`** as port 0
-  - [ ] primitive — no inputs, one output
-  - [ ] outputs from the return annotation: `Tuple[...]` gives one per element, `None` gives none,
+- [x] Derivation rules:
+  - [x] function — `inspect.signature(func)`
+  - [x] constructor — `inspect.signature(cls)`; already omits `self`; one output, the instance
+  - [x] method — `inspect.signature(cls.method)`, **keeping `self`** as port 0
+  - [x] primitive — no inputs, one output
+  - [x] outputs from the return annotation: `Tuple[...]` gives one per element, `None` gives none,
         anything else gives one
-- [ ] Enumerate methods with the rules moved from `registry.py:106-113` — `dir(cls)`, skip
+- [x] Enumerate methods with the rules moved from `registry.py:106-113` — `dir(cls)`, skip
       underscore-prefixed, keep only `inspect.isfunction`.
-- [ ] `tests/test_nodeports.py`, using hand-written maps (no plugins, so nothing is skipped):
-  - [ ] one entry per function, class, `Class.method`, and primitive
-  - [ ] `self` is port 0 for methods, absent for constructors
-  - [ ] tuple return yields n outputs; `-> None` yields zero
-  - [ ] method enumeration skips underscore names and non-functions
+- [x] `tests/test_nodeports.py`, using hand-written maps (no plugins, so nothing is skipped):
+  - [x] one entry per function, class, `Class.method`, and primitive
+  - [x] `self` is port 0 for methods, absent for constructors
+  - [x] tuple return yields n outputs; `-> None` yields zero
+  - [x] method enumeration skips underscore names and non-functions
 
 ## 3. Redirect `registry.py` to the port table
 
