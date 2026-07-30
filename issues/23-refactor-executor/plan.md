@@ -91,37 +91,37 @@ Mechanical. The golden files are the proof.
 
 ## 4. The graph — `packages/coral-app/src/coral_app/graph.py`
 
-- [ ] `Graph(nodes, edges, port_table)` plus `Graph.from_file(path, port_table)`. The port table
+- [x] `Graph(nodes, edges, port_table)` plus `Graph.from_file(path, port_table)`. The port table
       arrives as plain data — no `inspect`, no plugin import in this module.
-- [ ] Read the JSON as `executor.py:16-28` does today, including the `str()` coercion of edge
+- [x] Read the JSON as `executor.py:16-28` does today, including the `str()` coercion of edge
       endpoints.
-- [ ] Validate, in this order, each raising `ValueError` naming the offending node or edge:
-  - [ ] every edge `source` and `target` is a declared node — **before the sort**, because
+- [x] Validate, in this order, each raising `ValueError` naming the offending node or edge:
+  - [x] every edge `source` and `target` is a declared node — **before the sort**, because
         `TopologicalSorter` would otherwise invent a node for an unknown id
-  - [ ] every node `type` has a port-table entry
-  - [ ] per target node, the set of `target_input` values equals `{0 … n-1}` for n incoming edges
-  - [ ] the incoming edge count equals the type's input count
-  - [ ] `source_output` is valid: `0` or `-1` for a single-output type, `0 … n-1` for n > 1, and no
+  - [x] every node `type` has a port-table entry
+  - [x] per target node, the set of `target_input` values equals `{0 … n-1}` for n incoming edges
+  - [x] the incoming edge count equals the type's input count
+  - [x] `source_output` is valid: `0` or `-1` for a single-output type, `0 … n-1` for n > 1, and no
         outgoing edge at all from a zero-output type
-  - [ ] edge type compatibility, per the table in `architecture.md` — skip whenever either side is
+  - [x] edge type compatibility, per the table in `architecture.md` — skip whenever either side is
         `Any` or absent
-  - [ ] no cycles
-- [ ] Order with `graphlib.TopologicalSorter`, built as `{node: predecessors}` — the inverse
+  - [x] no cycles
+- [x] Order with `graphlib.TopologicalSorter`, built as `{node: predecessors}` — the inverse
       direction of today's adjacency list at `executor.py:52`.
-  - [ ] catch `CycleError` and re-raise `ValueError` including `args[1]`, the cycle path; keep the
+  - [x] catch `CycleError` and re-raise `ValueError` including `args[1]`, the cycle path; keep the
         words "Cycle detected" so `tests/test_executor.py:270` still matches
-  - [ ] `sorted()` each `get_ready()` batch, so the order follows the graph and not JSON key order
-- [ ] Expose: `.order`, `.node(node_id)`, `.inputs_of(node_id)` returning incoming edges sorted by
+  - [x] `sorted()` each `get_ready()` batch, so the order follows the graph and not JSON key order
+- [x] Expose: `.order`, `.node(node_id)`, `.inputs_of(node_id)` returning incoming edges sorted by
       `target_input`. Build the incoming-edge index once, during validation — replacing the per-node
       re-filter of all edges at `executor.py:132`, `:180`, `:225`.
-- [ ] `tests/test_graph.py`, all from JSON literals with hand-written port tables, no plugins:
-  - [ ] the four ordering cases from step 1, now against `Graph`
-  - [ ] cycle error names the cycle path
-  - [ ] each of the seven validations rejects, one test per case, asserting on the message
-  - [ ] `source_output` `-1` on a single-output type is accepted; `-1` on a multi-output type is
+- [x] `tests/test_graph.py`, all from JSON literals with hand-written port tables, no plugins:
+  - [x] the four ordering cases from step 1, now against `Graph`
+  - [x] cycle error names the cycle path
+  - [x] each of the seven validations rejects, one test per case, asserting on the message
+  - [x] `source_output` `-1` on a single-output type is accepted; `-1` on a multi-output type is
         rejected
-  - [ ] type check skips when either side is `Any`; accepts `int` → `float`; rejects `str` → `float`
-  - [ ] `inputs_of` returns edges sorted by `target_input`
+  - [x] type check skips when either side is `Any`; accepts `int` → `float`; rejects `str` → `float`
+  - [x] `inputs_of` returns edges sorted by `target_input`
 
 ## 5. Slim `executor.py`
 
