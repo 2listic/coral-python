@@ -69,6 +69,30 @@ literals in `tests/*.py` pass the 7 validations, as does
   - [x] tuple return yields n outputs; `-> None` yields zero
   - [x] method enumeration skips underscore names and non-functions
 
+**Deviations.**
+
+- `primitives` is a **mapping** (`PRIMITIVES_MAP`), not a list of names: a primitive's output
+  annotation is its Python type, which is what makes an edge out of a primitive checkable at all.
+  `registry.py` never asks for primitive entries — it emits those from its own loop.
+- `signature(cls)` needs a **fallback**. It raises `ValueError: no signature found for builtin type`
+  on a C extension class, where the old `signature(cls.__init__)` did not. Both agree for all seven
+  installed classes, but a bare `signature(cls)` would have regressed the documented "C extension
+  classes register a constructor, not methods" behaviour, so it falls back to `__init__` minus `self`.
+- A **missing annotation is normalised to `Any`**. Every consumer already treats "annotated `Any`" and
+  "not annotated" alike — the registry writes `"any"` for both, the edge check skips both — and
+  collapsing them here is what spares `graph.py` from importing `inspect` to recognise
+  `Signature.empty`. The *return* annotation is still tested for `empty` before normalisation: there,
+  absent means zero outputs while `-> Any` means one.
+- **Staticmethods register as method nodes**, with an instance at port 0: `getattr(cls, name)` on a
+  staticmethod yields a plain function, so the `inspect.isfunction` filter admits it. Pre-existing in
+  `registry.py`, not introduced here; no installed plugin has one. A test pins it so the quirk stays
+  recorded.
+- **First writer wins on a key collision**, so the insertion order doubles as the precedence order
+  `_classify` used: primitive > function > constructor > method. Keeps a dotted function name like
+  `math.sqrt` a function.
+- `methods_of(port_table, class_name)` added, so `registry.py` can enumerate a class's methods without
+  reintroducing `inspect`.
+
 ## 3. Redirect `registry.py` to the port table
 
 Mechanical. The golden files are the proof.
@@ -88,6 +112,15 @@ Mechanical. The golden files are the proof.
 - [x] Confirm no `inspect` call remains in `registry.py` outside `python_type_to_string`.
 - [x] Run `pytest tests/test_golden_registry.py`. All four golden files must match byte for byte. A
       diff here means the key order or the numbering moved, and must be put back.
+
+**Deviations.**
+
+- `_process_return_type` became **two** helpers, `_number_inputs` and `_number_outputs`, so the input
+  side stops re-deriving its indices by hand in each of the three `_add_*` functions. Both take a
+  `NodePorts` and return `(arguments, indices)`.
+- A method's `self` argument is now rendered from the port table like any other input, rather than
+  hardcoded as `_create_input_argument("self", class_name)`. It lands on `"any"` either way, since a
+  class is not a key of `_REVERSE_PRIMITIVES_MAP` — which is why the goldens still match byte for byte.
 
 ## 4. The graph — `packages/coral-app/src/coral_app/graph.py`
 
@@ -123,6 +156,36 @@ Mechanical. The golden files are the proof.
   - [x] type check skips when either side is `Any`; accepts `int` → `float`; rejects `str` → `float`
   - [x] `inputs_of` returns edges sorted by `target_input`
 
+**Two decisions taken during this step**, both by the issue owner, and both now reflected in
+[`architecture.md`](architecture.md#edge-type-validation):
+
+1. **The type check rejects definite class mismatches.** The verdict table said "a class → the same
+   class, or a base of it: accept" and then "anything else: skip", leaving class → unrelated class and
+   class ↔ primitive undecided. Both reject: `PhiFlowBox → PhiFlowSphere`, `Calculator → float` and
+   `none → float` are errors. No existing graph is affected — across the six fixtures and the phiflow
+   example, all 144 edges are `Any`-involved, exact-match or exact-class match.
+2. **`graph.py` names no coral type.** A hand-written scalar/widening table was rejected as invented
+   knowledge: `PRIMITIVES_MAP` declares which types exist and nothing declares how they relate, so
+   such a table would be a third, drifting source of truth. Everything decidable comes from
+   `issubclass` over the plugins' own annotations (which also gives `bool` → `int` free); the single
+   relation the class hierarchy cannot express — `int` accepted where `float` is expected, though
+   `issubclass(int, float)` is `False` — comes from the standard library's `numbers` tower.
+
+**Other deviations.**
+
+- **Edges became a frozen `Edge` dataclass** rather than dicts, carrying their JSON key as `id` so
+  every message names the culprit (`Edge 'e3' reads output 7 of node 'n'…`). `source_output` is
+  `Optional[int]`, `None` meaning the key was omitted — which preserves the executor's "omitted means
+  do not unwrap" behaviour exactly.
+- **An omitted `source_output` is rejected on a multi-output type**, accepted on a single-output one.
+  Which of three tuple elements was meant is not knowable, and the old code passed the whole tuple
+  downstream.
+- **Two structural checks added**, so a malformed graph raises a named `ValueError` instead of a
+  `KeyError`: a node with no `type`, and an edge missing `source` / `target` / `target_input`.
+- `ports_of(node_id)` added — it is what lets step 5 delete `_classify` entirely.
+- `Graph` accepts edges as the JSON's id → edge mapping *or* a plain sequence, which keeps the tests
+  readable.
+
 ## 5. Slim `executor.py`
 
 - [x] In `__init__`: keep the signature `(workflow_file, plugins=None)` so `cli.py` is untouched.
@@ -146,6 +209,19 @@ Mechanical. The golden files are the proof.
         `pytest.raises`, since validation moved there
 - [x] Run the full suite.
 
+**Deviations.**
+
+- **Three** tests reached for the old surface, not two. `test_executor_with_file_path` asserted on
+  `executor.nodes` / `executor.edges`, which no longer exist and which the step 6 guard forbids; it now
+  asserts on `executor.graph.nodes` / `executor.graph.edges`.
+- The four ordering tests added in step 1 also had to be repointed here, from
+  `executor.get_execution_order()` to `executor.graph.order`. They were written against the *old*
+  surface on purpose, so that step 1 measured the refactor against real behaviour — which is why they
+  belong to step 1's commit and their repointing to this one.
+- `execute()` delegates to three helpers — `_convert`, `_input_values`, `_resolve` — which keeps it a
+  readable loop. `_resolve` is where the irreducible three-way distinction lives, and the only place a
+  node's kind still matters at run time.
+
 ## 6. Lock the separation, then finish
 
 - [x] Add to `tests/test_core_contract.py`, in the style of the existing
@@ -163,3 +239,21 @@ Mechanical. The golden files are the proof.
       `uv run --no-sync pytest` — phiflow tests skip, nothing errors. Restore with `uv sync`.
 - [x] Update `CLAUDE.md`: the "Core components", "Data Flow", and "Node Execution Model" sections
       describe the old single-module executor.
+
+**Also done in this step.**
+
+- **`CLAUDE.md` gained a "Graph validation" section** — the seven checks in order, the
+  every-argument-must-be-connected rule and which plugin defaults it makes unreachable, the
+  `source_output` table, and the type-compatibility table. "Key Constraints" gained
+  validate-before-executing and one-job-per-module entries, and its "No cycles" line now credits
+  `graph.py`.
+- **`architecture.md`'s annotation-coverage figures were corrected.** They read "80 slots, 49
+  checkable, 31 `Any`", and the per-plugin table summed to 21 rather than 31. Measured from the port
+  table: **83 slots, 59 checkable (52 scalar, 7 class), 24 `Any`** — 23 of the 24 in `phiflow`. The old
+  count also predated step 4's decision 1, which is what makes the 7 class slots checkable.
+
+**One commit beyond this plan.** `architecture.md`'s "Edge type validation" section was then
+reconciled with what step 4 implemented: the verdict table gained the class-mismatch reject rows and
+skip rows for unions and generic aliases, and the "written by hand, not with a library" framing was
+replaced by the `numbers`-tower explanation. Each documented row is asserted against
+`graph._is_compatible`.
