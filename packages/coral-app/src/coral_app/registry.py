@@ -1,8 +1,9 @@
 import inspect
 import json
-from typing import Any, Dict, List, Optional, get_args, get_origin
+from typing import Any, Dict, List, Optional
 
 from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
+from coral_app.nodeports import NodePorts, build_port_table, methods_of
 
 # Reverse mapping for type-to-string conversion during registry generation
 _REVERSE_PRIMITIVES_MAP = {v: k for k, v in PRIMITIVES_MAP.items()}
@@ -22,47 +23,35 @@ def _create_output_argument(type_annotation) -> Dict:
     return {"connection_type": "output", "type": python_type_to_string(type_annotation), "name": ""}
 
 
-def _process_return_type(return_annotation, param_idx: int):
-    """Process return type and generate output arguments and indices.
+def _number_inputs(ports: NodePorts):
+    """Number a node's input ports for the file format.
+
+    Returns:
+        tuple: (input_arguments, input_indices) — indices are 0-based, one per input port.
+    """
+    arguments = [_create_input_argument(name, annotation) for name, annotation in ports.inputs]
+    return arguments, list(range(len(ports.inputs)))
+
+
+def _number_outputs(ports: NodePorts, first_idx: int):
+    """Number a node's output ports for the file format.
+
+    The file format numbers outputs in a per-node index space that *continues after the inputs*, so
+    the caller passes the first free index. (The editor and the executor number outputs 0-based
+    within outputs; that difference is deliberate and confined to this file — see the issue #23
+    architecture note on output-port numbering.)
 
     Returns:
         tuple: (output_arguments, output_indices)
     """
-    origin = get_origin(return_annotation)
-
-    # Handle Tuple return types - create separate output for each element
-    if origin is tuple:
-        tuple_args = get_args(return_annotation)
-        output_arguments = [_create_output_argument(t) for t in tuple_args]
-        output_indices = list(range(param_idx, param_idx + len(tuple_args)))
-        return output_arguments, output_indices
-
-    # Handle single return value (not None)
-    if (
-        return_annotation is not None
-        and return_annotation is not type(None)
-        and return_annotation is not inspect.Signature.empty
-    ):
-        return [_create_output_argument(return_annotation)], [param_idx]
-
-    # No return value
-    return [], []
+    arguments = [_create_output_argument(annotation) for annotation in ports.outputs]
+    return arguments, list(range(first_idx, first_idx + len(ports.outputs)))
 
 
-def _add_function_node(registry: Dict, func_name: str, func: callable) -> None:
+def _add_function_node(registry: Dict, func_name: str, ports: NodePorts) -> None:
     """Add a function node to the registry, keyed by its name."""
-    sig = inspect.signature(func)
-
-    # Process input parameters
-    arguments = []
-    inputs = []
-    for param_idx, (param_name, param) in enumerate(sig.parameters.items()):
-        arguments.append(_create_input_argument(param_name, param.annotation))
-        inputs.append(param_idx)
-
-    # Process return type
-    param_idx = len(sig.parameters)
-    output_arguments, outputs = _process_return_type(sig.return_annotation, param_idx)
+    arguments, inputs = _number_inputs(ports)
+    output_arguments, outputs = _number_outputs(ports, len(inputs))
     arguments.extend(output_arguments)
 
     # `type` is the function name — the single node identifier (the editor looks entries up as
@@ -76,21 +65,13 @@ def _add_function_node(registry: Dict, func_name: str, func: callable) -> None:
     }
 
 
-def _add_constructor(registry: Dict, class_name: str, cls: type) -> None:
-    """Add a constructor node to the registry, keyed by the class name."""
-    init_sig = inspect.signature(cls.__init__)
+def _add_constructor(registry: Dict, class_name: str, ports: NodePorts) -> None:
+    """Add a constructor node to the registry, keyed by the class name.
 
-    # Process constructor parameters (skip 'self')
-    arguments = []
-    inputs = []
-    param_idx = 0
-    for param_name, param in init_sig.parameters.items():
-        if param_name == "self":
-            continue
-
-        arguments.append(_create_input_argument(param_name, param.annotation))
-        inputs.append(param_idx)
-        param_idx += 1
+    The instance a constructor produces is written as ``outputs: [-1]`` with no output argument —
+    the file format's convention for "one unnamed output".
+    """
+    arguments, inputs = _number_inputs(ports)
 
     registry[class_name] = {
         "arguments": arguments,
@@ -101,38 +82,18 @@ def _add_constructor(registry: Dict, class_name: str, cls: type) -> None:
     }
 
 
-def _add_methods(registry: Dict, class_name: str, cls: type) -> None:
-    """Add all public methods of a class to the registry, keyed by 'Class.method'."""
-    for method_name in dir(cls):
-        # Skip private and dunder methods
-        if method_name.startswith("_"):
-            continue
+def _add_methods(registry: Dict, class_name: str, port_table: Dict[str, NodePorts]) -> None:
+    """Add all public methods of a class to the registry, keyed by 'Class.method'.
 
-        method = getattr(cls, method_name)
-        if not callable(method) or not inspect.isfunction(method):
-            continue
+    Which methods exist, and that the instance occupies input port 0, both come from the port
+    table.
+    """
+    for fully_qualified_name in methods_of(port_table, class_name):
+        ports = port_table[fully_qualified_name]
 
-        sig = inspect.signature(method)
-
-        # First input: the instance itself
-        arguments = [_create_input_argument("self", class_name)]
-        inputs = [0]
-        param_idx = 1
-
-        # Process method parameters (skip 'self')
-        for param_name, param in sig.parameters.items():
-            if param_name == "self":
-                continue
-
-            arguments.append(_create_input_argument(param_name, param.annotation))
-            inputs.append(param_idx)
-            param_idx += 1
-
-        # Process return type
-        output_arguments, outputs = _process_return_type(sig.return_annotation, param_idx)
+        arguments, inputs = _number_inputs(ports)
+        output_arguments, outputs = _number_outputs(ports, len(inputs))
         arguments.extend(output_arguments)
-
-        fully_qualified_name = f"{class_name}.{method_name}"
 
         registry[fully_qualified_name] = {
             "arguments": arguments,
@@ -150,9 +111,11 @@ def generate_registry(
 ) -> Dict:
     """Generate the node registry in the DealiiX platform format.
 
-    Introspects the given function/class maps and primitive type names and returns a dict keyed by
-    each node's ``type`` string (primitives by type name, functions by name, constructors by class
-    name, methods by ``Class.method``).
+    Describes the given function/class maps as a port table (stage 2) and renders it into a dict
+    keyed by each node's ``type`` string (primitives by type name, functions by name, constructors
+    by class name, methods by ``Class.method``). Everything about the *file format* — argument
+    dicts, index numbering, the ``[-1]`` convention — is decided here; the arity and annotations
+    come from the port table, which the executor reads too.
 
     Args:
         function_map: Mapping of function name -> callable.
@@ -171,6 +134,11 @@ def generate_registry(
 
     registry = {}
 
+    # One entry per node type, describing its connections. Note the emission loops below iterate the
+    # *maps*, never the table: the key order of `node_types.json` is part of the contract, and the
+    # table is only ever a lookup.
+    port_table = build_port_table(function_map=function_map, class_map=class_map)
+
     # Add primitive types, keyed by the primitive type name. Primitives take no inputs, but the
     # empty `arguments` list is required: the platform's registry validator skips any entry lacking
     # an `arguments` key.
@@ -185,16 +153,16 @@ def generate_registry(
         }
 
     # Add functions
-    for func_name, func in function_map.items():
-        _add_function_node(registry, func_name, func)
+    for func_name in function_map:
+        _add_function_node(registry, func_name, port_table[func_name])
 
     # Add class constructors and methods
     if class_map:
-        for class_name, cls in class_map.items():
-            _add_constructor(registry, class_name, cls)
+        for class_name in class_map:
+            _add_constructor(registry, class_name, port_table[class_name])
 
-        for class_name, cls in class_map.items():
-            _add_methods(registry, class_name, cls)
+        for class_name in class_map:
+            _add_methods(registry, class_name, port_table)
 
     return registry
 

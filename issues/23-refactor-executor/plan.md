@@ -73,20 +73,20 @@ literals in `tests/*.py` pass the 7 validations, as does
 
 Mechanical. The golden files are the proof.
 
-- [ ] Split `_process_return_type` (`registry.py:25-49`): annotation → list of annotations moves to
+- [x] Split `_process_return_type` (`registry.py:25-49`): annotation → list of annotations moves to
       `nodeports.py`; list → numbered indices stays.
-- [ ] Rewrite `_add_function_node`, `_add_constructor`, `_add_methods` to read the port table instead
+- [x] Rewrite `_add_function_node`, `_add_constructor`, `_add_methods` to read the port table instead
       of calling `inspect`. Same names, same output.
-- [ ] Keep unchanged in `registry.py`: `_create_input_argument`, `_create_output_argument`,
+- [x] Keep unchanged in `registry.py`: `_create_input_argument`, `_create_output_argument`,
       `python_type_to_string`, the `inputs` list, output indices continuing after the inputs, `[-1]`
       for constructors and primitives.
-- [ ] **Keep the four emission loops in `registry.py`** — primitives (`:177`), functions (`:188`),
+- [x] **Keep the four emission loops in `registry.py`** — primitives (`:177`), functions (`:188`),
       all constructors (`:193`), then all methods (`:196`). The port table is a lookup, never the
       thing iterated. `tests/test_golden_registry.py:62` compares with `read_bytes()`, so the key
       order in `node_types.json` is pinned; iterating the table instead would reorder the keys and
       fail the comparison with identical content.
-- [ ] Confirm no `inspect` call remains in `registry.py` outside `python_type_to_string`.
-- [ ] Run `pytest tests/test_golden_registry.py`. All four golden files must match byte for byte. A
+- [x] Confirm no `inspect` call remains in `registry.py` outside `python_type_to_string`.
+- [x] Run `pytest tests/test_golden_registry.py`. All four golden files must match byte for byte. A
       diff here means the key order or the numbering moved, and must be put back.
 
 ## 4. The graph — `packages/coral-app/src/coral_app/graph.py`
