@@ -190,20 +190,39 @@ The rule is deliberately narrow. When the answer is not certain, it skips:
 | --- | --- | --- |
 | `Any` or absent | anything | skip |
 | anything | `Any` or absent | skip |
-| same primitive | same primitive | accept |
-| `bool` → `int`, `bool` → `float`, `int` → `float` | | accept — numeric widening |
-| `str` → `float`, `int` → `str`, … | | **reject** |
+| a union, a generic alias | anything | skip |
+| anything | a union, a generic alias | skip |
 | a class | the same class, or a base of it | accept |
-| anything else | | skip |
+| `bool` → `int` | | accept — `bool` really is an `int` subclass |
+| `int` → `float` | | accept — numeric widening |
+| a class | an unrelated class | **reject** |
+| a class | a primitive, and the reverse | **reject** |
+| `str` → `float`, `float` → `int`, `none` → `float`, … | | **reject** |
 
-Written by hand, not with a library. There is no standard-library subtype check: `issubclass`
-handles classes only, not `Any`, unions, or generics. `typeguard` and `beartype` check a value
-against an annotation, a different question. mypy's `is_subtype` is internal API. None of them is
-worth a dependency for this table.
+Two rows were decided during implementation, and are stricter than this table first read. A class
+against an unrelated class, and a class against a primitive, both **reject**: they were the
+mismatches most worth catching, and duck typing across unrelated plugin classes is rare while a
+mis-dragged wire is not. No existing graph is affected — across the six fixtures and the phiflow
+example, all 144 edges are `Any`-involved, exact-match or exact-class match.
 
-Skipping when unsure is required, not lazy. `issubclass(int, float)` is `False`, so a naive check
-would reject an `int` primitive wired into a `float` parameter — valid and common. Wrongly refusing a
-good graph is worse than not checking.
+**The rule names no coral type.** A hand-written table of scalars and their widenings was rejected as
+invented knowledge: `PRIMITIVES_MAP` declares which types exist and nothing in the codebase declares
+how they relate, so such a table would be a third, drifting source of truth. Everything decidable
+comes from `issubclass` over the annotations the plugins themselves declare — which is also what
+gives `bool` → `int` for free. The single relation the class hierarchy cannot express, `int` being
+accepted where a `float` is expected, comes from the standard library's own `numbers` tower
+(`Integral` ⊂ `Rational` ⊂ `Real` ⊂ `Complex`) rather than from a pair list.
+
+No library does the whole job: `issubclass` handles classes only, not `Any`, unions, or generics.
+`typeguard` and `beartype` check a value against an annotation, a different question. mypy's
+`is_subtype` is internal API. None is worth a dependency here.
+
+Skipping when unsure is required, not lazy: wrongly refusing a good graph is worse than not checking
+one, which is why a union, a generic alias, or anything `Any` touches passes unexamined.
+
+`int` → `float` is the case that shows the check cannot be naive. `issubclass(int, float)` is
+`False`, so a bare subclass test would refuse an `int` primitive wired into a `float` parameter —
+valid and common. That is precisely the gap the `numbers` tower fills, rather than a reason to skip.
 
 The check only sees what the plugins declare. Measured over all three plugins from the port table:
 83 annotation slots, of which 59 are checkable (52 scalar, 7 class) and 24 are `Any`. They are
