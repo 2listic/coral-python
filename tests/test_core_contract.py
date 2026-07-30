@@ -64,6 +64,70 @@ class TestPluginContract:
         assert plugin.get_classes() == {"C": int}
 
 
+class TestStageSeparation:
+    """Issue #23: one job per module, enforced structurally rather than by convention.
+
+    The refactor split the old executor into stages — describe node types (``nodeports``), validate
+    and order a graph (``graph``), execute it (``executor``). These guards pin the boundaries that
+    make each stage independently testable: ``graph.py`` compares plain data, so it never
+    introspects a callable or reaches for a plugin; ``executor.py`` receives an already-validated
+    graph, so it never parses JSON, sorts, or walks the edge list.
+
+    Only each file's *own* imports are inspected. ``graph.py`` importing ``NodePorts`` for a type
+    annotation is the intended dependency on stage 2, even though stage 2 uses ``inspect`` itself.
+    """
+
+    def _source(self, module_name):
+        root = Path(__file__).parent.parent
+        path = root / "packages" / "coral-app" / "src" / "coral_app" / f"{module_name}.py"
+        assert path.exists(), f"missing module: {path}"
+        return path.read_text()
+
+    def _imports(self, module_name):
+        """The modules and the symbols a file imports."""
+        tree = ast.parse(self._source(module_name), filename=module_name)
+        modules, symbols = set(), set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                modules.update(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom):
+                modules.add(node.module or "")
+                symbols.update(alias.name for alias in node.names)
+        return modules, symbols
+
+    def test_graph_does_not_introspect(self):
+        """GIVEN graph.py
+        WHEN its imports are parsed
+        THEN `inspect` is absent — the port table arrives as plain data."""
+        modules, _ = self._imports("graph")
+
+        assert "inspect" not in modules
+
+    def test_graph_does_not_reach_for_plugins(self):
+        """GIVEN graph.py
+        WHEN its imports are parsed
+        THEN it imports no plugin and none of the host's plugin-loading machinery."""
+        modules, symbols = self._imports("graph")
+
+        assert not [name for name in modules if name.startswith("coral_plugin")]
+        assert not symbols & {"discover", "load", "build_function_map", "build_class_map"}
+
+    def test_executor_does_not_read_or_order_the_graph(self):
+        """GIVEN executor.py
+        WHEN its imports are parsed
+        THEN neither `json` nor `graphlib` is there — reading and sorting belong to graph.py."""
+        modules, _ = self._imports("executor")
+
+        assert "json" not in modules
+        assert "graphlib" not in modules
+
+    def test_executor_never_holds_the_edge_list(self):
+        """GIVEN executor.py
+        WHEN its source is read
+        THEN it holds no `self.edges` — it asks the graph for a node's inputs instead."""
+        assert "self.edges" not in self._source("executor")
+
+
 class TestNoFutureAnnotations:
     """D3: no package source may `from __future__ import annotations`."""
 

@@ -159,12 +159,14 @@ pyproject.toml                     # virtual uv workspace root (no [project]); m
 packages/
 ├── coral-core/                    # the contract: the Plugin ABC, nothing else. Depends on nothing internal.
 │   └── src/coral_core/__init__.py
-├── coral-app/                     # the host: discovery, registry, executor, CLI. Depends on coral-core only.
+├── coral-app/                     # the host: discovery, node types, graph, executor, CLI. Depends on coral-core only.
 │   └── src/coral_app/
 │       ├── __init__.py            # PLUGIN_GROUP, discover/load, build_function_map/build_class_map
 │       ├── primitives.py          # PRIMITIVES_MAP lives here (host-only; no plugin references it)
-│       ├── registry.py            # registry generation (unchanged body)
-│       ├── executor.py            # graph execution (unchanged body)
+│       ├── nodeports.py           # the port table: each node type's inputs and outputs
+│       ├── graph.py               # read, validate and order a workflow graph
+│       ├── registry.py            # node_types.json generation (renders the port table)
+│       ├── executor.py            # graph execution: walk the order, call each node
 │       └── cli.py                 # register / run subcommands; console script `coral`
 ├── coral-plugin-math/             # entry point `math`  -> coral_plugin_math:MathPlugin
 ├── coral-plugin-string/           # entry point `string`-> coral_plugin_string:StringPlugin
@@ -204,12 +206,29 @@ it finds them at runtime via entry-point discovery.
      (later wins on key collision, e.g. the `print_result` shared by math + string). An unknown name → `LookupError`.
    - Re-exports `PRIMITIVES_MAP` (defined in `coral_app/primitives.py`).
 
-   `registry.py` and `executor.py` **do not import each other**; both import `PRIMITIVES_MAP`,
-   `build_function_map`, `build_class_map` from `coral_app`.
+   The rest of the host is **one job per module**, in stages (issue #23). Nothing imports backwards:
+   `nodeports` knows callables but not graphs; `graph` knows graphs but not callables; `registry` and
+   `executor` are two independent consumers that **do not import each other**.
 
-   - **`registry.py`**: `generate_registry()` (introspects function/class maps + primitive names),
-     `python_type_to_string()`, `save_registry_to_file(filename, plugins=...)`.
-   - **`executor.py`**: `WorkflowExecutor(workflow_file, plugins=...)` — see [Data flow](#data-flow).
+   - **`nodeports.py`** (stage 2): `build_port_table(function_map, class_map, primitives)` returns
+     node type -> `NodePorts(kind, inputs, outputs)` — `inputs` a list of `(name, annotation)` in
+     port order, `outputs` one annotation per output port. The **single place** that derives a node's
+     arity from a callable, so the registry and the executor can no longer disagree about it. A
+     method's port 0 is its instance (`("self", cls)`); a missing annotation is normalised to `Any`.
+     `methods_of(port_table, class_name)` lists a class's `Class.method` entries.
+   - **`graph.py`** (stage 3): `Graph(nodes, edges, port_table)` and
+     `Graph.from_file(path, port_table)`. **Constructing one validates it** — see
+     [Graph validation](#graph-validation). Exposes `.order`, `.node(id)`, `.ports_of(id)` and
+     `.inputs_of(id)` (incoming edges sorted by `target_input`, built once). Takes the port table as
+     plain data, so it imports neither `inspect` nor any plugin machinery, and its tests need no
+     plugin installed.
+   - **`registry.py`** (stage 5): `generate_registry()` renders the port table into the platform's
+     file format, `python_type_to_string()`, `save_registry_to_file(filename, plugins=...)`. Every
+     decision about the *format* lives here — argument dicts, index numbering, the `[-1]`
+     convention; the arity and annotations come from the port table.
+   - **`executor.py`** (stage 4): `WorkflowExecutor(workflow_file, plugins=...)` — see
+     [Data flow](#data-flow). Validation happens during construction, so `execute()` only walks,
+     calls and stores. No `json`, no `graphlib`, no edge list.
 
 4. **`coral-app/cli.py`** — Coral-compatible CLI entry point (argparse):
    - Global `-p/--plugin` names the plugins to load (comma-separated; empty = all installed).
@@ -248,50 +267,136 @@ Edge format:
 ### Data Flow
 
 ```
-discover() (no import) ─→ load(requested names) ─→ plugin.get_functions()/get_classes()
-   ─→ host merges → function_map / class_map ─→ registry.py (register) | executor.py (run)
+  plugins ──[1]──> maps ──[2]──> port table ──┬──[3]──> Graph ──[4]──> results
+                                              │            ^
+  graph JSON ─────────────────────────────────┼────────────┘
+                                              │
+                                              └──[5]──> node_types.json
 ```
+
+| stage | job | input | output | module |
+| --- | --- | --- | --- | --- |
+| 1 | load plugins | plugin names | `function_map`, `class_map` | `coral_app/__init__.py` |
+| 2 | describe each node type | the maps | port table | `coral_app/nodeports.py` |
+| 3 | read, validate, order the graph | graph JSON + port table | `Graph` | `coral_app/graph.py` |
+| 4 | execute | `Graph` + the maps | `results` | `coral_app/executor.py` |
+| 5 | write the registry | port table | `node_types.json` | `coral_app/registry.py` |
 
 1. **Discover/Load**: the host lists installed plugins (no import) and loads only the requested names.
 2. **Build maps**: each loaded plugin's `get_functions()`/`get_classes()` are merged into `function_map` /
    `class_map` (selection order; later wins). Primitives come from the host `PRIMITIVES_MAP`.
-3. **Load graph**: workflow loaded from JSON (`workflow.nodes` and `workflow.edges`).
-4. **Sort**: topological sort determines execution order (detects cycles using Kahn's algorithm).
-5. **Execute**: nodes executed in dependency order:
-   - **Primitive nodes**: Return typed value (type conversion via `PRIMITIVES_MAP`)
-   - **Function nodes**: Collect inputs from edges (sorted by `target_input`), call function
-   - **Constructor nodes**: Collect inputs, instantiate class from `class_map`
-   - **Method nodes**: First input is instance, remaining inputs are parameters
-6. **Store**: Results stored in `executor.results` dictionary for downstream nodes.
+3. **Describe node types**: `build_port_table()` turns the maps into one entry per node type, listing
+   its input parameters and its outputs. Stages 4 and 5 both read it; neither introspects again.
+4. **Read, validate and order the graph**: `Graph.from_file()` loads `workflow.nodes` /
+   `workflow.edges`, runs every check in [Graph validation](#graph-validation), and orders the nodes
+   with `graphlib.TopologicalSorter` (`{node: predecessors}`, each ready batch sorted so the order
+   follows the graph rather than JSON key order). A bad graph raises `ValueError` **here** — while
+   `WorkflowExecutor` is being constructed, before any node runs.
+5. **Execute**: `execute()` walks `graph.order`, and for each node collects its input values from
+   `results` (via `graph.inputs_of()`, already in parameter order), resolves the callable, binds the
+   values to its parameters positionally, and calls it. Nothing is validated at this point.
+6. **Store**: results stored in `executor.results`, keyed by node id, for downstream nodes.
 
 ### Node Execution Model
 
-Each node's kind is inferred from its `type` by `WorkflowExecutor._classify()` (membership in
-`PRIMITIVES_MAP` / `function_map` / `class_map`, plus the `Class.method` split), then executed:
+Each node's kind is read from the port table — `graph.ports_of(node_id).kind`, one of `primitive` /
+`function` / `constructor` / `method`. The kind is decided in `nodeports.build_port_table()` by
+membership in `PRIMITIVES_MAP` / `function_map` / `class_map` plus the `Class.method` split, in that
+precedence order (so a dotted function name like `math.sqrt` stays a function).
 
-**Primitive nodes** (`type` in `PRIMITIVES_MAP`):
-- Extract `value` and `type` from node definition
-- Convert value using `PRIMITIVES_MAP[type]` (handles string-to-type conversion from JSON)
-- Store result directly
+**Primitive nodes** are the one special case, and they return early: the declared `type` casts the
+node's `value` via `PRIMITIVES_MAP[type]` (the JSON protocol may carry it as a string), except `any`
+which passes through unconverted and `none` which is `None`.
 
-**Function nodes** (`type` in `function_map`):
-- Look up function in `function_map` using `type`
-- Collect inputs from incoming edges sorted by `target_input` index
-- Map inputs to function parameters positionally using `inspect.signature()`
-- Execute function with kwargs, store result
+**Every other node** runs the same four steps, written once:
 
-**Constructor nodes** (`type` in `class_map`):
-- Look up class in `class_map` using `type` field
-- Collect constructor inputs from edges (sorted by `target_input`)
-- Map inputs to `__init__` parameters (excluding `self`)
-- Instantiate class, store instance
+1. **Collect input values** — `graph.inputs_of(node_id)` hands over the incoming edges already sorted
+   by `target_input`, i.e. in parameter order. Each is read from `results`, unwrapping the element the
+   edge's `source_output` names when the value is a tuple.
+2. **Resolve the callable** — the only three-way distinction left, and it cannot be removed, because
+   a method's callable is produced by one of its own inputs and is known only at run time:
 
-**Method nodes** (`type` is `Class.method` with the class in `class_map`):
-- Parse the fully qualified `type` (format: `"ClassName.method_name"`)
-- First input (lowest `target_input`) must be instance of `ClassName`
-- Remaining inputs are method parameters
-- Use `getattr(instance, method_name)` to get bound method
-- Execute method with parameters, store result
+   | kind | callable | arguments |
+   | --- | --- | --- |
+   | function | `function_map[type]` | all the values |
+   | constructor | `class_map[type]` | all the values |
+   | method | `getattr(values[0], method_name)` | `values[1:]` |
+
+3. **Bind and call** — `inspect.signature(target).parameters` zipped against the values. A bound
+   method's signature has already dropped `self`, so the same zip works for all three kinds.
+4. **Store** the result under the node id.
+
+Method nodes keep one run-time check: input port 0 must really hold an instance of the named class
+(`isinstance(instance, class_map[class_name])`). It survives in the executor because it is the only
+check about a *value* rather than about wiring — everything else was verified before execution began.
+
+### Graph validation
+
+**The graph is fully validated before execution starts.** Constructing a `Graph` runs every check
+below; a graph that constructs is a graph that can be executed. Because `WorkflowExecutor.__init__`
+builds one, a wiring error surfaces there — never after a long PhiFlow run has already started. Each
+failure raises `ValueError` naming the offending node or edge (edges by their key in the graph JSON).
+
+In order:
+
+1. every edge `source` and `target` names a declared node — **first**, because
+   `TopologicalSorter` would otherwise silently materialise an unknown predecessor as a node;
+2. every node `type` has a port-table entry;
+3. per target node, the `target_input` values are exactly `{0 … n-1}` for n incoming edges — catches
+   two edges on one port and a port index out of range;
+4. the incoming edge count equals the type's input count — catches missing and extra connections;
+5. every `source_output` names an output the source type has;
+6. every edge's source annotation is compatible with its target annotation;
+7. no cycles — the message names the cycle path.
+
+**Every argument must be connected** (check 4). A default value in plugin code is *not* a way to
+leave a port unwired, so the defaults in `phiflow_union`, `phiflow_iterate`,
+`phiflow_plot_and_save`, `Calculator` and `StringProcessor` are unreachable from a graph. This is
+long-standing behaviour, moved earlier.
+
+**`source_output` (check 5)** — both `0` and `-1` appear on the wire for a single-output node, so
+both are accepted there:
+
+| output count | accepted `source_output` |
+| --- | --- |
+| 1 | `0`, `-1`, or the key omitted |
+| n > 1 | `0 … n-1` |
+| 0 (returns `None`) | none — the node has nothing to pass on, so any outgoing edge is an error |
+
+**Edge type compatibility (check 6)** is deliberately narrow: it skips whenever the answer is not
+certain, because wrongly refusing a good graph is worse than not checking one.
+
+| source | target | verdict |
+| --- | --- | --- |
+| `Any`, or no annotation | anything | skip |
+| anything | `Any`, or no annotation | skip |
+| a class | the same class, or a base of it | accept |
+| `bool` | `int` | accept — `bool` really is an `int` subclass |
+| `int` | `float` | accept — numeric widening |
+| a class | an unrelated class, or a scalar | **reject** |
+| `str` -> `float`, `float` -> `int`, `none` -> `float`, … | | **reject** |
+| a union, a generic alias | | skip — `issubclass` cannot judge it |
+
+`graph.py` names no coral type to do this. Everything decidable comes from `issubclass` over the
+annotations the plugins declare; the single relation the class hierarchy cannot express — `int` is
+accepted where a `float` is expected, though `issubclass(int, float)` is `False` — is taken from the
+standard library's own `numbers` tower rather than a hand-written table.
+
+The check only sees what the plugins declare, so **annotation quality is the plugin author's
+responsibility**. Across all three plugins, 59 of 83 annotation slots are checkable (52 scalar,
+7 class) and 24 are `Any` — and they are concentrated in one plugin:
+
+| plugin | slots | `Any` | checkable |
+| --- | --- | --- | --- |
+| math | 28 | 1 | 27 |
+| string | 8 | 1 | 7 |
+| phiflow | 48 | 23 | 25 |
+
+So `phiflow_iterate` returning `Tuple[Any, Any, Any]` cannot be checked, and a grid wired where a
+float belongs only fails once the simulation has run. A plugin that annotates properly gets its
+wiring verified at t=0; one that writes `Any` does not. Fixing that is a plugin change, and belongs
+to whoever owns the plugin. This is the same bargain the registry already strikes (see
+[Type Hint Requirements](#type-hint-requirements)).
 
 ### PhiFlow Integration
 
@@ -304,7 +409,13 @@ type-hinted API for workflow integration; the plugin owns the `phiflow`/`jax`/`h
 
 - **Edge ordering is critical**: Function/method parameter order determined by `target_input` values on edges (sorted ascending)
 - **Type system**: Maps Python types (int, float, str, bool, None, Any) to string representations via `PRIMITIVES_MAP`
-- **No cycles**: Workflow graphs must be acyclic (DAG) - executor will raise `ValueError` if cycle detected
+- **No cycles**: Workflow graphs must be acyclic (DAG) — `graph.py` raises `ValueError` naming the
+  cycle path, using `graphlib.TopologicalSorter` (stdlib, `{node: predecessors}`)
+- **Validate before executing**: every wiring error raises while the `Graph` is being constructed, so
+  `WorkflowExecutor(...)` fails before the first node runs — see [Graph validation](#graph-validation)
+- **One job per module**: `nodeports` knows callables but not graphs; `graph` knows graphs but not
+  callables (it never imports `inspect` or a plugin); `executor` receives an already-validated graph
+  (no `json`, no `graphlib`, no edge list). `tests/test_core_contract.py` enforces these boundaries
 - **Lazy discovery**: `discover()` never imports a plugin; `load(name)` imports only that one. An unselected
   `phiflow` is never imported, so its heavy deps aren't paid for.
 - **Fail-loud on unknown plugin**: an unknown / not-discoverable `-p` name raises `LookupError`; an

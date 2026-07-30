@@ -148,18 +148,18 @@ Mechanical. The golden files are the proof.
 
 ## 6. Lock the separation, then finish
 
-- [ ] Add to `tests/test_core_contract.py`, in the style of the existing
+- [x] Add to `tests/test_core_contract.py`, in the style of the existing
       `from __future__ import annotations` guard:
-  - [ ] `graph.py` contains no `inspect`, no `discover`, no `load`, no plugin import
-  - [ ] `executor.py` contains no `json`, no `graphlib`, no `self.edges`
-- [ ] Re-run the wiring cases from `executor-ordering-analysis.md` and confirm each now raises before
+  - [x] `graph.py` contains no `inspect`, no `discover`, no `load`, no plugin import
+  - [x] `executor.py` contains no `json`, no `graphlib`, no `self.edges`
+- [x] Re-run the wiring cases from `executor-ordering-analysis.md` and confirm each now raises before
       execution: `target_input` 3 and 9; two edges on port 0; `source_output` 7 on a scalar; an edge
       to an undeclared node id.
-- [ ] `uv run pre-commit run --all-files`
-- [ ] `pytest`
-- [ ] `coral -p "math,string,phiflow" run examples/phiflow/network-from-fe.json` end to end — it must
+- [x] `uv run pre-commit run --all-files`
+- [x] `pytest`
+- [x] `coral -p "math,string,phiflow" run examples/phiflow/network-from-fe.json` end to end — it must
       still execute; a rejection here is a bug in the new validation, not in the graph
-- [ ] Verify a plugin subset still works: `uv pip uninstall coral-plugin-phiflow` then
+- [x] Verify a plugin subset still works: `uv pip uninstall coral-plugin-phiflow` then
       `uv run --no-sync pytest` — phiflow tests skip, nothing errors. Restore with `uv sync`.
-- [ ] Update `CLAUDE.md`: the "Core components", "Data Flow", and "Node Execution Model" sections
+- [x] Update `CLAUDE.md`: the "Core components", "Data Flow", and "Node Execution Model" sections
       describe the old single-module executor.

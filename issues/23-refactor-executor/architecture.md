@@ -205,14 +205,20 @@ Skipping when unsure is required, not lazy. `issubclass(int, float)` is `False`,
 would reject an `int` primitive wired into a `float` parameter — valid and common. Wrongly refusing a
 good graph is worse than not checking.
 
-The check only sees what the plugins declare. Measured over all three plugins: 80 annotation slots,
-49 primitives (checkable) and 31 `Any`/absent (skipped). The `Any`s are concentrated in one plugin:
+The check only sees what the plugins declare. Measured over all three plugins from the port table:
+83 annotation slots, of which 59 are checkable (52 scalar, 7 class) and 24 are `Any`. They are
+concentrated in one plugin:
 
-| plugin | `Any` or absent slots |
-| --- | --- |
-| phiflow | 19 |
-| math | 1 |
-| string | 1 |
+| plugin | slots | `Any` | checkable |
+| --- | --- | --- | --- |
+| phiflow | 48 | 23 | 25 |
+| math | 28 | 1 | 27 |
+| string | 8 | 1 | 7 |
+
+A slot is one input parameter or one output port; a method's port 0 is excluded, being the instance
+rather than a declared argument. The per-plugin rows sum to 84 slots and 25 `Any` against 83 and 24
+for the union: `print_result(value: Any) -> None` is declared by both `math` and `string`, and the
+merged function map holds it once.
 
 So `phiflow_iterate` returning `Tuple[Any, Any, Any]` cannot be checked, and a grid wired where a
 float belongs would only fail after the simulation ran.
