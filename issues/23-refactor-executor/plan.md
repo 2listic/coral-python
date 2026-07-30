@@ -125,26 +125,26 @@ Mechanical. The golden files are the proof.
 
 ## 5. Slim `executor.py`
 
-- [ ] In `__init__`: keep the signature `(workflow_file, plugins=None)` so `cli.py` is untouched.
+- [x] In `__init__`: keep the signature `(workflow_file, plugins=None)` so `cli.py` is untouched.
       Build the maps, then the port table, then `Graph.from_file`. Construction now validates, so a
       bad graph raises here, before any node runs.
-- [ ] Replace the four branches (`:106`, `:126`, `:174`, `:218`) with one loop:
-  - [ ] primitives convert and `continue`
-  - [ ] collect input values once — `graph.inputs_of(node_id)`, read `self.results`, unwrap
+- [x] Replace the four branches (`:106`, `:126`, `:174`, `:218`) with one loop:
+  - [x] primitives convert and `continue`
+  - [x] collect input values once — `graph.inputs_of(node_id)`, read `self.results`, unwrap
         `source_output`
-  - [ ] resolve the callable, three cases only: `function_map[type]`, `class_map[type]`,
+  - [x] resolve the callable, three cases only: `function_map[type]`, `class_map[type]`,
         `getattr(values[0], method_name)` with `values[1:]` as the arguments
-  - [ ] bind and call once: `params = list(inspect.signature(target).parameters)`, then
+  - [x] bind and call once: `params = list(inspect.signature(target).parameters)`, then
         `target(**dict(zip(params, args)))`
-- [ ] Keep the method instance check at `:253`.
-- [ ] Delete from `executor.py`: the arity checks (`:161`, `:204`, `:267`) — now done in `graph.py` —
+- [x] Keep the method instance check at `:253`.
+- [x] Delete from `executor.py`: the arity checks (`:161`, `:204`, `:267`) — now done in `graph.py` —
       the `json` import, the adjacency list, `get_execution_order`, and all edge access.
-- [ ] Update the two tests that reach for the old surface:
-  - [ ] `test_simple_dag` (`:238`) — read `executor.graph.order` instead of
+- [x] Update the two tests that reach for the old surface:
+  - [x] `test_simple_dag` (`:238`) — read `executor.graph.order` instead of
         `executor.get_execution_order()`
-  - [ ] `test_cycle_detection` (`:265`) — wrap the `WorkflowExecutor(...)` construction in
+  - [x] `test_cycle_detection` (`:265`) — wrap the `WorkflowExecutor(...)` construction in
         `pytest.raises`, since validation moved there
-- [ ] Run the full suite.
+- [x] Run the full suite.
 
 ## 6. Lock the separation, then finish
 

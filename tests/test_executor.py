@@ -11,10 +11,14 @@ class TestWorkflowExecutorInitialization:
 
     @pytest.mark.math
     def test_executor_with_file_path(self, workflow_files):
-        """Test executor initialization with file path."""
+        """Test executor initialization with file path.
+
+        The nodes and edges now live on the validated graph the executor holds, not on the executor
+        itself.
+        """
         executor = WorkflowExecutor(str(workflow_files["math"]), plugins=["math"])
-        assert executor.nodes is not None
-        assert executor.edges is not None
+        assert executor.graph.nodes
+        assert executor.graph.edges
 
     @pytest.mark.math
     @pytest.mark.string
@@ -252,7 +256,7 @@ class TestTopologicalSorting:
         }
         file_path = temp_workflow_file(workflow)
         executor = WorkflowExecutor(str(file_path), plugins=["math"])
-        execution_order = executor.get_execution_order()
+        execution_order = executor.graph.order
 
         # n3 should come after n1 and n2
         n1_idx = execution_order.index("n1")
@@ -280,7 +284,7 @@ class TestTopologicalSorting:
         }
         file_path = temp_workflow_file(workflow)
         executor = WorkflowExecutor(str(file_path), plugins=["math"])
-        order = executor.get_execution_order()
+        order = executor.graph.order
 
         assert order.count("n1") == 1
         assert order.count("n2") == 1
@@ -328,7 +332,7 @@ class TestTopologicalSorting:
         }
         file_path = temp_workflow_file(workflow)
         executor = WorkflowExecutor(str(file_path), plugins=["math"])
-        order = executor.get_execution_order()
+        order = executor.graph.order
 
         assert sorted(order) == ["left", "right", "sink", "src"]
         assert order.index("src") < order.index("left") < order.index("sink")
@@ -352,7 +356,7 @@ class TestTopologicalSorting:
         }
         file_path = temp_workflow_file(workflow)
         executor = WorkflowExecutor(str(file_path), plugins=["math"])
-        order = executor.get_execution_order()
+        order = executor.graph.order
 
         assert sorted(order) == ["lonely", "n1", "n2"]
         assert order.index("n1") < order.index("n2")
@@ -365,15 +369,18 @@ class TestTopologicalSorting:
         file_path = temp_workflow_file(workflow)
         executor = WorkflowExecutor(str(file_path), plugins=["math"])
 
-        assert executor.get_execution_order() == []
+        assert executor.graph.order == []
 
     def test_cycle_detection(self, circular_workflow_dict, temp_workflow_file):
-        """Test that circular dependencies are detected."""
+        """Test that circular dependencies are detected.
+
+        Validation now happens while the executor is constructed, so the cycle is caught before any
+        node runs rather than on a later call.
+        """
         file_path = temp_workflow_file(circular_workflow_dict)
-        executor = WorkflowExecutor(str(file_path), plugins=["math"])
 
         with pytest.raises(ValueError, match="Cycle detected"):
-            executor.get_execution_order()
+            WorkflowExecutor(str(file_path), plugins=["math"])
 
 
 class TestEdgeOrdering:
