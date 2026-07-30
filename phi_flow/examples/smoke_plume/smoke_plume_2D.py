@@ -21,8 +21,15 @@ def step(v, s, p, dt):
 v0 = StaggeredGrid(0, 0, domain, x=64, y=64)
 smoke0 = CenteredGrid(0, ZERO_GRADIENT, domain, x=200, y=200)
 # %%
-v_trj, s_trj, p_trj = iterate(step, batch(time=50), v0, smoke0, None, dt=.5, substeps=3)
+v_trj, s_trj, p_trj = iterate(step, batch(time=5), v0, smoke0, None, dt=.5, substeps=3)
+
+# %%
+pardir = './data'
+scene = Scene(pardir)
+subscene = scene.create(pardir)
+subscene.write({'smoke': s_trj, 'velocity': v_trj})
 
 # %%
 anim = plot(s_trj, animate='time', frame_time=80, show_color_bar=False)
-anim.save('scipy-direct.mp4', writer='ffmpeg', fps=15, dpi=150)
+anim.save(subscene.path+'/scipy-direct.mp4', writer='ffmpeg', fps=15, dpi=150)
+

@@ -4,7 +4,7 @@ from typing import Any, Tuple, Dict
 try:
     from phi.flow import (
         # Classes
-        Box, Sphere, Cuboid, StaggeredGrid, CenteredGrid, Solve,
+        Box, Sphere, Cuboid, StaggeredGrid, CenteredGrid, Solve, Scene,
         # Functions
         jit_compile, resample, iterate, plot, batch, vec, union,
         # Modules
@@ -127,7 +127,20 @@ if AVAILABLE:
         print(f"phiflow_plot_and_save: saved to {output_filename} (fps={fps}, dpi={dpi})")
         return anim
 
-
+    
+    def phiflow_write(pardir: str = 'data', smoke: Any = None, velocity: Any = None):
+        "Save density and/or velocity fields in native phiflow format"
+        scene = Scene(pardir)
+        subscene = scene.create(pardir)
+        if smoke is not None and velocity is not None:
+            subscene.write({'smoke': smoke, 'velocity': velocity})
+        elif smoke is not None:
+            subscene.write({'smoke': smoke})
+        elif velocity is not None:
+            subscene.write({'velocity': velocity})
+        return subscene.path
+    
+    
     def phiflow_union(geom1: Any, geom2: Any = None, geom3: Any = None, geom4: Any = None, geom5: Any = None, geom6: Any = None) -> Any:
         """Combine 2-6 geometries into a union"""
         geometries = [geom1, geom2, geom3, geom4, geom5, geom6]
@@ -160,6 +173,7 @@ def get_functions() -> Dict[str, Any]:
     return {
         "phiflow_iterate": phiflow_iterate,
         "phiflow_plot_and_save": phiflow_plot_and_save,
+        "phiflow_write": phiflow_write,
         "phiflow_union": phiflow_union,
     }
 
