@@ -24,6 +24,7 @@ Usage:
 
 from typing import Dict, Any, List, Optional
 from . import math_ops, string_ops, phiflow_defs, primitives
+from . import pypde_defs
 
 # Export PRIMITIVES_MAP for direct access
 PRIMITIVES_MAP = primitives.PRIMITIVES_MAP
@@ -34,6 +35,7 @@ _MODULES = {
     'math': math_ops,
     'string': string_ops,
     'phiflow': phiflow_defs,
+    'pypde': pypde_defs, # micmat
 }
 
 # Names of all loadable modules; used as the "load everything" default.
