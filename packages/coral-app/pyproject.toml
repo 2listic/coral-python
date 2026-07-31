@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "coral-app"
+version = "0.1.0"
+description = "Python cross-validation backend for the DealiiX platform: executes JSON node-graph workflows and emits a node registry."
+requires-python = ">=3.12"
+dependencies = ["coral-core"]
+
+# D6: console script. `coral-py` execs this via `uv run --project ... coral`, preserving the
+# caller's cwd. The platform keeps pointing coralBinaryPath at coral-py — unchanged on its side.
+[project.scripts]
+coral = "coral_app.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/coral_app"]

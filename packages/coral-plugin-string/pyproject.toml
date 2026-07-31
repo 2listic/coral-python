@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "coral-plugin-string"
+version = "0.0.0"
+description = "Coral plugin: the StringProcessor class and print_result."
+requires-python = ">=3.12"
+dependencies = ["coral-core"]
+
+[project.entry-points."coral.plugins"]
+string = "coral_plugin_string:StringPlugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/coral_plugin_string"]

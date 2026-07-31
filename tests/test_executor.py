@@ -3,28 +3,27 @@ Tests for the WorkflowExecutor core functionality - corrected workflow format.
 """
 
 import pytest
-from pathlib import Path
-from executor import WorkflowExecutor
+from coral_app.executor import WorkflowExecutor
 
 
 class TestWorkflowExecutorInitialization:
     """Test WorkflowExecutor initialization and setup."""
 
+    @pytest.mark.math
     def test_executor_with_file_path(self, workflow_files):
         """Test executor initialization with file path."""
-        executor = WorkflowExecutor(str(workflow_files["math"]), modules=['math'])
+        executor = WorkflowExecutor(str(workflow_files["math"]), plugins=["math"])
         assert executor.nodes is not None
         assert executor.edges is not None
 
-    def test_executor_loads_multiple_modules(self, workflow_files):
-        """Test executor can load multiple modules."""
-        executor = WorkflowExecutor(
-            str(workflow_files["math"]),
-            modules=['math', 'string']
-        )
+    @pytest.mark.math
+    @pytest.mark.string
+    def test_executor_loads_multiple_plugins(self, workflow_files):
+        """Test executor can load multiple plugins."""
+        executor = WorkflowExecutor(str(workflow_files["math"]), plugins=["math", "string"])
         # Should have both math and string functions
-        assert 'add' in executor.function_map
-        assert 'StringProcessor' in executor.class_map
+        assert "add" in executor.function_map
+        assert "StringProcessor" in executor.class_map
 
 
 class TestPrimitiveNodeExecution:
@@ -34,14 +33,12 @@ class TestPrimitiveNodeExecution:
         """Test integer primitive node execution."""
         workflow = {
             "workflow": {
-                "nodes": {
-                    "n1": {"node_type": "primitive", "type": "int", "value": 42}
-                },
-                "edges": {}
+                "nodes": {"n1": {"node_type": "primitive", "type": "int", "value": 42}},
+                "edges": {},
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path))
+        executor = WorkflowExecutor(str(file_path), plugins=[])
         results = executor.execute()
 
         assert "n1" in results
@@ -52,14 +49,12 @@ class TestPrimitiveNodeExecution:
         """Test float primitive node execution."""
         workflow = {
             "workflow": {
-                "nodes": {
-                    "n1": {"node_type": "primitive", "type": "float", "value": 3.14}
-                },
-                "edges": {}
+                "nodes": {"n1": {"node_type": "primitive", "type": "float", "value": 3.14}},
+                "edges": {},
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path))
+        executor = WorkflowExecutor(str(file_path), plugins=[])
         results = executor.execute()
 
         assert "n1" in results
@@ -70,14 +65,12 @@ class TestPrimitiveNodeExecution:
         """Test string primitive node execution."""
         workflow = {
             "workflow": {
-                "nodes": {
-                    "n1": {"node_type": "primitive", "type": "str", "value": "hello"}
-                },
-                "edges": {}
+                "nodes": {"n1": {"node_type": "primitive", "type": "str", "value": "hello"}},
+                "edges": {},
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path))
+        executor = WorkflowExecutor(str(file_path), plugins=[])
         results = executor.execute()
 
         assert "n1" in results
@@ -88,14 +81,12 @@ class TestPrimitiveNodeExecution:
         """Test boolean primitive node execution."""
         workflow = {
             "workflow": {
-                "nodes": {
-                    "n1": {"node_type": "primitive", "type": "bool", "value": True}
-                },
-                "edges": {}
+                "nodes": {"n1": {"node_type": "primitive", "type": "bool", "value": True}},
+                "edges": {},
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path))
+        executor = WorkflowExecutor(str(file_path), plugins=[])
         results = executor.execute()
 
         assert "n1" in results
@@ -106,6 +97,8 @@ class TestPrimitiveNodeExecution:
 class TestFunctionNodeExecution:
     """Test execution of function nodes."""
 
+    pytestmark = pytest.mark.math
+
     def test_simple_add_function(self, temp_workflow_file):
         """Test simple addition function execution."""
         workflow = {
@@ -113,16 +106,16 @@ class TestFunctionNodeExecution:
                 "nodes": {
                     "n1": {"node_type": "primitive", "type": "float", "value": 5.0},
                     "n2": {"node_type": "primitive", "type": "float", "value": 3.0},
-                    "n3": {"type": "add"}
+                    "n3": {"type": "add"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},
-                    "e2": {"source": "n2", "target": "n3", "source_output": 0, "target_input": 1}
-                }
+                    "e2": {"source": "n2", "target": "n3", "source_output": 0, "target_input": 1},
+                },
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=["math"])
         results = executor.execute()
 
         assert "n3" in results
@@ -135,16 +128,16 @@ class TestFunctionNodeExecution:
                 "nodes": {
                     "n1": {"node_type": "primitive", "type": "float", "value": 4.0},
                     "n2": {"node_type": "primitive", "type": "float", "value": 2.5},
-                    "n3": {"type": "multiply"}
+                    "n3": {"type": "multiply"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},
-                    "e2": {"source": "n2", "target": "n3", "source_output": 0, "target_input": 1}
-                }
+                    "e2": {"source": "n2", "target": "n3", "source_output": 0, "target_input": 1},
+                },
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=["math"])
         results = executor.execute()
 
         assert "n3" in results
@@ -159,18 +152,18 @@ class TestFunctionNodeExecution:
                     "n2": {"node_type": "primitive", "type": "float", "value": 3.0},
                     "n3": {"type": "add"},
                     "n4": {"node_type": "primitive", "type": "float", "value": 2.0},
-                    "n5": {"type": "multiply"}
+                    "n5": {"type": "multiply"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},
                     "e2": {"source": "n2", "target": "n3", "source_output": 0, "target_input": 1},
                     "e3": {"source": "n3", "target": "n5", "source_output": 0, "target_input": 0},
-                    "e4": {"source": "n4", "target": "n5", "source_output": 0, "target_input": 1}
-                }
+                    "e4": {"source": "n4", "target": "n5", "source_output": 0, "target_input": 1},
+                },
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=["math"])
         results = executor.execute()
 
         assert "n3" in results
@@ -182,31 +175,35 @@ class TestFunctionNodeExecution:
 class TestConstructorNodeExecution:
     """Test execution of constructor nodes."""
 
+    pytestmark = pytest.mark.math
+
     def test_calculator_constructor(self, temp_workflow_file):
         """Test Calculator class instantiation."""
         workflow = {
             "workflow": {
                 "nodes": {
                     "n1": {"node_type": "primitive", "type": "float", "value": 10.0},
-                    "n2": {"node_type": "constructor", "type": "Calculator"}
+                    "n2": {"node_type": "constructor", "type": "Calculator"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n2", "source_output": 0, "target_input": 0}
-                }
+                },
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=["math"])
         results = executor.execute()
 
         assert "n2" in results
         # Check it's a Calculator instance
-        assert hasattr(results["n2"], 'value')
+        assert hasattr(results["n2"], "value")
         assert results["n2"].value == 10.0
 
 
 class TestMethodNodeExecution:
     """Test execution of method nodes."""
+
+    pytestmark = pytest.mark.math
 
     def test_calculator_method(self, temp_workflow_file):
         """Test Calculator method execution."""
@@ -216,17 +213,17 @@ class TestMethodNodeExecution:
                     "n1": {"node_type": "primitive", "type": "float", "value": 10.0},
                     "n2": {"node_type": "constructor", "type": "Calculator"},
                     "n3": {"node_type": "primitive", "type": "float", "value": 5.0},
-                    "n4": {"type": "Calculator.add_to_value"}
+                    "n4": {"type": "Calculator.add_to_value"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n2", "source_output": 0, "target_input": 0},
                     "e2": {"source": "n2", "target": "n4", "source_output": -1, "target_input": 0},
-                    "e3": {"source": "n3", "target": "n4", "source_output": 0, "target_input": 1}
-                }
+                    "e3": {"source": "n3", "target": "n4", "source_output": 0, "target_input": 1},
+                },
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=["math"])
         results = executor.execute()
 
         assert "n4" in results
@@ -236,6 +233,8 @@ class TestMethodNodeExecution:
 class TestTopologicalSorting:
     """Test topological sorting and execution order."""
 
+    pytestmark = pytest.mark.math
+
     def test_simple_dag(self, temp_workflow_file):
         """Test topological sort on simple DAG."""
         workflow = {
@@ -243,16 +242,16 @@ class TestTopologicalSorting:
                 "nodes": {
                     "n1": {"node_type": "primitive", "type": "int", "value": 1},
                     "n2": {"node_type": "primitive", "type": "int", "value": 2},
-                    "n3": {"type": "add"}
+                    "n3": {"type": "add"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},
-                    "e2": {"source": "n2", "target": "n3", "source_output": 0, "target_input": 1}
-                }
+                    "e2": {"source": "n2", "target": "n3", "source_output": 0, "target_input": 1},
+                },
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=["math"])
         execution_order = executor.get_execution_order()
 
         # n3 should come after n1 and n2
@@ -266,7 +265,7 @@ class TestTopologicalSorting:
     def test_cycle_detection(self, circular_workflow_dict, temp_workflow_file):
         """Test that circular dependencies are detected."""
         file_path = temp_workflow_file(circular_workflow_dict)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=["math"])
 
         with pytest.raises(ValueError, match="Cycle detected"):
             executor.get_execution_order()
@@ -274,6 +273,8 @@ class TestTopologicalSorting:
 
 class TestEdgeOrdering:
     """Test that edge target_input ordering is respected."""
+
+    pytestmark = pytest.mark.math
 
     def test_input_order_matters(self, temp_workflow_file):
         """Test that parameter order follows target_input values."""
@@ -283,16 +284,16 @@ class TestEdgeOrdering:
                 "nodes": {
                     "n1": {"node_type": "primitive", "type": "float", "value": 2.0},
                     "n2": {"node_type": "primitive", "type": "float", "value": 3.0},
-                    "n3": {"type": "math.pow"}
+                    "n3": {"type": "math.pow"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},
-                    "e2": {"source": "n2", "target": "n3", "source_output": 0, "target_input": 1}
-                }
+                    "e2": {"source": "n2", "target": "n3", "source_output": 0, "target_input": 1},
+                },
             }
         }
         file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), modules=['math'])
+        executor = WorkflowExecutor(str(file_path), plugins=["math"])
         results = executor.execute()
 
         assert "n3" in results

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "coral-plugin-math"
+version = "0.0.0"
+description = "Coral plugin: mathematical operations and the Calculator class."
+requires-python = ">=3.12"
+dependencies = ["coral-core"]
+
+# The entry point is how this plugin declares itself at install time and how the host finds it at
+# runtime. The name `math` is the identity the platform's `-p` contract references; it must not
+# change. It resolves to the plugin *class*, which the host instantiates.
+[project.entry-points."coral.plugins"]
+math = "coral_plugin_math:MathPlugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/coral_plugin_math"]

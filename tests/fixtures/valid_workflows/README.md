@@ -9,7 +9,7 @@ This directory contains test workflow fixtures used throughout the test suite.
 - `network-from-fe-math.json` - Math operations workflow
 - `network-from-fe-classes.json` - Calculator class workflow
 - `network-from-fe-functions.json` - Function calls workflow
-- `network-from-fe.json` - Default workflow
+- `network-from-fe.json` - Full PhiFlow workflow (the `"default"` fixture key; mirrors `examples/phiflow/network-from-fe.json`)
 
 These files are referenced via fixtures in `tests/conftest.py`.
 

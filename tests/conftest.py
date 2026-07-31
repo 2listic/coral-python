@@ -2,11 +2,11 @@
 Pytest configuration and fixtures for coral-python tests.
 """
 
-import pytest
 import json
-import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
+
+import pytest
 
 
 @pytest.fixture(scope="session")
@@ -43,12 +43,13 @@ def registry_files(project_root: Path) -> Dict[str, Path]:
 @pytest.fixture
 def load_workflow(workflow_files: Dict[str, Path]):
     """Factory fixture to load workflow JSON files."""
+
     def _load(name: str) -> Dict[str, Any]:
         """Load a workflow JSON file by name."""
         if name not in workflow_files:
             raise ValueError(f"Unknown workflow: {name}. Available: {list(workflow_files.keys())}")
 
-        with open(workflow_files[name], 'r') as f:
+        with open(workflow_files[name], "r") as f:
             return json.load(f)
 
     return _load
@@ -57,12 +58,13 @@ def load_workflow(workflow_files: Dict[str, Path]):
 @pytest.fixture
 def load_registry(registry_files: Dict[str, Path]):
     """Factory fixture to load registry JSON files."""
+
     def _load(name: str) -> Dict[str, Any]:
         """Load a registry JSON file by name."""
         if name not in registry_files:
             raise ValueError(f"Unknown registry: {name}. Available: {list(registry_files.keys())}")
 
-        with open(registry_files[name], 'r') as f:
+        with open(registry_files[name], "r") as f:
             return json.load(f)
 
     return _load
@@ -74,32 +76,24 @@ def simple_workflow_dict() -> Dict[str, Any]:
     return {
         "workflow": {
             "nodes": {
-                "node1": {
-                    "type": "int",
-                    "value": 5
-                },
-                "node2": {
-                    "type": "int",
-                    "value": 3
-                },
-                "node3": {
-                    "type": "add"
-                }
+                "node1": {"type": "int", "value": 5},
+                "node2": {"type": "int", "value": 3},
+                "node3": {"type": "add"},
             },
             "edges": {
                 "edge1": {
                     "source": "node1",
                     "target": "node3",
                     "source_output": 0,
-                    "target_input": 0
+                    "target_input": 0,
                 },
                 "edge2": {
                     "source": "node2",
                     "target": "node3",
                     "source_output": 0,
-                    "target_input": 1
-                }
-            }
+                    "target_input": 1,
+                },
+            },
         }
     }
 
@@ -109,28 +103,21 @@ def circular_workflow_dict() -> Dict[str, Any]:
     """Return a workflow with circular dependency for testing cycle detection."""
     return {
         "workflow": {
-            "nodes": {
-                "node1": {
-                    "type": "add"
-                },
-                "node2": {
-                    "type": "multiply"
-                }
-            },
+            "nodes": {"node1": {"type": "add"}, "node2": {"type": "multiply"}},
             "edges": {
                 "edge1": {
                     "source": "node1",
                     "target": "node2",
                     "source_output": 0,
-                    "target_input": 0
+                    "target_input": 0,
                 },
                 "edge2": {
                     "source": "node2",
                     "target": "node1",
                     "source_output": 0,
-                    "target_input": 0
-                }
-            }
+                    "target_input": 0,
+                },
+            },
         }
     }
 
@@ -138,13 +125,14 @@ def circular_workflow_dict() -> Dict[str, Any]:
 @pytest.fixture
 def temp_workflow_file(tmp_path, simple_workflow_dict):
     """Create a temporary workflow JSON file."""
+
     def _create(workflow_dict: Dict[str, Any] = None) -> Path:
         """Create a temporary workflow file and return its path."""
         if workflow_dict is None:
             workflow_dict = simple_workflow_dict
 
         temp_file = tmp_path / "temp_workflow.json"
-        with open(temp_file, 'w') as f:
+        with open(temp_file, "w") as f:
             json.dump(workflow_dict, f, indent=2)
 
         return temp_file
@@ -169,6 +157,7 @@ def isolate_cwd(monkeypatch, tmp_path):
 def reset_sys_path():
     """Ensure imports work correctly by adding project root to sys.path."""
     import sys
+
     project_root = Path(__file__).parent.parent
 
     if str(project_root) not in sys.path:
@@ -189,3 +178,32 @@ def mock_print(monkeypatch):
 
     monkeypatch.setattr("builtins.print", _print)
     return printed_lines
+
+
+def _repo_plugin_names() -> list:
+    """Plugin names this repo ships, from ``packages/coral-plugin-<name>`` (the source of truth)."""
+    packages = Path(__file__).parent.parent / "packages"
+    prefix = "coral-plugin-"
+    return sorted(p.name[len(prefix) :] for p in packages.glob(f"{prefix}*"))
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip plugin-tagged tests whose plugin isn't installed in this environment.
+
+    The suite runs against whatever plugins happen to be installed — the canonical fully-synced
+    workspace, but also any subset. A test tagged ``@pytest.mark.<plugin>`` (e.g. ``math``) needs
+    that plugin; when it isn't discoverable, skip it cleanly here instead of letting
+    ``build_*_map`` raise ``LookupError`` mid-test. Keyed on the plugins the repo actually ships
+    (``packages/coral-plugin-*``), so the guard tracks the plugin set automatically — no hardcoded
+    catalog to keep in sync.
+    """
+    from coral_app import discover
+
+    installed = set(discover())
+    for name in _repo_plugin_names():
+        if name in installed:
+            continue
+        skip = pytest.mark.skip(reason=f"plugin {name!r} not installed")
+        for item in items:
+            if name in item.keywords:
+                item.add_marker(skip)
