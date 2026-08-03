@@ -10,7 +10,7 @@ in discussion are recorded below, then the steps.
 | 1 | where do the types live? | **the host**, not a plugin — no new distribution | shared operations belong to everyone; a plugin would have to be installed to get them |
 | 2 | operations as functions or as wrapper classes? | **host functions** over bare `list`/`set`/`dict` | a wrapper `List` is not a `list`, so every plugin boundary would cost a conversion node, in the direction that matters (a plugin *producing* a list) |
 | — | why not register the real `list`/`set`/`dict` classes? | impossible | `inspect.signature(list)` is `(iterable=(), /)` → one mandatory input port, so check 4 forbids an empty-list constructor node; `_public_method_names(list)` is `[]` (C extension); `list.append` mutates and returns `None` → no output port |
-| 3 | can a collection primitive carry a literal? | **no — empty only** | JSON cannot express an object, so a literal would only ever serve scalars, while the `*_new` + `*_append` chain is mandatory anyway. One way to build a collection. Widening this later is backwards compatible |
+| 3 | do `list`/`set`/`dict` exist as primitive **nodes**? | **no — they are socket *type names* only** | a collection primitive could only ever be empty (JSON cannot express a literal set or dict), which is exactly what `list_new()` returns — two node types, one behaviour. Keeping only the function makes "one way to build a collection" *enforced* by graph check 2 rather than merely intended. See [Decision 3 in full](#decision-3-in-full) |
 | 4 | node type names | **underscored**: `list_new`, `list_append`, … | in `node_types.json` a dot already means a module (`math.sqrt`) or a class (`Calculator.add_to_value`); `list.append` is valid Python for a real builtin method with *different* semantics (mutates, returns `None`), so the name would assert something false. Follows the `phiflow_*` precedent |
 | 5 | operations | create / add / extract / inspect, per type | see the table in step 2 |
 | 6 | removal | one index/key-based op per type, fail loud | `list_remove` would be ambiguous (Python removes by *value*), hence `list_remove_at` |
@@ -25,33 +25,56 @@ Semantics common to all of them:
 - **No element typing.** Annotations are the bare `list` / `set` / `dict`; elements are `Any`. A
   generic alias such as `List[int]` would make graph check 6 skip the edge entirely.
 
-## ⚠ Unresolved before step 1 — found in the coherency review
+## Decision 3 in full
 
-**Decisions 3 and 5 collide: the `list` primitive node and `list_new()` do the same thing.** With
-decision 3 (empty-only), a `{"type": "list", "value": ""}` node reliably yields `[]` — which is
-exactly what `list_new()` yields. Two node types, identical behaviour, contradicting decision 3's own
-stated goal of *one* way to build a collection. Three ways out:
+The coherency review found that decisions 3 and 5 collided: an empty-only `list` primitive node and
+`list_new()` produce the same thing. Two node types, identical behaviour, contradicting the stated
+goal of *one* way to build a collection. Three ways out were considered:
 
 | | what | consequence |
 | --- | --- | --- |
-| **(i)** | keep both | editor shows `list` (primitive) *and* `list_new` (function) for the same result |
-| **(ii)** | drop `*_new`, the primitive node is the creator | 12 nodes, but the creator depends on a `value` field being empty — the fragility that motivated an explicit creator |
-| **(iii)** | `list`/`set`/`dict` become **type names only, not node types** | recommended — see below |
+| (i) | keep both | editor shows `list` (primitive) *and* `list_new` (function) for the same result |
+| (ii) | drop `*_new`, the primitive node is the creator | 12 node types, but the creator depends on a `value` field being required-empty |
+| **(iii)** | `list`/`set`/`dict` are **type names only, not node types** | **chosen** |
 
-**(iii) in detail:** do *not* add them to `PRIMITIVES_MAP`. Add a separate map in `primitives.py`
-consumed only by `registry.py`'s reverse lookup, so `python_type_to_string` still renders `"list"`
-instead of `"any"`. Then:
+**(iii), chosen.** They do *not* go into `PRIMITIVES_MAP`; a separate map in `primitives.py` feeds
+`registry.py`'s reverse lookup, so `python_type_to_string` renders `"list"` rather than `"any"`.
+
+What it buys:
 
 - sockets are typed `list`/`set`/`dict` — the whole point of step 1 is preserved;
-- no collection primitive node exists, so `list_new()` is the only creator, and graph check 2 rejects
-  `{"type": "list"}` as an unknown type — "one way" enforced, not just intended;
-- **step 1 collapses to a few lines**: no `EMPTY_PRIMITIVES`, no `_convert` branch, no empty-value
-  semantics, no `ValueError`, and `executor.py` is not touched at all;
-- cost: `PRIMITIVES_MAP` stops being "every type name the registry can print", a split that must be
-  documented in `primitives.py`.
+- `list_new()` is the only creator, and graph check 2 rejects `{"type": "list"}` as an unknown node
+  type — "one way to build a collection" is enforced, not just intended;
+- **step 1 is a few lines**: no `EMPTY_PRIMITIVES`, no `_convert` branch, no empty-value semantics, no
+  `ValueError`; `executor.py`, `graph.py` and `nodeports.py` are untouched;
+- no run-time-only failure mode. Under (ii) the "value must be empty" check necessarily lives in
+  `_convert`, i.e. it fires *during* `execute()` — the one thing
+  [Graph validation](../../CLAUDE.md#graph-validation) exists to prevent. Under (iii) there is
+  nothing to check.
+- `PRIMITIVES_MAP` keeps one meaning ("a literal the JSON carries as a string, cast by the declared
+  type"). (ii) would split it into two kinds of primitive, one of which ignores both the literal and
+  the cast — a new concept the planned functions/types/methods registration refactor would then have
+  to model.
 
-Step 1 below is written for (i)/(ii). **If (iii) is chosen, step 1 is replaced by the paragraph
-above** and the primitive-node substeps of steps 1, 4 and 5 drop out.
+What it costs — two **platform** bets, neither verified from this side of the boundary:
+
+1. `"list"` becomes the first socket `type` string that is not also a `registry[...]` key. That
+   property holds today by construction: `python_type_to_string` can only return a
+   `_REVERSE_PRIMITIVES_MAP` value (i.e. a `PRIMITIVES_MAP` key) and `generate_registry` emits a node
+   entry for every `PRIMITIVES_MAP` key. Harmless if the editor only string-compares socket types;
+   a problem if it looks them up (socket styling, or a "nodes producing this type" menu).
+2. `list_new`/`set_new`/`dict_new` are the first *function* nodes with `inputs: []` — see step 4,
+   which already flags this.
+
+Both are answered empirically by generating the registry and opening the editor; step 4 requires
+that before the feature counts as delivered.
+
+**Reversibility** (this issue precedes a refactor of functions/types/methods registration, so it
+matters): (iii) → (i) is purely additive — merge the collection map into `PRIMITIVES_MAP` and add the
+value handling wherever the refactor puts primitive conversion; `list_new` keeps working and no graph
+breaks. (i) → (ii) is then a deprecation at leisure. The reverse, (ii) → (iii), is a single breaking
+jump: every saved graph naming `{"type": "list"}` stops validating on the same day, and the socket-type
+bet above gets taken *after* graphs exist rather than before.
 
 ## Steps
 
