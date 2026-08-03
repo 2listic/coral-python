@@ -355,8 +355,11 @@ handles via `issubclass`. Add cases to the existing type-compatibility class, us
   - [ ] Core components §3 — `build_function_map` is seeded with `BUILTIN_FUNCTIONS`; record the
         decision-7 precedence rule.
   - [ ] Data flow stage 1 — "load plugins" now also means "seed the host's builtins".
-  - [ ] Type system bullet under Key Constraints — `PRIMITIVES_MAP` gains `list`/`set`/`dict`, and
-        collection primitives are empty-only (decision 3).
+  - [ ] Type system bullet under Key Constraints — **rewritten for decision 3 (iii)**, since the
+        original text ("`PRIMITIVES_MAP` gains `list`/`set`/`dict`, and collection primitives are
+        empty-only") describes the design we rejected. `PRIMITIVES_MAP` is unchanged; the type table
+        now splits into it plus `COLLECTION_TYPES`, whose names are renderable on a socket without
+        being node types, and a collection is built by `list_new()` and friends.
   - [ ] Graph validation §"annotation quality" — the builtins are fully annotated, so add a row to the
         slots table.
   - [ ] A short "Built-in collection nodes" section: the 15 names, the purity and fail-loud contract,

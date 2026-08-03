@@ -476,11 +476,12 @@ assumptions — if you touch this boundary, update both and re-run the full suit
 
 ### Concrete extension points
 
-- **Richer type system.** Only the six `PRIMITIVES_MAP` types (`int`, `float`, `str`, `bool`, `any`,
-  `none`) round-trip through the registry; every other annotation (a domain class, `list`, a
-  non-primitive tuple element) collapses to `"any"`. A richer scheme (e.g. registering domain class
-  names as their own protocol types, the way method `self` arguments already use the class name)
-  would give more precise sockets and better validation on the canvas.
+- **Richer type system.** Nine type names round-trip through the registry: the six `PRIMITIVES_MAP`
+  node types plus `list`/`set`/`dict` from `COLLECTION_TYPES` (issue #25, which also demonstrated that a
+  type name need not be a node type). Every other annotation — a domain class, a parameterised generic
+  like `List[int]`, a non-primitive tuple element — still collapses to `"any"`. A richer scheme (e.g.
+  registering domain class names as their own protocol types, the way method `self` arguments already
+  use the class name) would give more precise sockets and better validation on the canvas.
 - **Lazy plugin import (done).** Entry-point discovery already imports only the plugins named in
   `-p`: `discover()` enumerates names without importing, and `load(name)` imports just that one. An
   unselected `phiflow` never triggers the PhiFlow/JAX import chain. (This was a weakness of the old
@@ -542,6 +543,38 @@ Two things worth knowing if you work in `coral_app/__init__.py`:
   key (today, `print_result` is in both `coral-plugin-math` and `coral-plugin-string`) the later one
   silently wins. Harmless today since the duplicate is identical, but worth knowing before adding a
   colliding name. The "all" order is `sorted(discover())`, so it's deterministic.
+- `BUILTIN_FUNCTIONS` is applied **after** that merge, so the host's own nodes are never shadowed. That
+  is a different rule from the one above, on purpose: two plugins are peers and neither has a claim to
+  precedence, whereas a builtin is a promise the host makes to every graph. See the next entry.
+
+### Why are the list/set/dict operations in the host rather than a plugin?
+
+Because they are not a capability, they are vocabulary. A plugin is how you add *a library* — PhiFlow,
+numpy, your solver. But "put a value in a list" is something every graph might need regardless of which
+libraries are installed, and making it a plugin would mean a graph is portable only if the operator
+remembered to install `coral-plugin-collections`. The host already ships primitives on exactly this
+reasoning; the collections are the same argument one level up, so they live in
+`coral_app/builtin_nodes.py` next to `primitives.py`.
+
+The consequence is the precedence rule above: since a builtin is a guarantee rather than a contribution,
+a plugin declaring `list_append` is ignored rather than winning. A graph names only node types, so a
+plugin that silently redefined one would produce a wrong answer with nothing in the graph to point at.
+
+**Why bare `list`, and not a `CoralList` wrapper class?** A wrapper would have been the tidier object
+model — real methods, a real constructor, no 15 free functions. It was rejected because of what crosses
+the wire *between* a builtin and a plugin. A `CoralList` is not a `list`, so the moment a plugin function
+wants `List[float]`, or returns one, you need a conversion node in the graph. The direction that hurts is
+the plugin *producing* a collection: a plugin author would have to import a host type to hand back
+something the collection nodes can consume, and the host↔plugin dependency only runs one way. With bare
+builtins, `list_get` hands a plugin function a genuine Python float out of a genuine Python list, and
+nothing is converted — see `tests/fixtures/valid_workflows/network-collections-math.json`, which wires
+`list_get` straight into the math plugin's `add`.
+
+The cost of that choice is that `list`/`set`/`dict` cannot be registered as *classes* even if we wanted
+to: `inspect.signature(list)` is `(iterable=(), /)`, one mandatory port, so an empty-list constructor node
+would fail graph check 4; `list.append` mutates and returns `None`, so it would have no output port; and
+being C extension types they expose no introspectable methods at all. Free functions are not a stylistic
+preference here, they are the only thing that works.
 
 ---
 

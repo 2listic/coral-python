@@ -174,12 +174,16 @@ class TestBuildClassMap:
 class TestWorkflowExecutorPluginLoading:
     """Test plugin loading in WorkflowExecutor."""
 
+    @pytest.mark.math
     def test_executor_default_plugins_all_discovered(self, workflow_files):
         """
         GIVEN a WorkflowExecutor constructed without an explicit plugin list
         WHEN its function map is built
         THEN it loads every discovered plugin — the same set as ``build_function_map(None)`` —
              with no plugin name hardcoded in the host.
+
+        Tagged ``math`` because the graph it validates against uses ``math.sqrt``: constructing the
+        executor fails without that plugin, even though the assertion itself is about the host.
         """
         from coral_app import build_function_map, discover
 

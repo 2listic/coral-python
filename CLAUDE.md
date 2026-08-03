@@ -10,6 +10,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Constructor nodes**: Instantiate Python classes
 - **Method nodes**: Call instance methods on objects created by constructor nodes
 
+The four kinds are unchanged by where a node comes from, but note that not every node comes from a
+plugin: besides the primitives, the host ships **function** nodes of its own — the collection
+operations in `coral_app/builtin_nodes.py`, available with no plugin installed at all. See
+[Built-in collection nodes](#built-in-collection-nodes).
+
 The project uses PhiFlow for physics simulations and numerical computing.
 
 The repo is a **uv workspace / monorepo**: a small set of independently installable distributions
@@ -162,7 +167,8 @@ packages/
 ├── coral-app/                     # the host: discovery, node types, graph, executor, CLI. Depends on coral-core only.
 │   └── src/coral_app/
 │       ├── __init__.py            # PLUGIN_GROUP, discover/load, build_function_map/build_class_map
-│       ├── primitives.py          # PRIMITIVES_MAP lives here (host-only; no plugin references it)
+│       ├── primitives.py          # the type table: PRIMITIVES_MAP + COLLECTION_TYPES (host-only)
+│       ├── builtin_nodes.py       # the host's own functions: the list/set/dict operations
 │       ├── nodeports.py           # the port table: each node type's inputs and outputs
 │       ├── graph.py               # read, validate and order a workflow graph
 │       ├── registry.py            # node_types.json generation (renders the port table)
@@ -204,7 +210,13 @@ it finds them at runtime via entry-point discovery.
    - `build_function_map(include=None, exclude=None)` / `build_class_map(...)`: same signatures as before, now
      re-backed by `discover`/`load`. `include=None` → `sorted(discover())`; names are merged in selection order
      (later wins on key collision, e.g. the `print_result` shared by math + string). An unknown name → `LookupError`.
-   - Re-exports `PRIMITIVES_MAP` (defined in `coral_app/primitives.py`).
+     `build_function_map` then applies `BUILTIN_FUNCTIONS` **last**, so **a builtin name cannot be shadowed**:
+     "later wins" settles a collision between two *plugins*, which are peers; a builtin is a host guarantee, and
+     a plugin silently redefining `list_append` for every graph on the platform would be undebuggable from the
+     graph, which names only the node type. Such a plugin declaration is ignored (silently — making it fail loud
+     is a separate change). `build_class_map` is unaffected: there are no builtin classes.
+   - Re-exports the two host-owned node surfaces: `PRIMITIVES_MAP` / `COLLECTION_TYPES` / `TYPE_NAMES`
+     (from `coral_app/primitives.py`) and `BUILTIN_FUNCTIONS` (from `coral_app/builtin_nodes.py`).
 
    The rest of the host is **one job per module**, in stages (issue #23). Nothing imports backwards:
    `nodeports` knows callables but not graphs; `graph` knows graphs but not callables; `registry` and
@@ -276,7 +288,7 @@ Edge format:
 
 | stage | job | input | output | module |
 | --- | --- | --- | --- | --- |
-| 1 | load plugins | plugin names | `function_map`, `class_map` | `coral_app/__init__.py` |
+| 1 | load plugins, add the host's builtins | plugin names | `function_map`, `class_map` | `coral_app/__init__.py` |
 | 2 | describe each node type | the maps | port table | `coral_app/nodeports.py` |
 | 3 | read, validate, order the graph | graph JSON + port table | `Graph` | `coral_app/graph.py` |
 | 4 | execute | `Graph` + the maps | `results` | `coral_app/executor.py` |
@@ -284,7 +296,10 @@ Edge format:
 
 1. **Discover/Load**: the host lists installed plugins (no import) and loads only the requested names.
 2. **Build maps**: each loaded plugin's `get_functions()`/`get_classes()` are merged into `function_map` /
-   `class_map` (selection order; later wins). Primitives come from the host `PRIMITIVES_MAP`.
+   `class_map` (selection order; later wins), then `BUILTIN_FUNCTIONS` is applied on top of `function_map`
+   — so the host's own nodes are present under every selection and cannot be shadowed. Primitives come
+   from the host `PRIMITIVES_MAP`. With no plugin at all, stage 1 still yields a complete surface: the
+   primitives plus the 15 builtins.
 3. **Describe node types**: `build_port_table()` turns the maps into one entry per node type, listing
    its input parameters and its outputs. Stages 4 and 5 both read it; neither introspects again.
 4. **Read, validate and order the graph**: `Graph.from_file()` loads `workflow.nodes` /
@@ -382,21 +397,30 @@ annotations the plugins declare; the single relation the class hierarchy cannot 
 accepted where a `float` is expected, though `issubclass(int, float)` is `False` — is taken from the
 standard library's own `numbers` tower rather than a hand-written table.
 
-The check only sees what the plugins declare, so **annotation quality is the plugin author's
-responsibility**. Across all three plugins, 59 of 83 annotation slots are checkable (52 scalar,
-7 class) and 24 are `Any` — and they are concentrated in one plugin:
+The check only sees what a node's author declares, so **annotation quality is the author's
+responsibility**. A *slot* below is one annotation the check can look at — every input and output of
+every node type, except a method's `self` (which the port table synthesises from the class). Across
+the three plugins and the host's builtins, 86 of 120 slots are checkable and 34 are `Any` — and the
+`Any` is concentrated in one plugin:
 
-| plugin | slots | `Any` | checkable |
+| source | slots | `Any` | checkable |
 | --- | --- | --- | --- |
 | math | 28 | 1 | 27 |
 | string | 8 | 1 | 7 |
 | phiflow | 48 | 23 | 25 |
+| builtins (host) | 36 | 9 | 27 |
 
 So `phiflow_iterate` returning `Tuple[Any, Any, Any]` cannot be checked, and a grid wired where a
 float belongs only fails once the simulation has run. A plugin that annotates properly gets its
 wiring verified at t=0; one that writes `Any` does not. Fixing that is a plugin change, and belongs
 to whoever owns the plugin. This is the same bargain the registry already strikes (see
 [Type Hint Requirements](#type-hint-requirements)).
+
+The builtins' 9 `Any` slots are **deliberate and not fixable**: they are exactly the element and key
+positions (`list_append`'s `item`, `dict_set`'s `key`/`value`, `list_get`'s return, …). A collection
+holds anything, so there is nothing truer to write there — and writing `List[int]` instead would make
+the check skip the *container* edge too, trading 27 checkable slots for 0. The 22 collection slots
+that are checkable are precisely what decision 3's type names bought.
 
 ### PhiFlow Integration
 
@@ -405,10 +429,60 @@ system by the `phiflow` plugin. Wrapper classes in
 `packages/coral-plugin-phiflow/src/coral_plugin_phiflow/__init__.py` provide a simplified,
 type-hinted API for workflow integration; the plugin owns the `phiflow`/`jax`/`h5py` dependencies.
 
+### Built-in collection nodes
+
+Lists, sets and dictionaries are operated on by **host** functions in `coral_app/builtin_nodes.py`, not
+by a plugin (issue #25). They are available under **any** `-p` selection and with no plugin installed at
+all, exactly like the primitives — a graph using them runs anywhere a coral host runs.
+
+| | create | add | extract | inspect | remove |
+| --- | --- | --- | --- | --- | --- |
+| **list** | `list_new` | `list_append` | `list_get` | `list_size` | `list_remove_at` |
+| **set** | `set_new` | `set_add` | `set_to_list` | `set_size` | `set_remove` |
+| **dict** | `dict_new` | `dict_set` | `dict_get` | `dict_size` | `dict_delete` |
+
+Three properties hold for all 15, and graphs depend on each:
+
+- **Pure.** Every operation returns a *new* collection and never mutates its input. A node's result is
+  read by every downstream consumer in an order the topological sort chooses, so in-place mutation would
+  make the graph's outcome depend on that choice.
+- **Fail loud.** A missing index or key raises (`IndexError` / `KeyError`); `set_remove` uses `remove`,
+  not `discard`. No `None` fallbacks and no default arguments — graph check 4 requires every port to be
+  wired, so a default would be unreachable.
+- **No element typing.** Annotations are the bare `list` / `set` / `dict`, elements are `Any`. A generic
+  alias would make graph check 6 skip the container edge as well (see the note under
+  [Graph validation](#graph-validation)).
+
+Two details worth knowing before touching them:
+
+- `set_to_list` returns `sorted(s)`, not the iteration order. A set of strings iterates differently
+  **between runs** (hash randomisation), which would make a graph non-reproducible; the price is
+  `TypeError` on mutually incomparable elements, which is accepted because such a set has no defined
+  order for a graph to depend on anyway.
+- Names are underscored. In a node type a dot already means a module (`math.sqrt`) or a class
+  (`Calculator.add_to_value`), and `list.append` is real Python for a method with *different* semantics
+  (mutates, returns `None`) — the name would assert something false.
+- `list_new`/`set_new`/`dict_new` are the first **function** nodes with zero inputs (`inputs: []`,
+  `outputs: [0]`); primitives also take no input but use `outputs: [-1]`. Together with `"list"` as a
+  socket type that is not a registry key, these are the two platform-facing novelties to confirm in the
+  editor.
+
+Runnable examples: `coral run examples/collections/list.json` (also `set.json`, `dict.json`). The
+"needs no plugin" property is asserted by `tests/test_integration.py::TestCollectionWorkflows`, which
+passes `plugins=[]` — the CLI cannot express it, since an empty `-p` means *all* installed plugins.
+
 ## Key Constraints and Design Decisions
 
 - **Edge ordering is critical**: Function/method parameter order determined by `target_input` values on edges (sorted ascending)
-- **Type system**: Maps Python types (int, float, str, bool, None, Any) to string representations via `PRIMITIVES_MAP`
+- **Type system**: maps Python types to the protocol's type-name strings. The table lives in
+  `coral_app/primitives.py` and is **split in two**, because not every type name is a node type:
+  `PRIMITIVES_MAP` holds the six *primitive node* types (`int`, `float`, `str`, `bool`, `any`, `none`)
+  — a node carrying a literal in its `value` field, cast by the declared type; `COLLECTION_TYPES` holds
+  `list` / `set` / `dict`, which a socket can be typed with but which **no node creates**. A collection
+  is built by `list_new()` / `set_new()` / `dict_new()`, so `{"type": "list"}` in a graph is an unknown
+  node type and graph check 2 rejects it. `TYPE_NAMES` is their union and is what `registry.py` renders
+  from. Consequence to know: `"list"` is the first socket type string with no matching `registry[...]`
+  key — see [Built-in collection nodes](#built-in-collection-nodes)
 - **No cycles**: Workflow graphs must be acyclic (DAG) — `graph.py` raises `ValueError` naming the
   cycle path, using `graphlib.TopologicalSorter` (stdlib, `{node: predecessors}`)
 - **Validate before executing**: every wiring error raises while the `Graph` is being constructed, so
