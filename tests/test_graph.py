@@ -25,8 +25,16 @@ node type             inputs                            outputs
 from typing import Any
 
 import pytest
+from coral_app import PRIMITIVES_MAP
 from coral_app.graph import Graph
-from coral_app.nodeports import CONSTRUCTOR, FUNCTION, METHOD, PRIMITIVE, NodePorts
+from coral_app.nodeports import (
+    CONSTRUCTOR,
+    FUNCTION,
+    METHOD,
+    PRIMITIVE,
+    NodePorts,
+    build_port_table,
+)
 
 
 class Widget:
@@ -269,6 +277,22 @@ class TestNodeTypes:
         THEN it raises, naming the node."""
         with pytest.raises(ValueError, match=r"Node 'n1' declares no 'type'"):
             build({"n1": {"value": 1.0}}, {})
+
+    @pytest.mark.parametrize("collection", ["list", "set", "dict"])
+    def test_a_collection_is_not_a_node_type(self, collection):
+        """GIVEN a graph naming a collection type as a node
+        WHEN the graph is built against the real primitives-only port table
+        THEN check 2 rejects it: a collection is built by ``list_new`` and friends, so there is
+        exactly one way to make one.
+
+        The table here is built rather than hand-written — the point is what the *host* actually
+        offers with no plugin at all, which a literal table could not show.
+        """
+        port_table = build_port_table(primitives=PRIMITIVES_MAP)
+
+        assert collection not in port_table
+        with pytest.raises(ValueError, match=rf"Node 'n1' has unknown type '{collection}'"):
+            Graph({"n1": {"type": collection}}, {}, port_table)
 
 
 class TestInputPorts:

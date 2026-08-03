@@ -3,7 +3,13 @@ Tests for plugin loading and function/class mapping.
 """
 
 import pytest
-from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map
+from coral_app import (
+    COLLECTION_TYPES,
+    PRIMITIVES_MAP,
+    TYPE_NAMES,
+    build_class_map,
+    build_function_map,
+)
 from coral_app.executor import WorkflowExecutor
 
 
@@ -34,6 +40,31 @@ class TestPrimitivesMap:
         assert PRIMITIVES_MAP["int"]("42") == 42
         assert PRIMITIVES_MAP["float"]("3.14") == 3.14
         assert PRIMITIVES_MAP["bool"]("True") is True
+
+    def test_collections_are_not_primitive_node_types(self):
+        """GIVEN the collection types exist as socket type names
+        WHEN PRIMITIVES_MAP is inspected
+        THEN it holds none of them: a collection is built by a function, never by a node
+        carrying a literal."""
+        assert set(PRIMITIVES_MAP) == {"int", "float", "str", "bool", "any", "none"}
+        assert not set(PRIMITIVES_MAP) & set(COLLECTION_TYPES)
+
+
+class TestCollectionTypes:
+    """The collection type names — renderable on a socket, but not node types."""
+
+    def test_collection_types_are_the_real_python_types(self):
+        """GIVEN the collection type table
+        WHEN it is read
+        THEN each name maps to the bare Python type, with no element typing."""
+        assert COLLECTION_TYPES == {"list": list, "set": set, "dict": dict}
+
+    def test_type_names_is_the_union_of_both_tables(self):
+        """GIVEN the primitives and the collections
+        WHEN TYPE_NAMES is read
+        THEN it is exactly their union — every type name the registry can render on a socket."""
+        assert TYPE_NAMES == {**PRIMITIVES_MAP, **COLLECTION_TYPES}
+        assert set(TYPE_NAMES) == set(PRIMITIVES_MAP) | set(COLLECTION_TYPES)
 
 
 class TestBuildFunctionMap:

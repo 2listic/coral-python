@@ -85,28 +85,40 @@ New test docstrings use GIVEN/WHEN/THEN. **None of the new tests may be tagged
 `@pytest.mark.<plugin>`** — builtins exist with zero plugins installed, and the tests must assert
 exactly that.
 
-### 1. The three types — `packages/coral-app/src/coral_app/primitives.py`
+### 1. The three type names — `packages/coral-app/src/coral_app/primitives.py`
 
-- [ ] Append `"list": list`, `"set": set`, `"dict": dict` to `PRIMITIVES_MAP`, **after** the existing
-      entries — the key order of `node_types.json` is part of the platform contract, so existing keys
-      must keep their positions.
-- [ ] Add `EMPTY_PRIMITIVES = frozenset({"list", "set", "dict"})`: the primitive types whose node
-      ignores its `value` and always yields an empty collection (decision 3). Document *why* the name
-      list lives here and not in `executor.py`: `primitives.py` owns the type table.
-- [ ] `executor.py::_convert` — one branch, before the existing casts:
-      `if node["type"] in EMPTY_PRIMITIVES: return converter()` (i.e. `list()` / `set()` / `dict()`).
-  - [ ] Reject a non-empty `value` with `ValueError` naming the node type, rather than silently
-        discarding data. `""` (what `register` emits), `[]`, `{}`, `None` and an absent key are all
-        accepted as "empty".
-  - [ ] Do **not** reach for `json.loads` — `executor.py` is deliberately free of `json`.
-- [ ] Tests in `tests/test_plugins.py::TestPrimitivesMap` (mirroring the existing style) and
-      `tests/test_executor.py`:
-  - [ ] `PRIMITIVES_MAP` contains `list`/`set`/`dict` mapped to the real Python types.
-  - [ ] a `list` / `set` / `dict` primitive node with `value: ""` executes to `[]` / `set()` / `{}`.
-  - [ ] a `list` primitive node with `value: "[1,2,3]"` raises `ValueError` — the silent-garbage case
-        (`list("[1,2,3]")` is a list of 7 characters) must be impossible.
-- [ ] Check `python_type_to_string` needs no change: `_REVERSE_PRIMITIVES_MAP` is rebuilt from
-      `PRIMITIVES_MAP`, so a `list` annotation now renders as `"list"` instead of `"any"`.
+Decision 3 (iii): these are socket type names, not node types. So this step teaches the *registry*
+three new type names and adds no node.
+
+- [ ] `PRIMITIVES_MAP` stays **exactly** as it is — six entries, existing order. The key order of
+      `node_types.json` is part of the platform contract, and a collection emits no entry at all.
+- [ ] Add `COLLECTION_TYPES = {"list": list, "set": set, "dict": dict}`, plus the derived union
+      `TYPE_NAMES = {**PRIMITIVES_MAP, **COLLECTION_TYPES}` — every type name the registry can render
+      on a socket. Comment why there are two maps: a primitive is a *node* type carrying a literal; a
+      collection is only a socket type, built by `list_new()` / `set_new()` / `dict_new()` (step 2).
+      Keeping the union here keeps `primitives.py` the single owner of the type table.
+- [ ] Re-export `COLLECTION_TYPES` and `TYPE_NAMES` from `coral_app/__init__.py` (import + `__all__`),
+      next to `PRIMITIVES_MAP` — `registry.py` reads the type table from the package, not the submodule.
+- [ ] `registry.py`: build the reverse lookup from `TYPE_NAMES`, and rename the private
+      `_REVERSE_PRIMITIVES_MAP` → `_TYPE_NAME_OF`, since it no longer holds only primitives (three
+      references, all in this file). `generate_registry`'s `primitives` argument stays
+      `list(PRIMITIVES_MAP.keys())`.
+- [ ] `executor.py`, `graph.py`, `nodeports.py`: **untouched** — no `EMPTY_PRIMITIVES`, no `_convert`
+      branch, no empty-value semantics, no new run-time failure mode.
+- [ ] Tests:
+  - [ ] `tests/test_plugins.py::TestPrimitivesMap` — `PRIMITIVES_MAP` still holds exactly the six
+        existing keys and *none* of `list`/`set`/`dict`. This is the assertion that pins "a collection
+        is not a primitive node".
+  - [ ] `tests/test_registry.py` — `python_type_to_string` returns `"list"` / `"set"` / `"dict"` for
+        the three types (it returned `"any"` before); the existing scalar cases are unaffected.
+  - [ ] `tests/test_graph.py` — a graph node `{"type": "list"}` raises `ValueError` during `Graph`
+        construction (check 2, unknown node type), so "one way to build a collection" is enforced
+        rather than merely intended.
+- [ ] The four goldens **must not change** in this step: no annotation anywhere is a bare
+      `list`/`set`/`dict` yet (checked — the only collection annotations in the plugins are
+      `Dict[str, Any]` on `get_functions`/`get_classes`, and the `Plugin` subclasses are not in any
+      class map), so no socket renders `"list"` until step 2 adds the builtins. A golden diff here
+      means something else moved.
 
 ### 2. The operations — new `packages/coral-app/src/coral_app/builtin_nodes.py`
 
@@ -182,11 +194,13 @@ Imports nothing from `coral_app`.
 golden files change**, for every plugin set.
 
 - [ ] Fix `tests/test_plugin_discovery.py:165` `test_register_with_no_plugins_emits_only_primitives`.
-      Its assertion `set(registry) == set(PRIMITIVES_MAP)` is now false by design: with no plugins the
-      registry holds the primitives **plus the builtins**. Rename it to say so
-      (`..._emits_only_primitives_and_builtins`) and assert
-      `set(registry) == set(PRIMITIVES_MAP) | set(BUILTIN_FUNCTIONS)`. Update the module docstring at
-      line 13, which states the baseline is "primitives".
+      All three of its assertions are now false by design — with no plugins the registry holds the
+      primitives **plus the builtins**:
+      `set(registry) == set(PRIMITIVES_MAP)` → `== set(PRIMITIVES_MAP) | set(BUILTIN_FUNCTIONS)`;
+      `len(registry) == 6` → the sum of both; and
+      `all(entry["node_type"] == "primitive" ...)` → every entry is `primitive` *or* `function`.
+      Rename it (`..._emits_only_primitives_and_builtins`) and update the module docstring at line 13,
+      which states the baseline is "primitives".
 - [ ] Audit the rest of the suite for assertions that assume a plugin owns every function or that
       count map entries — `tests/test_registry.py`, `tests/test_plugins.py`,
       `tests/test_characterization.py`, `tests/test_acceptance.py`.
@@ -197,9 +211,9 @@ golden files change**, for every plugin set.
   - [ ] `uv run coral register --output=tests/golden/node_types.all.json` — **no `-p`**, since
         `GOLDEN_CASES["all"]` is `discover()` and the CLI's empty `-p` mirrors it. Compared by parsed
         content, not bytes.
-  - [ ] **Read the diff**: it must contain only the new function entries (and the new primitive
-        entries, if the open question above is resolved as (i) or (ii)), with every pre-existing entry
-        byte-identical and in its original position.
+  - [ ] **Read the diff**: it must contain only the 15 new function entries, appended last, with every
+        pre-existing entry byte-identical and in its original position. No new *primitive* entry —
+        decision 3 (iii) adds none.
 - [ ] Assert the new entries' shape explicitly in `tests/test_registry.py`:
   - [ ] `list_append` has `arguments[0] == {"connection_type": "input", "type": "list", "name": "lst"}`
         — i.e. the collection socket is typed `list`, not `any`. This is the payoff of step 1.

@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 
 from coral_core import Plugin
 
-from coral_app.primitives import PRIMITIVES_MAP
+from coral_app.primitives import COLLECTION_TYPES, PRIMITIVES_MAP, TYPE_NAMES
 
 __all__ = [
     "PLUGIN_GROUP",
@@ -27,6 +27,8 @@ __all__ = [
     "build_function_map",
     "build_class_map",
     "PRIMITIVES_MAP",
+    "COLLECTION_TYPES",
+    "TYPE_NAMES",
 ]
 
 #: The entry-point group plugins declare themselves under. Public API; stable.

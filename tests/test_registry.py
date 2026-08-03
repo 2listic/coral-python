@@ -36,11 +36,23 @@ class TestPythonTypeToString:
         """Test None type conversion."""
         assert python_type_to_string(type(None)) == "none"
 
-    # def test_list_type(self):
-    #     """Test list type conversion."""
-    #     from typing import List
-    #     assert python_type_to_string(list) == "list"
-    #     assert python_type_to_string(List[int]) == "list"
+    def test_collection_types(self):
+        """GIVEN the bare collection types, which are socket type names
+        WHEN they are rendered for the file format
+        THEN each gets its own name rather than collapsing to 'any'."""
+        assert python_type_to_string(list) == "list"
+        assert python_type_to_string(set) == "set"
+        assert python_type_to_string(dict) == "dict"
+
+    def test_parameterised_generic_is_any(self):
+        """GIVEN a parameterised generic such as List[int]
+        WHEN it is rendered
+        THEN it is 'any': only the bare `list` is a name the format knows, and the graph's edge
+        check cannot judge a generic alias either, so claiming 'list' here would promise more than
+        is verified."""
+        from typing import List
+
+        assert python_type_to_string(List[int]) == "any"
 
     def test_unknown_type(self):
         """Test unknown type defaults to 'any'."""
