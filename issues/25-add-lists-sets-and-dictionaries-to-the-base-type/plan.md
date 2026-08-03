@@ -192,7 +192,7 @@ Imports nothing from `coral_app`.
 
 ### 3. Host wiring — `packages/coral-app/src/coral_app/__init__.py`
 
-- [ ] `build_function_map` applies `BUILTIN_FUNCTIONS` **after** the plugin merge, so a builtin name
+- [x] `build_function_map` applies `BUILTIN_FUNCTIONS` **after** the plugin merge, so a builtin name
       always wins (decision 7):
       ```python
       function_map: Dict[str, Any] = {}
@@ -200,28 +200,28 @@ Imports nothing from `coral_app`.
           function_map.update(load(name).get_functions())
       function_map.update(BUILTIN_FUNCTIONS)   # host guarantee: not shadowable
       ```
-  - [ ] Note the consequence in the docstring: the plugin-vs-plugin rule is still "later wins", but
+  - [x] Note the consequence in the docstring: the plugin-vs-plugin rule is still "later wins", but
         builtins sit outside that contest. A plugin declaring `list_append` is silently ignored — if we
         ever want that to fail loud instead, it is a separate change.
-  - [ ] Key order: the builtins land **last** in the map, hence last in `node_types.json`. That keeps
+  - [x] Key order: the builtins land **last** in the map, hence last in `node_types.json`. That keeps
         every existing entry in its original position, which step 4's golden diff checks.
-  - [ ] A test pins the rule: a stub plugin-shaped mapping declaring `list_append` does not displace
+  - [x] A test pins the rule: a stub plugin-shaped mapping declaring `list_append` does not displace
         the builtin.
-- [ ] Export `BUILTIN_FUNCTIONS` in `__all__` and mention it in the module docstring next to
+- [x] Export `BUILTIN_FUNCTIONS` in `__all__` and mention it in the module docstring next to
       `PRIMITIVES_MAP`, as the second host-owned node surface.
-- [ ] `build_class_map` unchanged.
-- [ ] Tests in `tests/test_plugin_discovery.py`:
-  - [ ] `build_function_map(include=[])` contains every builtin and nothing else — the "no plugin
+- [x] `build_class_map` unchanged.
+- [x] Tests in `tests/test_plugin_discovery.py`:
+  - [x] `build_function_map(include=[])` contains every builtin and nothing else — the "no plugin
         installed" contract.
-  - [ ] `build_function_map()` (all plugins) contains every builtin as well.
-  - [ ] the shadowing rule chosen above.
+  - [x] `build_function_map()` (all plugins) contains every builtin as well.
+  - [x] the shadowing rule chosen above.
 
 ### 4. The registry — the goldens break, on purpose
 
 `save_registry_to_file` always emits every primitive and every function in the map, so **all four
 golden files change**, for every plugin set.
 
-- [ ] Fix `tests/test_plugin_discovery.py:165` `test_register_with_no_plugins_emits_only_primitives`.
+- [x] Fix `tests/test_plugin_discovery.py:165` `test_register_with_no_plugins_emits_only_primitives`.
       All three of its assertions are now false by design — with no plugins the registry holds the
       primitives **plus the builtins**:
       `set(registry) == set(PRIMITIVES_MAP)` → `== set(PRIMITIVES_MAP) | set(BUILTIN_FUNCTIONS)`;
@@ -229,27 +229,59 @@ golden files change**, for every plugin set.
       `all(entry["node_type"] == "primitive" ...)` → every entry is `primitive` *or* `function`.
       Rename it (`..._emits_only_primitives_and_builtins`) and update the module docstring at line 13,
       which states the baseline is "primitives".
-- [ ] Audit the rest of the suite for assertions that assume a plugin owns every function or that
+- [x] Audit the rest of the suite for assertions that assume a plugin owns every function or that
       count map entries — `tests/test_registry.py`, `tests/test_plugins.py`,
       `tests/test_characterization.py`, `tests/test_acceptance.py`.
-- [ ] Regenerate the four goldens, with **all three plugins installed** (`uv sync` first — the `all`
+- [x] Regenerate the four goldens, with **all three plugins installed** (`uv sync` first — the `all`
       case is `discover()`, so a missing plugin would bake a truncated golden):
-  - [ ] `uv run coral -p "<name>" register --output=tests/golden/node_types.<name>.json` for
+  - [x] `uv run coral -p "<name>" register --output=tests/golden/node_types.<name>.json` for
         `math`, `string`, `phiflow` — these three are compared **byte-for-byte**.
-  - [ ] `uv run coral register --output=tests/golden/node_types.all.json` — **no `-p`**, since
+  - [x] `uv run coral register --output=tests/golden/node_types.all.json` — **no `-p`**, since
         `GOLDEN_CASES["all"]` is `discover()` and the CLI's empty `-p` mirrors it. Compared by parsed
         content, not bytes.
-  - [ ] **Read the diff**: it must contain only the 15 new function entries, appended last, with every
+  - [x] **Read the diff**: it must contain only the 15 new function entries, appended last, with every
         pre-existing entry byte-identical and in its original position. No new *primitive* entry —
         decision 3 (iii) adds none.
-- [ ] Assert the new entries' shape explicitly in `tests/test_registry.py`:
-  - [ ] `list_append` has `arguments[0] == {"connection_type": "input", "type": "list", "name": "lst"}`
+- [x] Assert the new entries' shape explicitly in `tests/test_registry.py`:
+  - [x] `list_append` has `arguments[0] == {"connection_type": "input", "type": "list", "name": "lst"}`
         — i.e. the collection socket is typed `list`, not `any`. This is the payoff of step 1.
-  - [ ] `list_new` has `inputs: []` and `outputs: [0]`.
-- [ ] **Platform risk to flag, not to fix here:** `list_new`/`set_new`/`dict_new` are the first
+  - [x] `list_new` has `inputs: []` and `outputs: [0]`.
+- [x] **Platform risk to flag, not to fix here:** `list_new`/`set_new`/`dict_new` are the first
       *function* nodes with **zero inputs** the platform will see (primitives have no inputs but use
       `outputs: [-1]`, while a function uses `outputs: [0]`). Confirm the editor renders them before
       the feature is considered delivered.
+
+**Deviations (steps 3 and 4, implemented as one commit — step 3 alone cannot end green, since it is
+what breaks the goldens step 4 repairs).**
+
+- **The key-order claim in step 3 was wrong.** The builtins land last in the *function map*, but
+  `generate_registry` emits primitives → functions → constructors → methods, so the 15 entries are
+  inserted **between** the plugin functions and the constructors, not at the end of the file. Every
+  pre-existing entry keeps its content and its *relative* order, but a constructor's absolute position
+  shifts. Verified structurally rather than by reading the diff (which shows the shifted block as
+  deletions + reinsertions): for all four goldens, 15 keys added, **0 removed, 0 changed**, and the
+  added keys are exactly `BUILTIN_FUNCTIONS`.
+- **`node_types.all.json` also absorbed pre-existing drift.** Its constructor order was
+  `math, string, phiflow`; regenerating with no `-p` makes it `math, phiflow, string`, which is
+  `sorted(discover())`. The old golden had been recorded in unsorted plugin order. Nothing depended on
+  it — `test_all_plugins_registry_matches_golden_content` compares parsed content precisely because
+  cross-plugin class key order is not stable, and its docstring already said so.
+- **Four assertions in `tests/test_plugins.py` had gone vacuous** and were tightened to subtract the
+  builtins, since `len(func_map) > 0` is now true with no plugin at all:
+  `test_build_function_map_phiflow`, `test_build_function_map_empty` (now asserts the map *equals*
+  `BUILTIN_FUNCTIONS`), `test_math_plugin_available`, `test_string_plugin_available`.
+- **A pre-existing bug in `tests/test_acceptance.py`, found by this step and fixed here.** The
+  clean-venv install served a **stale cached wheel**: uv caches by name and version, `coral-app` is
+  permanently `0.1.0`, so `uv pip install --find-links` reused an archive from an earlier commit — the
+  installed `site-packages/coral_app/` had no `builtin_nodes.py` even though the freshly built wheel
+  did. The test had therefore been asserting against whatever build uv last cached, not against the
+  wheels its own fixture builds. `_CleanEnv.install` now passes `--refresh-package` for each requested
+  package — the local names only, so the jax/h5py/phiflow stack still comes from the cache and the test
+  stays affordable. Its primitives-only assertions were updated to primitives + builtins, plus a new
+  one that `list_append` really ships inside the `coral-app` wheel.
+- **Not done, because the plan says flag-not-fix:** the two platform bets remain unconfirmed — the
+  zero-input function nodes, and `"list"` as a socket type with no `registry["list"]` key
+  ([Decision 3 in full](#decision-3-in-full)). Both need the real editor.
 
 ### 5. Graph validation — `tests/test_graph.py`
 

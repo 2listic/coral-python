@@ -4,6 +4,7 @@ Tests for plugin loading and function/class mapping.
 
 import pytest
 from coral_app import (
+    BUILTIN_FUNCTIONS,
     COLLECTION_TYPES,
     PRIMITIVES_MAP,
     TYPE_NAMES,
@@ -94,8 +95,8 @@ class TestBuildFunctionMap:
         try:
             func_map = build_function_map(include=["phiflow"])
 
-            # Should have some phiflow functions
-            assert len(func_map) > 0
+            # Beyond the builtins, which every map holds: the plugin must contribute its own.
+            assert set(func_map) - set(BUILTIN_FUNCTIONS)
         except ImportError:
             pytest.skip("PhiFlow not available")
 
@@ -124,8 +125,8 @@ class TestBuildFunctionMap:
         """Test building function map with no plugins."""
         func_map = build_function_map(include=[])
 
-        # Should be empty or minimal
-        assert isinstance(func_map, dict)
+        # Not empty: the host's own builtins are always there, and nothing else is.
+        assert func_map == BUILTIN_FUNCTIONS
 
 
 class TestBuildClassMap:
@@ -239,15 +240,16 @@ class TestPluginAvailability:
     def test_math_plugin_available(self):
         """Test that the math plugin is available."""
         func_map = build_function_map(include=["math"])
-        assert len(func_map) > 0
+        # Its own functions, not the builtins every map carries.
+        assert set(func_map) - set(BUILTIN_FUNCTIONS)
 
     @pytest.mark.string
     def test_string_plugin_available(self):
         """Test that the string plugin is available."""
         func_map = build_function_map(include=["string"])
         class_map = build_class_map(include=["string"])
-        # Should have at least some definitions
-        assert len(func_map) > 0 or len(class_map) > 0
+        # Should have at least some definitions of its own, past the builtins.
+        assert (set(func_map) - set(BUILTIN_FUNCTIONS)) or class_map
 
     @pytest.mark.phiflow
     def test_phiflow_plugin_availability(self):

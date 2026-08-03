@@ -9,8 +9,10 @@ installed:
 * discovery lists installed plugins **without importing** them (laziness);
 * ``load`` imports only the requested plugin, and fails loud on an unknown name (``LookupError``,
   D4) or a non-``Plugin`` entry point (``TypeError``);
-* the host is a complete program with **zero** function/class plugins (it still emits the
-  primitives), and selecting any installed plugin makes exactly its declared nodes appear.
+* the host is a complete program with **zero** function/class plugins (it still emits its own two
+  surfaces, the primitives and the builtin collection functions), and selecting any installed plugin
+  makes exactly its declared nodes appear;
+* a builtin name is never shadowed by a plugin, whichever plugins are selected.
 
 The laziness / no-import assertions run in a **fresh subprocess**: within a single pytest session
 other tests have already imported the plugin modules, so ``sys.modules`` here is not a clean slate.
@@ -162,19 +164,73 @@ class TestBuildMapsFailLoud:
 class TestHostWithoutPlugins:
     """The host is a complete program even with zero function/class plugins."""
 
-    def test_register_with_no_plugins_emits_only_primitives(self, tmp_path):
+    def test_register_with_no_plugins_emits_only_primitives_and_builtins(self, tmp_path):
         """GIVEN no plugin selected (empty plugin list)
         WHEN the registry is generated
-        THEN it contains exactly the six primitive node types."""
-        from coral_app import PRIMITIVES_MAP
+        THEN it contains exactly the host's own two surfaces — the primitive node types and the
+             builtin collection functions — and nothing else."""
+        from coral_app import BUILTIN_FUNCTIONS, PRIMITIVES_MAP
         from coral_app.registry import save_registry_to_file
 
         out = tmp_path / "node_types.host.json"
         registry = save_registry_to_file(str(out), plugins=[])
 
-        assert set(registry) == set(PRIMITIVES_MAP)
-        assert len(registry) == 6
-        assert all(entry["node_type"] == "primitive" for entry in registry.values())
+        assert set(registry) == set(PRIMITIVES_MAP) | set(BUILTIN_FUNCTIONS)
+        assert len(registry) == len(PRIMITIVES_MAP) + len(BUILTIN_FUNCTIONS)
+        assert all(entry["node_type"] in ("primitive", "function") for entry in registry.values())
+
+    def test_builtins_are_the_whole_function_map_without_plugins(self):
+        """GIVEN no plugin selected
+        WHEN the function map is built
+        THEN it is exactly the builtins: they need no plugin, and nothing else sneaks in."""
+        from coral_app import BUILTIN_FUNCTIONS, build_function_map
+
+        assert build_function_map(include=[]) == BUILTIN_FUNCTIONS
+
+    def test_no_builtin_classes_without_plugins(self):
+        """GIVEN no plugin selected
+        WHEN the class map is built
+        THEN it is empty: the host owns functions and types, but no classes."""
+        assert build_class_map(include=[]) == {}
+
+
+class TestBuiltinsAreNotShadowable:
+    """The builtins are a host guarantee: present under every selection, and never displaced."""
+
+    def test_builtins_survive_every_plugin_being_loaded(self):
+        """GIVEN every installed plugin selected
+        WHEN the function map is built
+        THEN each builtin name still resolves to the host's own callable."""
+        from coral_app import BUILTIN_FUNCTIONS, build_function_map
+
+        function_map = build_function_map()
+
+        assert all(function_map[name] is func for name, func in BUILTIN_FUNCTIONS.items())
+
+    def test_a_plugin_cannot_shadow_a_builtin(self, monkeypatch):
+        """GIVEN a plugin declaring a function under a builtin's name
+        WHEN the function map is built with that plugin selected
+        THEN the builtin wins — unlike a plugin-versus-plugin collision, which is "later wins"."""
+        from coral_app import BUILTIN_FUNCTIONS, build_function_map
+        from coral_core import Plugin
+
+        def impostor(anything) -> str:
+            return "not the builtin"
+
+        class Shadower(Plugin):
+            def get_functions(self):
+                return {"list_append": impostor, "shadower_own": impostor}
+
+            def get_classes(self):
+                return {}
+
+        monkeypatch.setattr("coral_app.load", lambda name: Shadower())
+
+        function_map = build_function_map(include=["shadower"])
+
+        assert function_map["list_append"] is BUILTIN_FUNCTIONS["list_append"]
+        # The plugin is not otherwise penalised: its own names are merged as usual.
+        assert function_map["shadower_own"] is impostor
 
 
 class TestPluginAddsNodes:
