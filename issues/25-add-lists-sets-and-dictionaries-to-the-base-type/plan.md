@@ -90,45 +90,59 @@ exactly that.
 Decision 3 (iii): these are socket type names, not node types. So this step teaches the *registry*
 three new type names and adds no node.
 
-- [ ] `PRIMITIVES_MAP` stays **exactly** as it is — six entries, existing order. The key order of
+- [x] `PRIMITIVES_MAP` stays **exactly** as it is — six entries, existing order. The key order of
       `node_types.json` is part of the platform contract, and a collection emits no entry at all.
-- [ ] Add `COLLECTION_TYPES = {"list": list, "set": set, "dict": dict}`, plus the derived union
+- [x] Add `COLLECTION_TYPES = {"list": list, "set": set, "dict": dict}`, plus the derived union
       `TYPE_NAMES = {**PRIMITIVES_MAP, **COLLECTION_TYPES}` — every type name the registry can render
       on a socket. Comment why there are two maps: a primitive is a *node* type carrying a literal; a
       collection is only a socket type, built by `list_new()` / `set_new()` / `dict_new()` (step 2).
       Keeping the union here keeps `primitives.py` the single owner of the type table.
-- [ ] Re-export `COLLECTION_TYPES` and `TYPE_NAMES` from `coral_app/__init__.py` (import + `__all__`),
+- [x] Re-export `COLLECTION_TYPES` and `TYPE_NAMES` from `coral_app/__init__.py` (import + `__all__`),
       next to `PRIMITIVES_MAP` — `registry.py` reads the type table from the package, not the submodule.
-- [ ] `registry.py`: build the reverse lookup from `TYPE_NAMES`, and rename the private
+- [x] `registry.py`: build the reverse lookup from `TYPE_NAMES`, and rename the private
       `_REVERSE_PRIMITIVES_MAP` → `_TYPE_NAME_OF`, since it no longer holds only primitives (three
       references, all in this file). `generate_registry`'s `primitives` argument stays
       `list(PRIMITIVES_MAP.keys())`.
-- [ ] `executor.py`, `graph.py`, `nodeports.py`: **untouched** — no `EMPTY_PRIMITIVES`, no `_convert`
+- [x] `executor.py`, `graph.py`, `nodeports.py`: **untouched** — no `EMPTY_PRIMITIVES`, no `_convert`
       branch, no empty-value semantics, no new run-time failure mode.
-- [ ] Tests:
-  - [ ] `tests/test_plugins.py::TestPrimitivesMap` — `PRIMITIVES_MAP` still holds exactly the six
+- [x] Tests:
+  - [x] `tests/test_plugins.py::TestPrimitivesMap` — `PRIMITIVES_MAP` still holds exactly the six
         existing keys and *none* of `list`/`set`/`dict`. This is the assertion that pins "a collection
         is not a primitive node".
-  - [ ] `tests/test_registry.py` — `python_type_to_string` returns `"list"` / `"set"` / `"dict"` for
+  - [x] `tests/test_registry.py` — `python_type_to_string` returns `"list"` / `"set"` / `"dict"` for
         the three types (it returned `"any"` before); the existing scalar cases are unaffected.
-  - [ ] `tests/test_graph.py` — a graph node `{"type": "list"}` raises `ValueError` during `Graph`
+  - [x] `tests/test_graph.py` — a graph node `{"type": "list"}` raises `ValueError` during `Graph`
         construction (check 2, unknown node type), so "one way to build a collection" is enforced
         rather than merely intended.
-- [ ] The four goldens **must not change** in this step: no annotation anywhere is a bare
+- [x] The four goldens **must not change** in this step: no annotation anywhere is a bare
       `list`/`set`/`dict` yet (checked — the only collection annotations in the plugins are
       `Dict[str, Any]` on `get_functions`/`get_classes`, and the `Plugin` subclasses are not in any
       class map), so no socket renders `"list"` until step 2 adds the builtins. A golden diff here
       means something else moved.
+
+**Deviations.**
+
+- **`python_type_to_string(List[int])` stays `"any"`**, and a test now pins it. The commented-out
+  `test_list_type` this step replaced asserted `"list"` for it. Rendering `"list"` would need
+  `get_origin` handling in `registry.py` and would put a socket type in the file that graph check 6
+  then skips — the registry would claim more than anything verifies. Only the bare `list` is a name
+  the format knows.
+- **`docs/ONBOARDING.md` was fixed here, not in step 7**: the `_TYPE_NAME_OF` rename falsified the
+  code snippet at :413, and two prose claims that `python_type_to_string` "maps against the six-entry
+  `PRIMITIVES_MAP`" (:163, :188). Step 7 still owns the narrative additions, including :478 (*"Only
+  the six `PRIMITIVES_MAP` types"*, in the future-work section), deliberately left as it is.
+- `tests/test_plugins.py` gained a **`TestCollectionTypes`** class as well, for `COLLECTION_TYPES` and
+  the `TYPE_NAMES` union; the plan only named `TestPrimitivesMap`.
 
 ### 2. The operations — new `packages/coral-app/src/coral_app/builtin_nodes.py`
 
 One job: the host's own function surface. Same role for callables that `primitives.py` has for types.
 Imports nothing from `coral_app`.
 
-- [ ] Module docstring: these are node types available under **any** `-p` selection and even with no
+- [x] Module docstring: these are node types available under **any** `-p` selection and even with no
       plugin installed at all, exactly like primitives; and the purity/fail-loud contract above.
       (Don't write "including `-p ''`" — an empty `-p` means *all* installed plugins, not none.)
-- [ ] The 15 functions:
+- [x] The 15 functions:
 
 | | create | add | extract | inspect | remove |
 | --- | --- | --- | --- | --- | --- |
@@ -136,31 +150,45 @@ Imports nothing from `coral_app`.
 | **set** | `set_new() -> set` | `set_add(s: set, item: Any) -> set` | `set_to_list(s: set) -> list` | `set_size(s: set) -> int` | `set_remove(s: set, item: Any) -> set` |
 | **dict** | `dict_new() -> dict` | `dict_set(d: dict, key: Any, value: Any) -> dict` | `dict_get(d: dict, key: Any) -> Any` | `dict_size(d: dict) -> int` | `dict_delete(d: dict, key: Any) -> dict` |
 
-- [ ] Implementations — copy then operate, so the fail-loud behaviour is the builtin's own:
-  - [ ] `list_remove_at`: `out = list(lst); del out[index]; return out` (slicing would silently
+- [x] Implementations — copy then operate, so the fail-loud behaviour is the builtin's own:
+  - [x] `list_remove_at`: `out = list(lst); del out[index]; return out` (slicing would silently
         no-op on an out-of-range index; `del` raises `IndexError`).
-  - [ ] `set_remove`: `out = set(s); out.remove(item); return out` (`remove`, not `discard` —
+  - [x] `set_remove`: `out = set(s); out.remove(item); return out` (`remove`, not `discard` —
         `KeyError` on absent).
-  - [ ] `dict_delete`: `out = dict(d); del out[key]; return out`.
-  - [ ] `list_append`: `[*lst, item]`; `set_add`: `s | {item}`; `dict_set`: `{**d, key: value}`.
-  - [ ] `set_to_list`: `sorted(s)` — a `set` of strings iterates in a different order **between
+  - [x] `dict_delete`: `out = dict(d); del out[key]; return out`.
+  - [x] `list_append`: `[*lst, item]`; `set_add`: `s | {item}`; `dict_set`: `{**d, key: value}`.
+  - [x] `set_to_list`: `sorted(s)` — a `set` of strings iterates in a different order **between
         runs** (hash randomisation), which would make a graph non-reproducible. Document that this
         raises `TypeError` on mutually incomparable elements, and that that is the accepted price.
-  - [ ] No `print()` calls (unlike the plugins' functions): the executor already reports each node.
-- [ ] `BUILTIN_FUNCTIONS: Dict[str, Callable]` mapping each node type name to its function, in the
+  - [x] No `print()` calls (unlike the plugins' functions): the executor already reports each node.
+- [x] `BUILTIN_FUNCTIONS: Dict[str, Callable]` mapping each node type name to its function, in the
       table's order (list, set, dict — create/add/extract/inspect/remove within each).
-- [ ] No `BUILTIN_CLASSES` — nothing needs it; do not add an unused symmetry.
-- [ ] No `from __future__ import annotations` (project-wide rule, guarded by
+- [x] No `BUILTIN_CLASSES` — nothing needs it; do not add an unused symmetry.
+- [x] No `from __future__ import annotations` (project-wide rule, guarded by
       `tests/test_core_contract.py`).
-- [ ] New `tests/test_builtin_nodes.py`, unit level, no graph involved:
-  - [ ] each op's happy path;
-  - [ ] **purity**: the input collection is unchanged after every op (the property the DAG depends on);
-  - [ ] fail loud: `list_get`/`list_remove_at` out of range → `IndexError`;
+- [x] New `tests/test_builtin_nodes.py`, unit level, no graph involved:
+  - [x] each op's happy path;
+  - [x] **purity**: the input collection is unchanged after every op (the property the DAG depends on);
+  - [x] fail loud: `list_get`/`list_remove_at` out of range → `IndexError`;
         `dict_get`/`dict_delete` on a missing key → `KeyError`; `set_remove` on an absent item →
         `KeyError`;
-  - [ ] `set_to_list` is sorted and deterministic; raises `TypeError` on a mixed `{1, "a"}` set;
-  - [ ] `set_add` with an unhashable item → `TypeError`;
-  - [ ] `BUILTIN_FUNCTIONS` keys match the function names 1:1 and are all underscored (no dots).
+  - [x] `set_to_list` is sorted and deterministic; raises `TypeError` on a mixed `{1, "a"}` set;
+  - [x] `set_add` with an unhashable item → `TypeError`;
+  - [x] `BUILTIN_FUNCTIONS` keys match the function names 1:1 and are all underscored (no dots).
+
+**Deviations.**
+
+- **`list_get` and `list_remove_at` accept a negative index**, since they let Python's own indexing
+  through rather than checking the sign; a test pins `list_get([10, 20, 30], -1) == 30`. It is free and
+  it keeps "the fail-loud behaviour is the builtin's own", but note that `-1` on one of these ports
+  means "from the end" while `-1` on a `source_output` port means "the single output" — two unrelated
+  conventions for the same literal, in the same file format.
+- `builtin_nodes.py` declares an **`__all__`**, which the plan did not ask for: the module is a public
+  surface with 15 exported names plus the table, and the primitives module's role is small enough not
+  to need one.
+- Four tests beyond the planned list: purity **under fan-out** (two consumers reading one shared list
+  give order-independent results — the actual reason purity matters), `dict_set` with an unhashable
+  key → `TypeError`, `set_to_list(set()) == []`, and that every table entry is callable.
 
 ### 3. Host wiring — `packages/coral-app/src/coral_app/__init__.py`
 
