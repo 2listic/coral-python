@@ -348,26 +348,57 @@ handles via `issubclass`. Add cases to the existing type-compatibility class, us
 
 ### 7. Documentation
 
-- [ ] `CLAUDE.md`:
-  - [ ] Project Overview — the four node kinds are unchanged, but the host now ships functions of its
+- [x] `CLAUDE.md`:
+  - [x] Project Overview — the four node kinds are unchanged, but the host now ships functions of its
         own; say so.
-  - [ ] Package layout — add `builtin_nodes.py` to the `coral-app` tree with its one-line job.
-  - [ ] Core components §3 — `build_function_map` is seeded with `BUILTIN_FUNCTIONS`; record the
+  - [x] Package layout — add `builtin_nodes.py` to the `coral-app` tree with its one-line job.
+  - [x] Core components §3 — `build_function_map` is seeded with `BUILTIN_FUNCTIONS`; record the
         decision-7 precedence rule.
-  - [ ] Data flow stage 1 — "load plugins" now also means "seed the host's builtins".
-  - [ ] Type system bullet under Key Constraints — **rewritten for decision 3 (iii)**, since the
+  - [x] Data flow stage 1 — "load plugins" now also means "seed the host's builtins".
+  - [x] Type system bullet under Key Constraints — **rewritten for decision 3 (iii)**, since the
         original text ("`PRIMITIVES_MAP` gains `list`/`set`/`dict`, and collection primitives are
         empty-only") describes the design we rejected. `PRIMITIVES_MAP` is unchanged; the type table
         now splits into it plus `COLLECTION_TYPES`, whose names are renderable on a socket without
         being node types, and a collection is built by `list_new()` and friends.
-  - [ ] Graph validation §"annotation quality" — the builtins are fully annotated, so add a row to the
+  - [x] Graph validation §"annotation quality" — the builtins are fully annotated, so add a row to the
         slots table.
-  - [ ] A short "Built-in collection nodes" section: the 15 names, the purity and fail-loud contract,
+  - [x] A short "Built-in collection nodes" section: the 15 names, the purity and fail-loud contract,
         and that they need no plugin.
-- [ ] `docs/ONBOARDING.md` — the narrative reason a shared operation is host-owned rather than a
+- [x] `docs/ONBOARDING.md` — the narrative reason a shared operation is host-owned rather than a
       plugin (decision 1), and why the wire carries a bare `list` (decision 2).
-- [ ] `tests/README.md` — the new test file, and the rule that builtin tests carry no plugin marker.
-- [ ] Verify the subset claim still holds: `uv pip uninstall coral-plugin-math coral-plugin-string
+- [x] `tests/README.md` — the new test file, and the rule that builtin tests carry no plugin marker.
+- [x] Verify the subset claim still holds: `uv pip uninstall coral-plugin-math coral-plugin-string
       coral-plugin-phiflow` then `uv run --no-sync pytest` — the collection tests must **pass**, not
       skip. Restore with `uv sync`.
-- [ ] `uv run pre-commit run --all-files`.
+- [x] `uv run pre-commit run --all-files`.
+
+**Deviations.**
+
+- **The annotation-slot table's totals were already wrong**, and the numbers were unreproducible. The
+  per-plugin rows (28 / 8 / 48) do reproduce, under the definition "every input and output annotation of
+  every node type, except a method's `self`" — verified programmatically against all three plugins. But
+  the prose read *"59 of 83 slots … 24 are `Any`"* while the rows sum to **84 and 25**. Corrected to
+  86 of 120 checkable / 34 `Any`, the builtins row added (36 / 9 / 27), and the definition of a "slot"
+  written down so the figure can be recomputed next time.
+- **The builtins' 9 `Any` slots got their own paragraph.** The plan assumed "the builtins are fully
+  annotated"; they are not, and cannot be — the `Any` sits exactly on the element and key positions
+  (`list_append`'s `item`, `dict_set`'s `key`/`value`, `list_get`'s return). Worth stating that this is
+  deliberate, since `List[int]` would make the check skip the *container* edge too, trading 27 checkable
+  slots for 0.
+- **`tests/README.md`'s file tree was missing four pre-existing files** (`test_nodeports.py`,
+  `test_graph.py`, `test_plugin_discovery.py`, `test_acceptance.py`). Adding only `test_builtin_nodes.py`
+  would have left the list wrong, so all five were added.
+- **A pre-existing test failed under zero plugins, and was fixed here** (approved mid-step):
+  `test_plugins.py::TestWorkflowExecutorPluginLoading::test_executor_default_plugins_all_discovered` is
+  untagged but constructs a `WorkflowExecutor` over the `math` fixture, so validation rejects
+  `math.sqrt` when the plugin is absent. It predates this issue and falsified CLAUDE.md's "the suite
+  passes under any install subset". Now tagged `@pytest.mark.math`. **Caveat:** its host-side assertion
+  (`function_map == build_function_map(discover())`, no plugin name hardcoded) therefore no longer runs
+  in a plugin-free environment. Repointing it at a collection fixture would let it run always, and is the
+  better fix if anyone returns to it.
+- **Result of the subset verification, stated precisely:** with all three plugins uninstalled,
+  **187 passed, 78 skipped, 0 failed** (2.95s); with all installed, **267 passed, 0 skipped** (62s). "No
+  test fails" is true; "every test runs" is not — the 78 skips are plugin-tagged by design. Everything
+  issue #25 added runs plugin-free: `test_builtin_nodes.py` (43), `test_graph.py` (62), and
+  `TestCollectionWorkflows` minus its one tagged interop case. The 60s difference is entirely PhiFlow —
+  see [`TODO.md`](TODO.md) finding 1.
