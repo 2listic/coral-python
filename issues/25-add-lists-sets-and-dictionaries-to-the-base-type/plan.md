@@ -266,10 +266,15 @@ what breaks the goldens step 4 repairs).**
   `sorted(discover())`. The old golden had been recorded in unsorted plugin order. Nothing depended on
   it — `test_all_plugins_registry_matches_golden_content` compares parsed content precisely because
   cross-plugin class key order is not stable, and its docstring already said so.
-- **Four assertions in `tests/test_plugins.py` had gone vacuous** and were tightened to subtract the
+- **Three assertions in `tests/test_plugins.py` had gone vacuous** and were tightened to subtract the
   builtins, since `len(func_map) > 0` is now true with no plugin at all:
-  `test_build_function_map_phiflow`, `test_build_function_map_empty` (now asserts the map *equals*
-  `BUILTIN_FUNCTIONS`), `test_math_plugin_available`, `test_string_plugin_available`.
+  `test_build_function_map_phiflow`, `test_math_plugin_available`, `test_string_plugin_available`.
+- **`test_build_function_map_empty` and `test_build_class_map_empty` were removed** from
+  `tests/test_plugins.py`. Strengthening the first to `== BUILTIN_FUNCTIONS` made it assertion-identical
+  to the new `test_plugin_discovery.py::TestHostWithoutPlugins` tests, and the second's
+  `isinstance(class_map, dict)` is strictly weaker than the `== {}` asserted there. The zero-plugin host
+  now has exactly one home, the file whose docstring promises that contract; a comment in each class
+  points to it.
 - **A pre-existing bug in `tests/test_acceptance.py`, found by this step and fixed here.** The
   clean-venv install served a **stale cached wheel**: uv caches by name and version, `coral-app` is
   permanently `0.1.0`, so `uv pip install --find-links` reused an archive from an earlier commit — the

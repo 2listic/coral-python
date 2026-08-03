@@ -121,12 +121,9 @@ class TestBuildFunctionMap:
         # Should not have string
         assert "add" not in func_map
 
-    def test_build_function_map_empty(self):
-        """Test building function map with no plugins."""
-        func_map = build_function_map(include=[])
-
-        # Not empty: the host's own builtins are always there, and nothing else is.
-        assert func_map == BUILTIN_FUNCTIONS
+    # The include=[] case lives in
+    # test_plugin_discovery.py::TestHostWithoutPlugins, whose whole subject is the
+    # zero-plugin host — asserting it here as well would be the same assertion twice.
 
 
 class TestBuildClassMap:
@@ -169,12 +166,9 @@ class TestBuildClassMap:
         # Should not have StringProcessor
         assert "StringProcessor" not in class_map
 
-    def test_build_class_map_empty(self):
-        """Test building class map with no plugins."""
-        class_map = build_class_map(include=[])
-
-        # Should be empty or minimal
-        assert isinstance(class_map, dict)
+    # As above: test_plugin_discovery.py::TestHostWithoutPlugins asserts the
+    # include=[] class map is exactly empty, which is strictly stronger than the
+    # `isinstance(class_map, dict)` this used to check.
 
 
 class TestWorkflowExecutorPluginLoading:
