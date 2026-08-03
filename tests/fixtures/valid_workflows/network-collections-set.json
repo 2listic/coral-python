@@ -1,0 +1,44 @@
+{
+  "workflow": {
+    "nodes": {
+      "five": { "type": "int", "value": "5" },
+      "seven": { "type": "int", "value": "7" },
+      "five_again": { "type": "int", "value": "5" },
+      "index_0": { "type": "int", "value": "0" },
+      "empty": { "type": "set_new" },
+      "with_five": { "type": "set_add" },
+      "with_seven": { "type": "set_add" },
+      "with_duplicate": { "type": "set_add" },
+      "size": { "type": "set_size" },
+      "as_list": { "type": "set_to_list" },
+      "smallest": { "type": "list_get" }
+    },
+    "edges": {
+      "e1": { "source": "empty", "target": "with_five", "source_output": 0, "target_input": 0 },
+      "e2": { "source": "five", "target": "with_five", "source_output": 0, "target_input": 1 },
+      "e3": { "source": "with_five", "target": "with_seven", "source_output": 0, "target_input": 0 },
+      "e4": { "source": "seven", "target": "with_seven", "source_output": 0, "target_input": 1 },
+      "e5": {
+        "source": "with_seven",
+        "target": "with_duplicate",
+        "source_output": 0,
+        "target_input": 0
+      },
+      "e6": {
+        "source": "five_again",
+        "target": "with_duplicate",
+        "source_output": 0,
+        "target_input": 1
+      },
+      "e7": { "source": "with_duplicate", "target": "size", "source_output": 0, "target_input": 0 },
+      "e8": {
+        "source": "with_duplicate",
+        "target": "as_list",
+        "source_output": 0,
+        "target_input": 0
+      },
+      "e9": { "source": "as_list", "target": "smallest", "source_output": 0, "target_input": 0 },
+      "e10": { "source": "index_0", "target": "smallest", "source_output": 0, "target_input": 1 }
+    }
+  }
+}

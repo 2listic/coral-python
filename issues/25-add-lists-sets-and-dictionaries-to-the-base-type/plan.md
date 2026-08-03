@@ -302,29 +302,49 @@ handles via `issubclass`. Add cases to the existing type-compatibility class, us
 
 ### 6. End to end — workflow JSON fixtures (the desiderata's "Other Requirements")
 
-- [ ] `tests/fixtures/valid_workflows/network-collections-list.json` — build, read back, measure:
+- [x] `tests/fixtures/valid_workflows/network-collections-list.json` — build, read back, measure:
       `list_new` → `list_append` ×3 (from `int` primitives) → `list_size` and `list_get`, plus a
       `list_remove_at`. Uses **no plugin at all**.
-- [ ] `tests/fixtures/valid_workflows/network-collections-dict.json` — `dict_new` → `dict_set` ×2
+- [x] `tests/fixtures/valid_workflows/network-collections-dict.json` — `dict_new` → `dict_set` ×2
       (`str` key, `float` value) → `dict_get` → `dict_delete` → `dict_size`.
-- [ ] `tests/fixtures/valid_workflows/network-collections-set.json` — `set_new` → `set_add` ×3 with a
+- [x] `tests/fixtures/valid_workflows/network-collections-set.json` — `set_new` → `set_add` ×3 with a
       duplicate → `set_size` (proving deduplication) → `set_to_list` → `list_get`.
-- [ ] `tests/fixtures/valid_workflows/network-collections-math.json` — a collection feeding a plugin
+- [x] `tests/fixtures/valid_workflows/network-collections-math.json` — a collection feeding a plugin
       function, tagged `@pytest.mark.math`: `list_get` → `add`. This is the interop case decision 2
       turned on, so it deserves a fixture.
-- [ ] Add a `TestCollectionWorkflows` class to `tests/test_integration.py` asserting each one's
+- [x] Add a `TestCollectionWorkflows` class to `tests/test_integration.py` asserting each one's
       **result values**, not just that it runs: sizes, the extracted element, and that the collection
       a `*_append` fed into is unchanged in `executor.results` (purity, end to end).
-  - [ ] The first three run with `plugins=[]` and are **untagged**; only the math one is tagged.
-- [ ] Extend the `workflow_files` fixture (`tests/conftest.py:19-30`). It is a **hardcoded dict**, not
+  - [x] The first three run with `plugins=[]` and are **untagged**; only the math one is tagged.
+- [x] Extend the `workflow_files` fixture (`tests/conftest.py:19-30`). It is a **hardcoded dict**, not
       a glob, so the new files are not discovered automatically — add the four keys
       (`collections_list`, `collections_dict`, `collections_set`, `collections_math`).
-- [ ] `examples/collections/` — one runnable example mirroring the list fixture, so
-      `coral run examples/collections/list.json` is a one-liner demo alongside `examples/phiflow/`.
+- [x] `examples/collections/` — one runnable example **per collection** (`list.json`, `set.json`,
+      `dict.json`), mirroring the first three fixtures, so `coral run examples/collections/list.json`
+      is a one-liner demo alongside `examples/phiflow/`.
       **Note:** the command loads every installed plugin, because `-p ""` resolves to `discover()`
       (`cli.py::_resolve_plugins`) — there is no CLI way to select *zero* plugins. The graph needs
       none of them; "runs without any plugin" is a property only the API (`plugins=[]`) can express,
       which is why the fixtures above assert it and the example cannot.
+
+**Deviations.**
+
+- **`tests/fixtures/valid_workflows/README.md` was updated**, which the plan did not list. That file
+  enumerates every fixture by name, so adding four without listing them would have made it wrong.
+  Records that the first three run with `plugins=[]` and that all four are hand-written, hence carry no
+  `position` keys (unlike the editor-exported `network-from-fe-*` files).
+- **Six tests rather than the planned five**: purity end to end got its own test
+  (`test_list_append_leaves_its_input_untouched`) instead of riding along in the list-values test. The
+  two assert different things — one that the answers are right, one that no intermediate was mutated by
+  the three nodes reading `with_three` — and merging them would have hidden the second behind the first.
+- **Three examples, not one.** The plan asked for a single `list.json`, which left a directory named
+  `collections` holding one collection — an omission on its face, since the feature ships three types
+  and 15 nodes. `set.json` and `dict.json` were added so the demo set matches the feature set; each is
+  small enough to read as documentation, which a single combined graph would not have been. All three
+  verified through the real CLI (`coral run examples/collections/<x>.json`).
+- Each example is a byte copy of its fixture. Mirroring is the point (as `network-from-fe.json` already
+  mirrors `examples/phiflow/`), but note the cost this choice accepts: three copies now drift by hand if
+  a fixture changes, and nothing checks that they match.
 
 ### 7. Documentation
 

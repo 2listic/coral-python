@@ -316,3 +316,85 @@ class TestDeterministicExecution:
             val1, val2 = results1[key], results2[key]
             if isinstance(val1, (int, float)):
                 assert val1 == val2, f"Node {key} produced different results: {val1} vs {val2}"
+
+
+class TestCollectionWorkflows:
+    """End-to-end graphs built from the host's builtin collection nodes.
+
+    Unlike every other class here, the first three assert **result values**, not just that execution
+    finished — a collection graph whose answer is wrong is exactly the failure worth catching.
+
+    They also pass ``plugins=[]``, which is the point: these node types need no plugin. That
+    contract cannot be expressed through the CLI (an empty ``-p`` resolves to *all* installed
+    plugins), so it is asserted here or nowhere. None of them carries a plugin marker; only the
+    interop graph, which reaches into ``math``, does.
+    """
+
+    @pytest.mark.integration
+    def test_list_workflow_values(self, workflow_files):
+        """GIVEN a graph appending 1, 2, 3 to a new list, then measuring and indexing it
+        WHEN it runs with no plugin at all
+        THEN the size is 3, index 1 holds 2, and removal drops index 0."""
+        results = WorkflowExecutor(str(workflow_files["collections_list"]), plugins=[]).execute()
+
+        assert results["empty"] == []
+        assert results["with_three"] == [1, 2, 3]
+        assert results["size"] == 3
+        assert results["second"] == 2
+        assert results["without_first"] == [2, 3]
+
+    @pytest.mark.integration
+    def test_list_append_leaves_its_input_untouched(self, workflow_files):
+        """GIVEN a chain of list_append nodes, each feeding the next
+        WHEN the graph has run
+        THEN every intermediate list is still its own value in ``results`` — purity holding end to
+        end, not just in the unit tests, which is what lets two consumers read one node."""
+        results = WorkflowExecutor(str(workflow_files["collections_list"]), plugins=[]).execute()
+
+        assert results["empty"] == []
+        assert results["with_one"] == [1]
+        assert results["with_two"] == [1, 2]
+        # `with_three` was fed to list_size, list_get *and* list_remove_at; none of them touched it.
+        assert results["with_three"] == [1, 2, 3]
+
+    @pytest.mark.integration
+    def test_dict_workflow_values(self, workflow_files):
+        """GIVEN a graph setting two keys, reading one, then deleting the other
+        WHEN it runs with no plugin at all
+        THEN the read returns its value, the delete leaves one entry, and the source dict is intact."""
+        results = WorkflowExecutor(str(workflow_files["collections_dict"]), plugins=[]).execute()
+
+        assert results["with_both"] == {"alpha": 1.5, "beta": 2.5}
+        assert results["beta_value"] == 2.5
+        assert results["without_alpha"] == {"beta": 2.5}
+        assert results["size"] == 1
+
+    @pytest.mark.integration
+    def test_set_workflow_deduplicates(self, workflow_files):
+        """GIVEN a graph adding 5, 7 and 5 again to a new set
+        WHEN it runs with no plugin at all
+        THEN the size is 2 rather than 3 — deduplication observed through the graph — and
+        set_to_list yields a sorted list the next node can index."""
+        results = WorkflowExecutor(str(workflow_files["collections_set"]), plugins=[]).execute()
+
+        assert results["with_duplicate"] == {5, 7}
+        assert results["size"] == 2
+        assert results["as_list"] == [5, 7]
+        assert results["smallest"] == 5
+
+    @pytest.mark.math
+    @pytest.mark.integration
+    def test_collection_feeds_a_plugin_function(self, workflow_files):
+        """GIVEN two floats stored in a list, read back and summed by the math plugin's ``add``
+        WHEN the graph runs with the math plugin
+        THEN the sum is 7.0.
+
+        This is the interop case decision 2 was taken for: because a builtin returns a real ``list``
+        holding real floats, a plugin function consumes them with no conversion node in between.
+        """
+        results = WorkflowExecutor(
+            str(workflow_files["collections_math"]), plugins=["math"]
+        ).execute()
+
+        assert results["with_both"] == [3.0, 4.0]
+        assert results["total"] == 7.0
