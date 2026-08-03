@@ -294,11 +294,11 @@ No change to `graph.py`; bare `list`/`set`/`dict` annotations are plain classes,
 handles via `issubclass`. Add cases to the existing type-compatibility class, using the file's local
 `NodePorts` fixtures (no plugin needed):
 
-- [ ] accept `list` → `list`, `set` → `set`, `dict` → `dict`.
-- [ ] reject `list` → `set`, `list` → `float`, `str` → `list`, `dict` → `list`.
-- [ ] skip (accept) `list` → `Any` and `Any` → `list` — e.g. `list_get`'s `Any` output feeding a
+- [x] accept `list` → `list`, `set` → `set`, `dict` → `dict`.
+- [x] reject `list` → `set`, `list` → `float`, `str` → `list`, `dict` → `list`.
+- [x] skip (accept) `list` → `Any` and `Any` → `list` — e.g. `list_get`'s `Any` output feeding a
       typed port.
-- [ ] a `list_new` node with an incoming edge fails check 4 (0 input ports, 1 edge).
+- [x] a `list_new` node with an incoming edge fails check 4 (0 input ports, 1 edge).
 
 ### 6. End to end — workflow JSON fixtures (the desiderata's "Other Requirements")
 

@@ -19,6 +19,12 @@ node type             inputs                            outputs
 ``Widget``            ``size: float``                   ``Widget``
 ``Widget.resize``     ``self: Widget``, ``f: float``    ``float``
 ``Gadget``            ``size: float``                   ``Gadget``
+``list_new``          none                              ``list``
+``set_new``           none                              ``set``
+``dict_new``          none                              ``dict``
+``list_size``         ``lst: list``                     ``int``
+``set_size``          ``s: set``                        ``int``
+``dict_size``         ``d: dict``                       ``int``
 ===================== ================================= ==========================
 """
 
@@ -68,6 +74,15 @@ PORT_TABLE = {
     ),
     "Gadget": NodePorts(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Gadget]),
     "Sprocket": NodePorts(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Sprocket]),
+    # Collection-shaped entries, mirroring `coral_app.builtin_nodes`: a creator taking nothing and
+    # returning a bare collection, and a consumer taking one. Hand-written like everything else here
+    # — the point is the annotations `Graph` compares, not which module they came from.
+    "list_new": NodePorts(kind=FUNCTION, inputs=[], outputs=[list]),
+    "set_new": NodePorts(kind=FUNCTION, inputs=[], outputs=[set]),
+    "dict_new": NodePorts(kind=FUNCTION, inputs=[], outputs=[dict]),
+    "list_size": NodePorts(kind=FUNCTION, inputs=[("lst", list)], outputs=[int]),
+    "set_size": NodePorts(kind=FUNCTION, inputs=[("s", set)], outputs=[int]),
+    "dict_size": NodePorts(kind=FUNCTION, inputs=[("d", dict)], outputs=[int]),
 }
 
 
@@ -376,6 +391,28 @@ class TestArity:
 
         assert build(nodes, edges).order[-1] == "r"
 
+    def test_a_zero_input_node_accepts_no_edges(self):
+        """GIVEN ``list_new``, which takes nothing, wired to receive an edge anyway
+        WHEN the graph is built
+        THEN it raises: 0 input ports against 1 incoming edge.
+
+        The edge uses ``target_input: 0`` deliberately. Any other index would trip check 3 (the
+        ``target_input`` values must be exactly ``0..n-1``) first, and the test would pass for the
+        wrong reason.
+        """
+        nodes = {"p": {"type": "float", "value": 1.0}, "n": {"type": "list_new"}}
+
+        with pytest.raises(
+            ValueError, match=r"Node 'n' of type 'list_new' expects 0 inputs but received 1"
+        ):
+            build(nodes, {"e1": edge("p", "n", 0)})
+
+    def test_a_zero_input_node_alone_is_fine(self):
+        """GIVEN ``list_new`` with nothing wired into it
+        WHEN the graph is built
+        THEN it is accepted — unlike a defaulted parameter, it genuinely has no port to wire."""
+        assert build({"n": {"type": "list_new"}}, {}).order == ["n"]
+
 
 class TestOutputPorts:
     """Check 5: source_output names an output the source type actually has."""
@@ -613,6 +650,64 @@ class TestEdgeTypes:
 
         with pytest.raises(ValueError, match=r"feeds str .* expects float"):
             build(nodes, edges)
+
+    # ── collections ──
+    #
+    # A bare `list` / `set` / `dict` is a plain class, so check 6 already judges it through
+    # `issubclass` with no change to `graph.py`. These cases pin that, because the alternative the
+    # project rejected — annotating `List[int]` — would make every one of them *skip* instead.
+
+    @pytest.mark.parametrize(
+        "creator,consumer",
+        [("list_new", "list_size"), ("set_new", "set_size"), ("dict_new", "dict_size")],
+    )
+    def test_a_collection_into_its_own_type_is_accepted(self, creator, consumer):
+        """GIVEN a collection creator feeding a parameter of that same collection type
+        WHEN the graph is built
+        THEN it is accepted."""
+        assert build(*self._wire(creator, consumer)).order == ["a", "b"]
+
+    @pytest.mark.parametrize(
+        "creator,consumer",
+        [
+            ("list_new", "set_size"),
+            ("dict_new", "list_size"),
+            ("set_new", "dict_size"),
+        ],
+    )
+    def test_one_collection_into_another_is_rejected(self, creator, consumer):
+        """GIVEN a collection feeding a parameter expecting a *different* collection
+        WHEN the graph is built
+        THEN it raises — the three are unrelated classes, not interchangeable containers."""
+        with pytest.raises(ValueError, match=r"feeds \w+ .* expects \w+"):
+            build(*self._wire(creator, consumer))
+
+    def test_a_collection_into_a_scalar_is_rejected(self):
+        """GIVEN a list feeding a float parameter
+        WHEN the graph is built
+        THEN it raises: a container is not a number, and the numeric tower does not reach it."""
+        with pytest.raises(ValueError, match=r"feeds list .* expects float"):
+            build(*self._wire("list_new", "sqrt"))
+
+    def test_a_scalar_into_a_collection_is_rejected(self):
+        """GIVEN a str primitive feeding a list parameter
+        WHEN the graph is built
+        THEN it raises — notably, ``list("abc")`` would have *worked* in Python, which is exactly the
+        silent surprise the check exists to prevent."""
+        with pytest.raises(ValueError, match=r"feeds str .* expects list"):
+            build(*self._wire("str", "list_size"))
+
+    def test_a_collection_into_any_skips_the_check(self):
+        """GIVEN a list feeding a parameter annotated Any
+        WHEN the graph is built
+        THEN it is accepted unchecked — as `list_get`'s Any output feeding a typed port must be."""
+        assert build(*self._wire("list_new", "anything")).order == ["a", "b"]
+
+    def test_any_into_a_collection_skips_the_check(self):
+        """GIVEN an `any` primitive feeding a list parameter
+        WHEN the graph is built
+        THEN it is accepted unchecked: `Any` on either side is never judged."""
+        assert build(*self._wire("any", "list_size")).order == ["a", "b"]
 
 
 class TestLookups:
