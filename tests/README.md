@@ -22,6 +22,7 @@ tests/
 ├── test_integration.py         # End-to-end workflow tests
 ├── test_golden_registry.py     # Registry contract pin: math/string/phiflow byte-identical, all by content
 ├── test_characterization.py    # Pins run results + stdout for a math and a string graph
+├── test_examples.py            # Runs every graph shipped under examples/ (phiflow case marked `slow`)
 ├── test_acceptance.py          # Wheel/pip acceptance in a clean venv (marked `slow`)
 ├── golden/                     # Recorded node_types.json snapshots (permanent contract guard)
 └── fixtures/
@@ -67,6 +68,31 @@ pytest -m phiflow
 # Skip slow tests
 pytest -m "not slow"
 ```
+
+### Run the Shipped Examples
+
+`test_examples.py` executes the graphs under `examples/` — the ones `README.md` and `CLAUDE.md` tell a
+user to type `coral run` against. The phiflow example runs a real simulation (~30s); the three
+collection examples are sub-second, so the expensive case is tagged `slow` and can be dropped.
+
+```bash
+# All four examples, simulation included (~33s)
+pytest tests/test_examples.py
+
+# Only the fast ones — skips the phiflow simulation (~0.1s)
+pytest tests/test_examples.py -m "not slow"
+
+# One example: the parametrisation id is "<directory>/<filename>"
+pytest "tests/test_examples.py::test_example_executes[collections/list.json]"
+```
+
+`-m "not slow"` works repo-wide too (it also drops `test_acceptance.py`), so the in-a-hurry full run
+is `pytest -m "not slow"`.
+
+Cases are **discovered from disk**, so a new file under an already-registered directory is covered
+with no edit here. A new *directory* needs an `EXAMPLE_SPECS` entry naming the plugins its graphs
+require — `test_every_example_directory_is_registered` fails loud until it gets one, because a
+silently uncovered example is the exact hole this module was written to close.
 
 ### Run Specific Test Class or Function
 ```bash
