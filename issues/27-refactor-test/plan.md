@@ -535,3 +535,168 @@ Raised by this work, deliberately not done here:
   the two surfaces are merged separately, and the port table silently prefers the function. Each
   plugin's conformance test asserts its own two surfaces are disjoint, which is the only place the
   check can currently live.
+
+## Follow-up: package-layout restructure — designed, not implemented
+
+**Status: decided, nothing on disk changed. Implement next session.** Not part of #27 — it is about
+where *distributions* live, not where tests live — but it came out of #27's placement question, so it is
+recorded here and is written to be lifted into its own issue once numbered.
+
+### Why, and why only this
+
+The dependency direction (`plugin -> core <- app`) is **already enforced**, by
+`tests/invariants/test_source_rules.py` reading imports. Moving directories adds no guarantee. The one
+reason to do it is **legibility**: `packages/*` is a flat bag of five siblings whose relationship is
+asymmetric — the plugin set is variable and open (a third-party plugin is a peer of our three), while
+nothing is ever a peer of `coral-app`. Adding a plugin is routine; touching the host is not. The layout
+should say that. This is the `libs/` + `apps/` distinction, applied.
+
+Anyone expecting it to *prevent* something is mistaken; that is the invariants' job, and it already
+works.
+
+### Target tree
+
+```
+coral-python/
+├── CLAUDE.md   README.md   LICENSE   coral-py
+├── pyproject.toml   pytest.ini   uv.lock   .pre-commit-config.yaml
+├── docs/ONBOARDING.md
+│
+├── coral-core/                  → coral-core            src/coral_core/
+├── coral-app/                   → coral-app             src/coral_app/
+├── plugins/
+│   ├── coral-math/              → coral-plugin-math     src/coral_plugin_math/     -p math
+│   ├── coral-string/            → coral-plugin-string   src/coral_plugin_string/   -p string
+│   └── coral-phiflow/           → coral-plugin-phiflow  src/coral_plugin_phiflow/  -p phiflow
+└── tests/                       # invariants/, discovery/, test_acceptance.py — unchanged
+```
+
+`packages/` disappears. **Nothing inside any package moves**: every `src/`, `tests/`, `examples/`,
+`graphs/` and `golden/` keeps its path relative to its own package.
+
+### Naming decisions
+
+| # | decision | why | cost, stated |
+| --- | --- | --- | --- |
+| **L1** | The three plugins move under `plugins/`; `coral-core` and `coral-app` move to the **repo root**. `packages/` is removed | the plugin set is the open, variable part; the framework is not. One directory listing now answers "what can I add?" | the root gains two directories, and a reader may not immediately register that `coral-app/` is an installable wheel |
+| **L2** | Framework directories **keep** the `coral-` prefix: `coral-core/`, `coral-app/` | at the root they sit beside `docs/`, `tests/`, `plugins/`, so the prefix earns its place; and directory -> distribution stays mechanical for these two | mild stutter with the repo name `coral-python` |
+| **L3** | Plugin directories keep `coral-` but **drop the word `plugin`**: `plugins/coral-math/` | the parent directory already says "plugin", so repeating it is noise. Every directory in the repo then reads `coral-<capability>` | the directory matches **neither** the distribution nor the entry-point name — one word from `coral-plugin-math`, one prefix from `math` |
+| **L4** | **Distribution names are unchanged**: `coral-plugin-math`, `coral-plugin-string`, `coral-plugin-phiflow`, `coral-core`, `coral-app` | `pip install --find-links dist coral-plugin-math` is the documented end-user path, and `uv add --package coral-plugin-phiflow` is in `CLAUDE.md`. A rename here is user-facing for no functional gain | after L3, the string `coral-plugin-math` appears in the tree only inside that package's own `pyproject.toml` — no longer greppable as a directory |
+| **L5** | **Import packages and entry-point names are unchanged**: `coral_plugin_math` / `math` | the entry-point name is the platform's `-p` contract and must not change (long-standing rule); the import package appears in every entry-point value, in the laziness assertions on `sys.modules`, and in the invariants' `coral_plugin_*` import rule | none |
+
+Four names per plugin, then, and only the first changes:
+
+| | before | after |
+| --- | --- | --- |
+| directory | `packages/coral-plugin-math` | **`plugins/coral-math`** |
+| distribution (pip) | `coral-plugin-math` | unchanged |
+| import package | `coral_plugin_math` | unchanged |
+| entry point (`-p`) | `math` | unchanged |
+
+### What is untouched, verified this session
+
+- **`tests/test_acceptance.py` needs no edit.** It names distributions as literals
+  (`env.install("coral-plugin-math")`) and globs only `dist/*.whl`; every other `packages` hit in it is
+  prose, the `--all-packages` flag, or a local variable. An earlier draft of this section claimed it
+  globbed `packages/coral-plugin-*` — it does not.
+- **Each plugin's `pyproject.toml` needs no edit**: `[tool.hatch.build.targets.wheel] packages =
+  ["src/coral_plugin_math"]` is relative to its own directory.
+- **`coral-py` needs no edit**: it runs `uv run --project "$HERE" coral`, where `$HERE` is the repo root.
+- **`.pre-commit-config.yaml` needs no edit**: zero path references.
+- **Wheel contents, the two platform contracts, and every golden are unaffected.**
+
+### The exact edit list
+
+Five moves:
+
+```bash
+git mv packages/coral-core coral-core
+git mv packages/coral-app  coral-app
+mkdir plugins
+git mv packages/coral-plugin-math    plugins/coral-math
+git mv packages/coral-plugin-string  plugins/coral-string
+git mv packages/coral-plugin-phiflow plugins/coral-phiflow
+rmdir packages
+```
+
+Config, with the literal target values:
+
+| file | from | to |
+| --- | --- | --- |
+| `pyproject.toml` | `[tool.uv.workspace] members = ["packages/*"]` | `members = ["coral-core", "coral-app", "plugins/*"]` |
+| `pyproject.toml` | `[tool.coverage.run] source = ["packages"]` | `source = ["coral-core", "coral-app", "plugins"]` (keep `omit = ["*/tests/*"]`) |
+| `pyproject.toml` | `[tool.uv.sources]` — five entries | unchanged (**L4**: keyed by distribution name) |
+| `pytest.ini` | `testpaths = tests packages/*/tests` | `testpaths = tests coral-core/tests coral-app/tests plugins/*/tests` |
+| `pytest.ini` | the `packages/coral-plugin-math/tests` example in the markers comment | `plugins/coral-math/tests` |
+
+`tests/invariants/test_source_rules.py` — the only code in the repo that derives anything from a
+package directory name:
+
+| | from | to |
+| --- | --- | --- |
+| constants | `PACKAGES = REPO_ROOT / "packages"`, `PLUGIN_PREFIX = "coral-plugin-"` | `PLUGINS = REPO_ROOT / "plugins"`, `HOST = REPO_ROOT / "coral-app"`, `CORE = REPO_ROOT / "coral-core"`, `PLUGIN_PREFIX = "coral-"` |
+| `repo_plugin_names()` | strip `coral-plugin-` from `packages/coral-plugin-*` | strip `coral-` from every directory in `plugins/` |
+| `TestNoFutureAnnotations._package_sources` | `python_files(PACKAGES)` | the union of the source roots (see the risk below) |
+| `TestStageSeparation._path` | `PACKAGES / "coral-app" / "src" / "coral_app"` | `HOST / "src" / "coral_app"` |
+| `TestDependencyDirection` | `PACKAGES / f"{PLUGIN_PREFIX}{name}" / "src"` | `PLUGINS / f"coral-{name}" / "src"` |
+| `TestHostTestsNameNoPlugin.HOST_TESTS` | `PACKAGES / "coral-app" / "tests"` | `HOST / "tests"` |
+
+Docs — textual `packages/` references, counted: **CLAUDE.md 26, tests/README.md 20, README.md 11,
+docs/ONBOARDING.md 10** (67 total). Mechanical, but note that several are *paths a reader is told to
+type* (`coral run packages/coral-app/examples/collections/list.json`), so they must be re-verified by
+running them, not only by search-and-replace.
+
+### The one real risk, and the fix
+
+Today **one** glob means "every distribution this repo ships" (`packages/*`), and four places rely on
+it: workspace members, coverage source, `testpaths`, and the invariants' notion of all package source.
+Afterwards each must list **three** roots. Someone later adding a fourth root and updating three of the
+four places would silently narrow a guard — most damagingly the `from __future__ import annotations`
+rule, which would then simply stop covering a package.
+
+`TestGuardsAreNotVacuous` catches an *empty* scan but not a *narrowed* one. So, as part of the same
+change:
+
+- derive the source roots in **one** place in `test_source_rules.py` (`SOURCE_ROOTS = [CORE, HOST] +
+  sorted(PLUGINS.iterdir())`);
+- extend `TestGuardsAreNotVacuous` to assert the **exact set** of scanned roots against the directories
+  present on disk, so adding a package without extending the rule fails loudly;
+- state in that module's docstring that `pyproject.toml` and `pytest.ini` carry the same list and must
+  be kept in step — the one duplication this layout cannot remove, since neither `uv` nor `pytest` can
+  read a Python constant.
+
+### Steps
+
+1. **The five `git mv`s**, nothing else. `uv sync` will fail until step 2 — expected; do not fix it
+   here, so that the failure proves the workspace really is driven by `members`.
+2. **`pyproject.toml` + `pytest.ini`.** Then `uv sync` and `uv run pytest -m "not slow"` → the suite
+   still fails, only inside `tests/invariants/`, which is the proof that those rules were reading real
+   paths rather than passing vacuously.
+3. **`tests/invariants/test_source_rules.py`**, including the single-source-of-truth rework and the
+   strengthened vacuity test. → `pytest -m "not slow"` green, **445 passed**, same count as before: this
+   restructure must not change what is tested.
+4. **Docs**, all 67 references, plus a re-run of every command a reader is told to type.
+5. **Verify**, all four:
+   - `uv run pytest` → 449 passed;
+   - `uv pip uninstall coral-plugin-{math,string,phiflow}` then `uv run --no-sync pytest -m "not slow"`
+     → 249 passed, 13 skipped; and `pytest coral-app/tests coral-core/tests` → 232 passed, **0 skipped**;
+   - `uv build --all-packages --wheel --out-dir dist` → five wheels with unchanged names;
+   - `coral register` in a scratch directory → a 50-key `node_types.json`, and one `coral run` per
+     example path as documented.
+
+### Rejected alternatives, with reasons
+
+| rejected | why |
+| --- | --- |
+| `plugins/math/` (bare) | the folder would equal the entry-point name, which is the tidiest derivation — but it reads as a generic word inside a repo whose every other directory is `coral-`-prefixed. **L3** chose consistency over that |
+| distributions renamed to `coral-math` | directory would equal distribution again, but it breaks the documented `pip install` line and every `uv add --package` example for no functional gain (**L4**) |
+| import packages renamed to `coral_math` | deepest coherence, deepest break: entry-point values, every plugin test's imports, the `coral_plugin_*` import rule, and the `sys.modules` laziness assertions (**L5**) |
+| keep everything under one parent (`packages/core`, `packages/app`, `packages/plugins/*`) | same legibility without cluttering the root, but leaves the word `packages` meaning something narrower than it says. Rejected in favour of **L1** |
+| do nothing | defensible: the change is cosmetic with respect to enforcement. Rejected because the asymmetry between "the framework" and "the open set of extensions" is the first thing a new contributor needs to see |
+
+### Small cleanup to fold in
+
+`TestGuardsAreNotVacuous.test_host_test_suite_is_scanned` still carries
+`pytest.skip("packages/coral-app/tests does not exist yet (issue #27, step 4)")`. That directory now
+exists and the test passes; the skip branch and its message are dead. Remove it while reworking the
+module in step 3.
