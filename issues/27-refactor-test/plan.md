@@ -147,6 +147,28 @@ or respecified.
 Target after step 6: fast lane ≲2s; one `slow` simulation (phiflow's example) plus acceptance behind
 `-m slow`. Steps 1–5 still pay the 59.35s, by design — see the note opening [Steps](#steps).
 
+### Measured result
+
+`uv run pytest -q -m "not slow"`: **445 passed in 0.77s.** Whole suite, `slow` included: **449 passed
+in 36.5s**, of which one PhiFlow simulation is ~33s and the wheel acceptance test ~4s.
+
+| | before | after |
+| --- | --- | --- |
+| fast lane | 59.35s | **0.77s** |
+| tests collected | 273 | 449 |
+| `@pytest.mark.<plugin>` uses | ~38 | **0** |
+| simulations in the fast lane | 4 (58.75s, asserting `isinstance(results, dict)`) | **0** |
+| phiflow unit tests | **0** | 55 |
+| tests that name a plugin they do not own | ~38 | **0**, enforced by `tests/invariants/` |
+
+Subset installs, verified rather than assumed:
+
+| environment | result |
+| --- | --- |
+| all plugins installed | 449 passed |
+| all three uninstalled, whole suite | 249 passed, 13 skipped (each naming its plugin), 0 errors |
+| all three uninstalled, `packages/coral-app/tests` + `coral-core` | **232 passed, 0 skipped** |
+
 ## The separation principle
 
 Sharpens **D2**. Every test belongs to exactly one of three kinds, and the directory it sits in says
@@ -207,10 +229,16 @@ stricter rather than merely equivalent.
 
 ## Target layout
 
+As built. Four things differ from the version this plan was written with, each marked `[!]` and
+explained under the step that forced it.
+
 ```
 tests/                                   # repo-level: ONLY tests that name no plugin
+├── conftest.py                          # one fixture: project_root
 ├── invariants/
-│   └── test_source_rules.py             # R2: no __future__ annotations; directional import greps
+│   └── test_source_rules.py             # R2: no __future__ annotations; directional greps
+├── discovery/                           # [!] step 4: needs a real installed distribution
+│   └── test_installed_plugins.py        #     discover/laziness/nodes-appear; all names derived
 └── test_acceptance.py                   # wheels, incremental install, laziness — scans packages/*
 
 packages/coral-core/tests/
@@ -219,33 +247,42 @@ packages/coral-core/tests/
 packages/coral-app/
 ├── examples/collections/{list,set,dict}.json          # D5
 └── tests/
-    ├── specimen.py                      # D3: the designed surface + SpecimenPlugin + RivalPlugin
+    ├── specimen.py                      # D3: the designed surface + 5 plugins [!] see step 4
+    ├── host_suite.py                    # [!] D12: collection-time paths, uniquely named
+    ├── conftest.py                       #     specimen_plugins, isolate_cwd, write_graph
     ├── graphs/network-collections-{list,set,dict}.json
     ├── golden/node_types.format.json    # R1: format + merge/ordering, from the specimen plugins
-    ├── test_nodeports.py                # already compliant
-    ├── test_graph.py                    # already compliant
-    ├── test_builtin_nodes.py            # already compliant
-    ├── test_discovery.py                # already compliant
+    ├── test_nodeports.py                # moved unchanged
+    ├── test_graph.py                    # moved unchanged
+    ├── test_builtin_nodes.py            # moved unchanged
+    ├── test_discovery.py                # [!] step 4: the specimen half of the old discovery file
     ├── test_executor.py                 # respecified on the specimen
-    ├── test_registry.py                 # respecified on the specimen; incl. merge + "later wins"
+    ├── test_registry.py                 # respecified on the specimen; incl. merge + refusal
     ├── test_graphs_validate.py          # D9: its graphs + examples construct, none executes
     └── test_examples.py                 # the collections examples actually run (builtins: fast)
 
 packages/coral-plugin-math/
 └── tests/
-    ├── conftest.py                      # D6: PLUGIN_NAME = "math"; skips all of tests/ if absent
+    ├── math_suite.py                    # [!] D12: PLUGIN_NAME, MODULE_NAME, INSTALLED, paths
+    ├── conftest.py                       #     fixtures + collect_ignore_glob when absent
+    ├── test_plugin_present.py            #     never ignored: reports the skip, pins the name
     ├── graphs/network-from-fe-{math,classes,functions}.json, network-collections-math.json
-    ├── unit/                            # math + coral_core only: its functions, classes, ABC
-    │                                    #   conformance, and its entry-point name
-    └── system/                          # + coral_app (test-only dependency)
+    ├── unit/                            # math + coral_core only
+    │   ├── test_functions.py             #   its functions [!] D13: aliased tuple-return import
+    │   ├── test_calculator.py            #   its class, incl. the state it carries
+    │   └── test_plugin_conformance.py    #   its ABC conformance and declared surface
+    └── system/                          # + coral_app (test-only dependency group)
         ├── test_graphs_validate.py      # D9: its graphs construct, none executes
         ├── test_graphs_run.py           # its graphs execute, with real value assertions
-        ├── test_registry_math.py
+        ├── test_registry.py             # its own content, byte-compared
         └── golden/node_types.math.json  # R1
 
-packages/coral-plugin-string/            # same shape; owns no graph today
+packages/coral-plugin-string/            # same shape; owns no graph, so no test_graphs_validate.py.
+                                         #   system/test_graph_run.py holds the one inline graph (O1)
 packages/coral-plugin-phiflow/           # same shape; also owns examples/phiflow/ and
-                                         #   graphs/network-from-fe{,-obstacle,-smoke_plume}.json
+                                         #   graphs/network-from-fe{,-obstacle,-smoke_plume}.json.
+                                         #   unit/: test_wrappers.py, test_union.py (55 tests, no
+                                         #   solver); system/test_graphs_run.py is the one `slow` test
 ```
 
 **The owning directory replaces every hardcoded table.** A graph or example under
@@ -258,7 +295,7 @@ run-time inference about which plugins a graph requires.
 | directory | if its plugin is uninstalled |
 | --- | --- |
 | `packages/coral-app/tests/`, `tests/` | nothing to skip — they name no plugin |
-| `packages/coral-plugin-<n>/tests/` | the whole directory is skipped by its `conftest.py`. The directory survives `uv pip uninstall`, so it must guard itself |
+| `packages/coral-plugin-<n>/tests/` | `unit/` and `system/` are dropped from collection by its `conftest.py`; `test_plugin_present.py` survives to report the skip. The directory survives `uv pip uninstall`, so it must guard itself |
 
 **Test-space dependencies stay acyclic**: declared `plugin[test] → coral-app → coral-core` and
 `plugin → coral-core`. `coral-app` needs nothing from any plugin (that is D3's whole point), and
@@ -274,23 +311,31 @@ second as an earlier draft had them — the guard has no home until its owner ex
 1–5 are developed against a ~59s suite. Work around it with `-m "not phiflow"` (~0.6s) while
 iterating; do not let it tempt anyone into deleting a simulation test early.
 
-### 1. Collection mechanics — `pytest.ini`
+**All eight steps are done.** Each is marked below with what actually landed, including where the
+implementation had to differ from what was planned. The ordering rule held: no test was deleted before
+its data's owner had a suite guarding it, which is why every deletion sits in step 6.
+
+### 1. Collection mechanics — `pytest.ini` — **DONE**
 
 Prerequisite for everything: tests are about to exist outside `tests/`.
 
-- `testpaths` covers `tests` **and** `packages/*/tests`
-- `importmode = importlib` — three plugins will each have a `tests/unit/test_functions.py`
-- coverage targets become explicit per package instead of `--cov=.`
-- the `math` / `string` / `phiflow` markers stay for now; step 6 removes them (**R3**)
+- [x] `testpaths = tests packages/*/tests`. A glob matching nothing is harmless, so this landed before
+      any package had a `tests/` directory
+- [x] importlib mode — but as `--import-mode=importlib` in **`addopts`**: there is no `importmode` ini
+      key, and with `filterwarnings = error` the unknown-option warning aborted the run outright
+- [x] coverage: `[tool.coverage.run] source = ["packages"]`, `omit = ["*/tests/*"]` in the root
+      `pyproject.toml`, so `pytest --cov` tracks a new plugin without naming one anywhere
+- [x] the plugin markers stayed; step 6 removed them
 
-### 2. D1 — drop `fixtures/valid_nodes/`
+### 2. D1 — drop `fixtures/valid_nodes/` — **DONE**
 
-Files, README, the two conftest fixtures, the one test. Independent of everything else.
+- [x] the three registry files and their README, the `registry_files` / `load_registry` fixtures, and
+      `test_existing_registry_files_valid`. `tests/README.md`'s two references went with them
 
-### 3. R2 — split `test_core_contract.py`
+### 3. R2 — split `test_core_contract.py` — **DONE**
 
-- the ABC's behaviour → `packages/coral-core/tests/test_plugin_abc.py`;
-- the source-text greps → `tests/invariants/test_source_rules.py`, gaining the directional rules:
+- [x] the ABC's behaviour → `packages/coral-core/tests/test_plugin_abc.py`;
+- [x] the source-text greps → `tests/invariants/test_source_rules.py`, gaining the directional rules:
 
 | forbidden in | what |
 | --- | --- |
@@ -305,36 +350,89 @@ Allowed, deliberately: a plugin's own name inside its own tests (D6); `coral_app
 The second row is the separation principle made executable — it is what stops the host suite
 drifting back.
 
-### 4. D3 + R1 — the specimen and the host suite
+**How "any plugin name" is detected**, decided during implementation: three precise AST rules per name
+from `packages/coral-plugin-*` on disk — no `coral_plugin_*` import, no `mark.<name>`, and no string
+literal *equal* to the name. Exact-literal comparison is what makes the rule survivable: a bare-word
+grep would trip on `python_type_to_string`, on "a string value" in prose, and on every use of the
+stdlib `math`, and would be silenced within a week. `include=["math"]` still fails, which is the drift
+that matters.
 
-- write `packages/coral-app/tests/specimen.py`: the designed surface (zero-input, multi-output,
+Also added: `TestGuardsAreNotVacuous`, because a grep over a directory that does not exist passes for
+the wrong reason. It skipped, visibly, until step 4 created `packages/coral-app/tests`.
+
+### 4. D3 + R1 — the specimen and the host suite — **DONE**
+
+- [x] write `packages/coral-app/tests/specimen.py`: the designed surface (zero-input, multi-output,
   `None`-returning, missing annotation, `Any`, a class, an *unrelated* class, a *subclass*, a dotted
   function name) plus `SpecimenPlugin` and `RivalPlugin`;
-- move the four already-compliant files across unchanged;
-- respecify `test_executor.py` and `test_registry.py` on the specimen — this is where the ~38 plugin
+- [x] move the already-compliant files across unchanged — **three**, not four, see the note below;
+- [x] respecify `test_executor.py` and `test_registry.py` on the specimen — this is where the ~38 plugin
   markers disappear. `test_registry.py` also absorbs the **merge + ordering** rule, tested on the two
   specimen plugins (the `all` golden's subject, re-owned), and the **duplicate-name refusal** of
   **D10**, which is why `RivalPlugin` declares a name `SpecimenPlugin` already owns;
-- **R1**: `golden/node_types.format.json`, generated from the specimen plugins, pins format and
-  ordering — byte-compared;
-- move `network-collections-{list,set,dict}.json` and `examples/collections/` here (**D5**'s
-  coral-app half), and add `test_graphs_validate.py` (**D9**'s coral-app share);
-- **verify the invariant**: `uv pip uninstall coral-plugin-{math,string,phiflow}` then
-  `uv run --no-sync pytest packages/coral-app/tests` → all pass, **zero skips**. Restore with
-  `uv sync`.
+- [x] **R1**: `golden/node_types.format.json`, generated from the specimen plugins, pins format and
+      ordering — byte-compared;
+- [x] move `network-collections-{list,set,dict}.json` and `examples/collections/` here (**D5**'s
+      coral-app half), and add `test_graphs_validate.py` (**D9**'s coral-app share). Also
+      `test_examples.py`, which *runs* the collection examples with `plugins=[]`;
+- [x] **verified**: `uv pip uninstall coral-plugin-{math,string,phiflow}` then
+      `uv run --no-sync pytest packages/coral-app/tests packages/coral-core/tests` →
+      **232 passed, 0 skipped**. Restored with `uv sync`.
 
-### 5. D4 + D6 + D5 — the plugin suites
+**Three deviations, each forced by something the plan could not have known:**
 
-Per plugin: `tests/conftest.py` (`PLUGIN_NAME`, and the skip that guards the whole directory),
-`tests/unit/` (its functions and classes, its ABC conformance, its entry-point name),
-`tests/system/` (its graphs validate **and** execute, its registry slice matches its own golden), and
-`coral-app` added to a **test-only** dependency group — never `[project].dependencies`.
+1. **`test_plugin_discovery.py` could not move unchanged.** Four of its tests are gated on a plugin
+   being *installed* (`requires_a_plugin`, `requires_two_plugins`, `TestPluginAddsNodes` parametrized
+   over `INSTALLED`), so moving it whole would have made the host suite skip — contradicting the
+   zero-skips invariant in the same step. Split by what each test needs: the specimen-and-monkeypatch
+   half → `packages/coral-app/tests/test_discovery.py` (0 plugins, 0 skips); the half that needs a real
+   distribution → `tests/discovery/test_installed_plugins.py`, where deriving names from `discover()`
+   is legal and a clean skip is the right answer. That file gained one test the repo did not have: with
+   *every* installed plugin selected, the maps must build — the deployment question **D10** raises.
+2. **`RivalPlugin` cannot be the colliding plugin.** Under **D10** the merge raises, so no golden could
+   be generated from specimen + rival if they shared a name. `RivalPlugin` is therefore a clean second
+   peer (its role is ordering), and three separate plugins exist only to be refused:
+   `FunctionClashPlugin`, `ClassClashPlugin`, `BuiltinClashPlugin`.
+3. **The dotted specimen function is `specimen.ratio`, not `specimen.scaled`.** Multiplication is
+   symmetric, so it cannot prove that inputs are bound by `target_input` rather than by edge order;
+   division can (8/2 = 4.0, 2/8 = 0.25).
 
-Rehome each plugin's graphs and examples per [Who owns each data file](#who-owns-each-data-file).
-`EXAMPLE_SPECS` is deleted here: each owner tests its own.
+The seam: `specimen_plugins` patches `coral_app.load` — the single name→instance lookup — and nothing
+else. Requested explicitly rather than autouse, because the tests about `load` and `discover` must see
+the real ones.
+
+### 5. D4 + D6 + D5 — the plugin suites — **DONE**
+
+- [x] per plugin: the guard, `tests/unit/`, `tests/system/`, and `[dependency-groups] test =
+      ["coral-app"]` — a PEP 735 group, so it never reaches the wheel: each plugin's metadata still
+      requires nothing of ours but `coral-core`. Inside this workspace the declaration is not
+      load-bearing (`uv sync` installs `coral-app` anyway); its value is being the recipe a
+      third-party plugin author copies, which is the audience D4 exists for;
+- [x] graphs and examples rehomed per [Who owns each data file](#who-owns-each-data-file);
+      `EXAMPLE_SPECS` deleted with the repo-level `test_examples.py` in step 6.
+
+**The guard, as built.** `PLUGIN_NAME` lives in `<name>_suite.py`; the plugin's `conftest.py` reads its
+own entry point and sets `collect_ignore_glob = ["unit/*", "system/*"]` when absent — a skip *marker*
+was not an option, since importing those modules imports the plugin. `test_plugin_present.py` imports
+nothing from the plugin and is never ignored, so the absence is reported rather than silent, and it
+asks metadata the **reverse** question — "under what name is this package registered?" — which is the
+only phrasing that catches a typo in `PLUGIN_NAME` (the forward question would merely skip).
 
 **This step completes D9** — every editor export is now validated by its owner, which is the
 precondition step 6 has been waiting for.
+
+**Three findings from writing the tests that did not exist:**
+
+- PhiFlow's `StaggeredGrid` / `CenteredGrid` are **factory functions, not classes**, and both return
+  the same `phi.field.Field`. So `isinstance` cannot tell a velocity grid from a smoke grid anywhere
+  downstream; `phiflow_iterate` dispatches on the *wrapper* type, and once unwrapped a swapped pair
+  reaches the solver unchallenged. The tests assert `sampled_at` — `"face"` vs `"center"` — instead.
+- `StringProcessor.repeat(3, "ab")` **succeeds**, returning `"ababab"`: `int * str` is valid Python. So
+  a graph with that node's two `target_input` values swapped produces a plausible result, and nothing
+  inside the plugin can catch it — its `str`/`int` annotations are the only defence, applied by graph
+  check 6 before execution. Both halves are now asserted, each pointing at the other.
+- phiflow's annotation quality is pinned as a **number** (13 of 21 slots are `Any`) rather than as a
+  prose caveat, so improving it fails the test and forces someone to lower the count on purpose.
 
 Phiflow gains the unit tests that do not exist today, and this is what makes deleting the four
 simulation tests in step 6 a net gain rather than a trade. Verified against the source, the cheap
@@ -350,35 +448,61 @@ What stays simulation-only, and therefore stays behind the one `slow` example: `
 body after unwrapping (`jit_compile`, `fluid.make_incompressible`, `iterate`) and
 `phiflow_plot_and_save`'s render.
 
-### 6. D7 + D8 + R3 — delete
+### 6. D7 + D8 + R3 — delete — **DONE**
 
 Safe at last: every graph the deleted tests read is guarded by its owner (step 5).
 
-- delete the four simulation tautologies and the rest of [the D8 table](#d8-per-test);
-- `test_plugins.py` and `test_integration.py` are now empty — remove them;
-- **R3**: delete `pytest_collection_modifyitems` from the root `conftest.py`, and the `math` /
-  `string` / `phiflow` markers from `pytest.ini`. Nothing outside a plugin's own directory names a
-  plugin any more, so nothing needs the hook.
+- [x] the four simulation tautologies and the rest of [the D8 table](#d8-per-test);
+- [x] `test_plugins.py` and `test_integration.py` dissolved entirely, as predicted;
+- [x] also deleted, all superseded: `test_golden_registry.py` and `node_types.all.json` (**R1**),
+      the repo-level `test_examples.py` with `EXAMPLE_SPECS` (**D5**), `tests/__init__.py`, and what
+      was left of `tests/fixtures/`;
+- [x] **R3**: `pytest_collection_modifyitems` and every workflow/registry fixture gone from the root
+      `conftest.py`, which is now one fixture long; the `math` / `string` / `phiflow` markers gone from
+      `pytest.ini`, leaving only `slow` — a marker about *cost*, not about which plugin a test needs.
 
-**59.35s → ~0.6s.** The two Calculator/functions tests that D8 marks *strengthen* are not rewritten
-here — step 5 already re-created them in math's `tests/system/` with real value assertions.
+**59.35s → 0.77s** for the fast lane (445 tests), against a target of ≲2s. The two
+Calculator/functions tests that D8 marks *strengthen* were re-created in step 5 with real value
+assertions; the Calculator graph's true result is **16.0**, not the 15.0 the D8 table guessed — the
+instance is stateful and the multiply's factor is the add's own result.
 
-### 7. O1 — rehome the characterization tests
+### 7. O1 — rehome the characterization tests — **DONE**
 
-Last, and only once steps 1–6 are green. Its whole value is pinning pre-refactor behaviour, so it is
-the safety net we cross on and fold up afterwards. Split: executor results → `coral-app` on the
-specimen; math's numbers and stdout → math's `tests/system/`.
+- [x] the math half → math's `tests/system/test_graphs_run.py`, against the real export it always
+      used, with the same exact-value and stdout assertions;
+- [x] the string half → `packages/coral-plugin-string/tests/system/test_graph_run.py`. The graph stays
+      written *inline*: no editor export uses this plugin, so string still ships no graph file —
+      the one case where the wiring exists only for the test;
+- [x] `tests/test_characterization.py` deleted once both halves were green.
 
-### 8. Documentation
+Nothing went to `coral-app`: its half of the old file was executor results, and step 4's
+`test_executor.py` already pins those on the specimen — more precisely, since it can choose the shapes.
 
-- `tests/README.md` rewritten around [the separation principle](#the-separation-principle) (it
-  currently describes the flat layout, and several of its sections describe files that will no longer
-  exist);
-- `CLAUDE.md`'s *Running Tests* section: selection is now by **path**, not by plugin marker; the D7
-  rule; the directional Invariants rules; and where a new plugin's tests go — extending the *Adding a
-  New Plugin* recipe with the step it is missing today.
+### 8. Documentation — **DONE**
+
+- [x] `tests/README.md` rewritten around [the separation principle](#the-separation-principle): the
+      three kinds, the rule that decides every case, the specimen, the two cost rules, subset installs,
+      and both platform contracts;
+- [x] `CLAUDE.md`'s *Running Tests* section rewritten — selection by **path**, the surviving `slow`
+      marker, the D7 rule, the directional invariants, and the subset-install behaviour;
+- [x] *Adding a New Plugin* gained the step it was missing: the test-suite skeleton, why `PLUGIN_NAME`
+      is hardcoded, how the suite guards itself, and the `[dependency-groups]` declaration;
+- [x] **the moved data broke documented commands**, which the plan had not anticipated. Fixed in
+      `README.md`, `CLAUDE.md` and `docs/ONBOARDING.md`: the examples are now
+      `packages/coral-app/examples/collections/*.json` and
+      `packages/coral-plugin-phiflow/examples/phiflow/network-from-fe.json`, and the graph paths in
+      ONBOARDING point into their owners' packages;
+- [x] `README.md`'s test section: marker-based selection replaced by path-based, `--cov=.` replaced by
+      `--cov`;
+- [x] the stale `tests/test_core_contract.py` references in *Key Constraints* now name
+      `tests/invariants/test_source_rules.py`.
+
+Also updated for **D10/D11**, since they made the old text false rather than merely stale: `CLAUDE.md`
+and `docs/ONBOARDING.md` described the "later wins" merge and the silent builtin win.
 
 ## Mapping of the #25 findings
+
+All six are resolved; the table records how.
 
 | #25 finding | resolved by |
 | --- | --- |
@@ -392,7 +516,22 @@ specimen; math's numbers and stdout → math's `tests/system/`.
 ## Out of scope, noted
 
 - `definitions/` contains **only** `__pycache__/*.pyc` — the `.py` files are gone. Dead directory;
-  deleting it is unrelated to this issue.
+  deleting it is unrelated to this issue. **Still present**: deliberately not touched.
 - The `all` golden's **content**-comparison (decided in #16, for cross-plugin ordering) is no longer
   a standing exception: **R1** deletes that golden and every replacement is byte-compared. See
-  [What replaces the `all` golden](#what-replaces-the-all-golden).
+  [What replaces the `all` golden](#what-replaces-the-all-golden). **Done**: `node_types.all.json` is
+  gone, and the four goldens that replaced it — format, math, string, phiflow — are all byte-compared.
+
+## Left for another issue
+
+Raised by this work, deliberately not done here:
+
+- **`test_tuple_return` is a poor node-type name** and now needs an aliased import in math's tests
+  (**D13**), because pytest collects `test_*` functions. Renaming a node type is platform-facing.
+- **phiflow's 13 `Any` slots** (of 21) are pinned as a number, not fixed. Giving the wrappers precise
+  types would let graph check 6 reject a mis-wired simulation at t=0 instead of 30 seconds in; it is a
+  plugin change, and belongs to whoever owns the plugin.
+- **A plugin declaring a function and a class under one name** cannot be reported by the host at all —
+  the two surfaces are merged separately, and the port table silently prefers the function. Each
+  plugin's conformance test asserts its own two surfaces are disjoint, which is the only place the
+  check can currently live.
