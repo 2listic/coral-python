@@ -19,6 +19,7 @@ def project_root() -> Path:
 def workflow_files(project_root: Path) -> Dict[str, Path]:
     """Return paths to all workflow JSON files."""
     fixtures_dir = project_root / "tests" / "fixtures" / "valid_workflows"
+    host_graphs = project_root / "packages" / "coral-app" / "tests" / "graphs"
     return {
         "obstacle": fixtures_dir / "network-from-fe-obstacle.json",
         "smoke_plume": fixtures_dir / "network-from-fe-smoke_plume.json",
@@ -26,23 +27,14 @@ def workflow_files(project_root: Path) -> Dict[str, Path]:
         "classes": fixtures_dir / "network-from-fe-classes.json",
         "functions": fixtures_dir / "network-from-fe-functions.json",
         "default": fixtures_dir / "network-from-fe.json",
-        # Collection graphs. The first three need no plugin at all — the node types they use are the
-        # host's own builtins — which is what `TestCollectionWorkflows` asserts by passing plugins=[].
-        "collections_list": fixtures_dir / "network-collections-list.json",
-        "collections_dict": fixtures_dir / "network-collections-dict.json",
-        "collections_set": fixtures_dir / "network-collections-set.json",
+        # The three pure-collection graphs moved to their owner, `coral-app`, which validates and
+        # runs them in its own suite (issue #27, step 4). These entries only keep the tests that
+        # still read them working until step 6 deletes them; nothing new should be added here.
+        "collections_list": host_graphs / "network-collections-list.json",
+        "collections_dict": host_graphs / "network-collections-dict.json",
+        "collections_set": host_graphs / "network-collections-set.json",
+        # Named "collections" but it wires an `add` node, so it is math's graph, not the host's.
         "collections_math": fixtures_dir / "network-collections-math.json",
-    }
-
-
-@pytest.fixture(scope="session")
-def registry_files(project_root: Path) -> Dict[str, Path]:
-    """Return paths to registry JSON files."""
-    fixtures_dir = project_root / "tests" / "fixtures" / "valid_nodes"
-    return {
-        "math": fixtures_dir / "registry-math.json",
-        "phiflow": fixtures_dir / "registry-phiflow.json",
-        "default": fixtures_dir / "registry-py.json",
     }
 
 
@@ -56,21 +48,6 @@ def load_workflow(workflow_files: Dict[str, Path]):
             raise ValueError(f"Unknown workflow: {name}. Available: {list(workflow_files.keys())}")
 
         with open(workflow_files[name], "r") as f:
-            return json.load(f)
-
-    return _load
-
-
-@pytest.fixture
-def load_registry(registry_files: Dict[str, Path]):
-    """Factory fixture to load registry JSON files."""
-
-    def _load(name: str) -> Dict[str, Any]:
-        """Load a registry JSON file by name."""
-        if name not in registry_files:
-            raise ValueError(f"Unknown registry: {name}. Available: {list(registry_files.keys())}")
-
-        with open(registry_files[name], "r") as f:
             return json.load(f)
 
     return _load

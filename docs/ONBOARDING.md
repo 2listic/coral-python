@@ -539,13 +539,17 @@ Two things worth knowing if you work in `coral_app/__init__.py`:
 - `build_function_map` and `build_class_map` share a small `_selected(include, exclude)` helper that
   resolves the name list (`include=None` → `sorted(discover())`, then `exclude` applied). Each then loads
   the selected plugins and merges their maps.
-- Because merging calls `.update()` into a shared dict in selection order, if two plugins expose the same
-  key (today, `print_result` is in both `coral-plugin-math` and `coral-plugin-string`) the later one
-  silently wins. Harmless today since the duplicate is identical, but worth knowing before adding a
-  colliding name. The "all" order is `sorted(discover())`, so it's deterministic.
-- `BUILTIN_FUNCTIONS` is applied **after** that merge, so the host's own nodes are never shadowed. That
-  is a different rule from the one above, on purpose: two plugins are peers and neither has a claim to
-  precedence, whereas a builtin is a promise the host makes to every graph. See the next entry.
+- A node type has exactly one owner. If two plugins expose the same key, or a plugin claims one of the
+  host's builtin names, the merge raises `DuplicateNodeTypeError` and the selection is refused. Nothing is
+  arbitrated, because a graph names only the node type: whichever callable had won, the JSON would look
+  the same, so the graph's meaning would depend on install order. The error names the node type and both
+  declarers, which is where the fix belongs. The "all" order is `sorted(discover())`, so it's deterministic.
+- Earlier this was "later wins" — not a designed rule, just `.update()` into a shared dict. The one real
+  duplicate it hid was `print_result`, declared by both `coral-plugin-math` and `coral-plugin-string`; with
+  all plugins selected the platform silently lost one of the two. Each now names its own (`print_number`,
+  `print_text`).
+- `BUILTIN_FUNCTIONS` is still applied **after** the plugin merge, but that is now purely about key order
+  in `node_types.json`: the builtins come last, leaving every plugin entry where it was.
 
 ### Why are the list/set/dict operations in the host rather than a plugin?
 

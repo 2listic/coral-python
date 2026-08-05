@@ -24,7 +24,7 @@
         }
       },
       "3": {
-        "type": "print_result",
+        "type": "print_number",
         "position": {
           "x": 724.65625,
           "y": 401

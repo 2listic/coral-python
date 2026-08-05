@@ -17,7 +17,7 @@
         }
       },
       "3": {
-        "type": "print_result",
+        "type": "print_number",
         "position": {
           "x": 1166.9096267853934,
           "y": 652.1758463770764

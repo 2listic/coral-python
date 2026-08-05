@@ -15,6 +15,14 @@ dev = [
 [tool.uv.workspace]
 members = ["packages/*"]
 
+# Coverage measures the workspace's source, wherever it lives: `packages` is the one directory that
+# holds all of it, so a new `coral-plugin-*` is included without editing this file (and without a
+# hardcoded list of plugin names anywhere). Each package's own tests/ are excluded — they are the
+# instrument, not the subject. Run with `pytest --cov --cov-report=html`.
+[tool.coverage.run]
+source = ["packages"]
+omit = ["*/tests/*"]
+
 # Resolve these internal package names from the workspace checkout rather than a package index.
 # Dev/uv-only: NOT baked into wheels, so the pip end-user path (--find-links dist) is unaffected.
 [tool.uv.sources]

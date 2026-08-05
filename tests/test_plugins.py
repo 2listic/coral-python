@@ -86,8 +86,8 @@ class TestBuildFunctionMap:
         """Test building function map with the string plugin."""
         func_map = build_function_map(include=["string"])
 
-        assert "print_result" in func_map
-        assert callable(func_map["print_result"])
+        assert "print_text" in func_map
+        assert callable(func_map["print_text"])
 
     @pytest.mark.phiflow
     def test_build_function_map_phiflow(self):
@@ -108,17 +108,17 @@ class TestBuildFunctionMap:
 
         # Should have both math and string functions
         assert "add" in func_map
-        assert "print_result" in func_map
+        assert "print_text" in func_map
 
     @pytest.mark.string
     def test_build_function_map_exclude(self):
         """Test excluding plugins from function map."""
         func_map = build_function_map(include=["string"], exclude=["math"])
 
-        # Should have math
-        assert "print_result" in func_map
+        # Should have string
+        assert "print_text" in func_map
 
-        # Should not have string
+        # Should not have math
         assert "add" not in func_map
 
     # The include=[] case lives in

@@ -59,11 +59,11 @@
     "node_type": "primitive",
     "type": "none"
   },
-  "print_result": {
+  "print_number": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "float",
         "name": "value"
       }
     ],
@@ -72,7 +72,7 @@
     ],
     "outputs": [],
     "node_type": "function",
-    "type": "print_result"
+    "type": "print_number"
   },
   "add": {
     "arguments": [
@@ -431,6 +431,21 @@
     ],
     "node_type": "function",
     "type": "phiflow_union"
+  },
+  "print_text": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "str",
+        "name": "value"
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [],
+    "node_type": "function",
+    "type": "print_text"
   },
   "list_new": {
     "arguments": [

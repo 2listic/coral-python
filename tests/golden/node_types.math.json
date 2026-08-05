@@ -59,11 +59,11 @@
     "node_type": "primitive",
     "type": "none"
   },
-  "print_result": {
+  "print_number": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "float",
         "name": "value"
       }
     ],
@@ -72,7 +72,7 @@
     ],
     "outputs": [],
     "node_type": "function",
-    "type": "print_result"
+    "type": "print_number"
   },
   "add": {
     "arguments": [

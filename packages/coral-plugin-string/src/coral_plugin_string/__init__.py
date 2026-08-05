@@ -1,4 +1,4 @@
-"""coral-plugin-string — the StringProcessor class and print_result.
+"""coral-plugin-string — the StringProcessor class and print_text.
 
 Subclasses the coral-core ``Plugin`` contract; registered under the
 ``coral.plugins`` entry-point group as ``string``.
@@ -11,8 +11,14 @@ from coral_core import Plugin
 __all__ = ["StringPlugin", "StringProcessor"]
 
 
-def print_result(value: Any) -> None:
-    """Print the result with a message"""
+def print_text(value: str) -> None:
+    """Print a string with a message.
+
+    Named for what it prints. This plugin and ``coral-plugin-math`` both used to declare a
+    ``print_result``, which the host resolved by silently letting the later plugin win; a duplicate
+    node type is now a ``DuplicateNodeTypeError``, so each plugin names its own. The parameter is
+    typed ``str`` rather than ``Any`` — an edge feeding it is then checkable by graph check 6.
+    """
     print(f"Print: {value}")
 
 
@@ -37,12 +43,12 @@ class StringProcessor:
 
 
 class StringPlugin(Plugin):
-    """String operations: the StringProcessor class and print_result."""
+    """String operations: the StringProcessor class and print_text."""
 
     def get_functions(self) -> Dict[str, Any]:
         """Return string operation function definitions"""
         return {
-            "print_result": print_result,
+            "print_text": print_text,
         }
 
     def get_classes(self) -> Dict[str, Any]:

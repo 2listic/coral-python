@@ -9,8 +9,8 @@ them at runtime through standard metadata.
 ``build_function_map`` / ``build_class_map`` keep the same signatures they had
 in the old ``definitions`` package, but are now re-backed by discovery: each
 selected plugin is loaded and its ``get_functions()`` / ``get_classes()`` merged
-in selection order (later wins on key collisions, e.g. the ``print_result``
-duplicate shared by math and string).
+in selection order. **A node type may have exactly one owner**: two contributors
+declaring the same name raise :class:`DuplicateNodeTypeError`.
 
 The host owns two node surfaces of its own, present under every plugin selection
 and with no plugin installed at all: ``PRIMITIVES_MAP`` (the primitive node
@@ -28,6 +28,7 @@ from coral_app.primitives import COLLECTION_TYPES, PRIMITIVES_MAP, TYPE_NAMES
 
 __all__ = [
     "PLUGIN_GROUP",
+    "DuplicateNodeTypeError",
     "discover",
     "load",
     "build_function_map",
@@ -40,6 +41,16 @@ __all__ = [
 
 #: The entry-point group plugins declare themselves under. Public API; stable.
 PLUGIN_GROUP = "coral.plugins"
+
+
+class DuplicateNodeTypeError(ValueError):
+    """Two contributors declared the same node type.
+
+    A graph names only the node type, so a name with two owners is unresolvable *from the graph*:
+    whichever callable ran, the graph looks identical. The host therefore refuses the selection
+    instead of picking a winner. ``ValueError``, like the graph-validation errors, because it is a
+    bad configuration; an unknown *plugin* name stays a ``LookupError``.
+    """
 
 
 def discover() -> List[str]:
@@ -83,13 +94,17 @@ def build_function_map(
 ) -> Dict[str, Any]:
     """Build the function map by merging the selected plugins' ``get_functions()``.
 
-    The host's own ``BUILTIN_FUNCTIONS`` are applied **last**, so a builtin name can never be
-    shadowed. Plugin-versus-plugin is still "later wins" — a collision there (``print_result`` in
-    both math and string) is between two peers, neither with a claim to precedence. A builtin is not
-    a peer: it is a guarantee the host makes to every graph, and a plugin silently redefining
-    ``list_append`` would be undebuggable from the graph, which names only the node type. A plugin
-    declaring a builtin's name is therefore ignored, silently; making that fail loud instead would be
-    a separate change.
+    **One node type, one owner.** A duplicate name — between two plugins, or between a plugin and
+    one of the host's ``BUILTIN_FUNCTIONS`` — raises :class:`DuplicateNodeTypeError`. There is no
+    winner to pick: a graph names only the node type, so a silently shadowed ``list_append`` (or a
+    plugin's function displaced by another plugin's) would change what every graph on the platform
+    computes while looking identical in the JSON. Refusing the selection puts the error where it can
+    be fixed — in the plugin that chose the name.
+
+    This replaces the former "later wins" merge, which was never a designed rule but the behaviour
+    of ``dict.update()`` in this loop; the one real duplicate it resolved (``print_result``, declared
+    by both math and string) is gone — each plugin now names its own (``print_number`` /
+    ``print_text``).
 
     Args:
         include: Plugin names to load. If ``None``, loads every discovered plugin.
@@ -102,11 +117,31 @@ def build_function_map(
 
     Raises:
         LookupError: if a selected name is not a discoverable plugin (D4).
+        DuplicateNodeTypeError: if two contributors declare the same function name.
     """
     function_map: Dict[str, Any] = {}
+    owner: Dict[str, str] = {}  # node type -> the plugin that declared it
+
     for name in _selected(include, exclude):
-        function_map.update(load(name).get_functions())
-    function_map.update(BUILTIN_FUNCTIONS)  # host guarantee: not shadowable
+        for node_type, func in load(name).get_functions().items():
+            if node_type in owner:
+                raise DuplicateNodeTypeError(
+                    f"node type {node_type!r} is declared by both plugin {owner[node_type]!r} "
+                    f"and plugin {name!r}"
+                )
+            owner[node_type] = name
+            function_map[node_type] = func
+
+    # The host's own nodes land last, so they keep their position in `node_types.json` — but a
+    # plugin may not claim one of their names either.
+    for node_type, func in BUILTIN_FUNCTIONS.items():
+        if node_type in owner:
+            raise DuplicateNodeTypeError(
+                f"node type {node_type!r} is a host builtin and cannot be declared by "
+                f"plugin {owner[node_type]!r}"
+            )
+        function_map[node_type] = func
+
     return function_map
 
 
@@ -114,6 +149,10 @@ def build_class_map(
     include: Optional[List[str]] = None, exclude: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """Build the class map by merging the selected plugins' ``get_classes()``.
+
+    Same rule as :func:`build_function_map`, for the same reason: a class name is a node type
+    (a constructor, plus one ``Class.method`` per method), so two plugins declaring one is
+    unresolvable from the graph. There are no builtin classes, so plugins are the only contributors.
 
     Args:
         include: Plugin names to load. If ``None``, loads every discovered plugin.
@@ -124,8 +163,19 @@ def build_class_map(
 
     Raises:
         LookupError: if a selected name is not a discoverable plugin (D4).
+        DuplicateNodeTypeError: if two plugins declare the same class name.
     """
     class_map: Dict[str, Any] = {}
+    owner: Dict[str, str] = {}  # class name -> the plugin that declared it
+
     for name in _selected(include, exclude):
-        class_map.update(load(name).get_classes())
+        for class_name, cls in load(name).get_classes().items():
+            if class_name in owner:
+                raise DuplicateNodeTypeError(
+                    f"class {class_name!r} is declared by both plugin {owner[class_name]!r} "
+                    f"and plugin {name!r}"
+                )
+            owner[class_name] = name
+            class_map[class_name] = cls
+
     return class_map

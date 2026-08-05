@@ -16,8 +16,14 @@ __all__ = ["MathPlugin", "Calculator"]
 # Print
 
 
-def print_result(value: Any) -> None:
-    """Print the result with a message"""
+def print_number(value: float) -> None:
+    """Print a number with a message.
+
+    Named for what it prints. This plugin and ``coral-plugin-string`` both used to declare a
+    ``print_result``, which the host resolved by silently letting the later plugin win; a duplicate
+    node type is now a ``DuplicateNodeTypeError``, so each plugin names its own. The parameter is
+    typed ``float`` rather than ``Any`` — an edge feeding it is then checkable by graph check 6.
+    """
     print(f"Print: {value}")
 
 
@@ -109,7 +115,7 @@ class MathPlugin(Plugin):
     def get_functions(self) -> Dict[str, Any]:
         """Return math function definitions"""
         return {
-            "print_result": print_result,
+            "print_number": print_number,
             "add": add,
             "multiply": multiply,
             "math.sqrt": math_sqrt,

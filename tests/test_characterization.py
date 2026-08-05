@@ -18,10 +18,10 @@ from coral_app.executor import WorkflowExecutor
 def test_math_graph_results_and_stdout(workflow_files, capsys):
     """Math fixture graph pins results and stdout.
 
-    GIVEN the math fixture graph float(2) -> math.sqrt -> math.sin -> print_result, with the
+    GIVEN the math fixture graph float(2) -> math.sqrt -> math.sin -> print_number, with the
           ``math`` plugin loaded,
     WHEN the workflow is executed,
-    THEN each node's result equals the exact computed value (print_result -> None) and the domain
+    THEN each node's result equals the exact computed value (print_number -> None) and the domain
          stdout lines for sqrt, sin, and the print appear verbatim.
     """
     executor = WorkflowExecutor(str(workflow_files["math"]), plugins=["math"])
@@ -33,7 +33,7 @@ def test_math_graph_results_and_stdout(workflow_files, capsys):
     assert results["1"] == 2.0  # float primitive "2" -> 2.0
     assert results["0"] == expected_sqrt  # math.sqrt(2.0)
     assert results["2"] == expected_sin  # math.sin(sqrt(2.0))
-    assert results["3"] is None  # print_result returns None
+    assert results["3"] is None  # print_number returns None
 
     out = capsys.readouterr().out
     assert f"math.sqrt(2.0) = {expected_sqrt}" in out
@@ -46,9 +46,9 @@ def test_string_graph_results_and_stdout(temp_workflow_file, capsys):
     """StringProcessor graph pins results and stdout.
 
     GIVEN a graph that builds StringProcessor(prefix="Hello, "), concatenates "world", then feeds
-          print_result, with the ``string`` plugin loaded,
+          print_text, with the ``string`` plugin loaded,
     WHEN the workflow is executed,
-    THEN the constructor holds the prefix, concatenation yields "Hello, world", print_result returns
+    THEN the constructor holds the prefix, concatenation yields "Hello, world", print_text returns
          None, and the concatenate and print stdout lines appear verbatim.
     """
     workflow = {
@@ -58,7 +58,7 @@ def test_string_graph_results_and_stdout(temp_workflow_file, capsys):
                 "text": {"type": "str", "value": "world"},
                 "sp": {"type": "StringProcessor"},
                 "cat": {"type": "StringProcessor.concatenate"},
-                "out": {"type": "print_result"},
+                "out": {"type": "print_text"},
             },
             "edges": {
                 # prefix feeds the constructor
@@ -66,7 +66,7 @@ def test_string_graph_results_and_stdout(temp_workflow_file, capsys):
                 # instance is the first method input; text is the second
                 "e1": {"source": "sp", "target": "cat", "source_output": 0, "target_input": 0},
                 "e2": {"source": "text", "target": "cat", "source_output": 0, "target_input": 1},
-                # concatenation result feeds print_result
+                # concatenation result feeds print_text
                 "e3": {"source": "cat", "target": "out", "source_output": 0, "target_input": 0},
             },
         }

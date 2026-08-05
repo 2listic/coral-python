@@ -83,6 +83,18 @@ Hence **D9**, and hence the ordering rule that governs the whole refactor:
 | **R2** | `test_core_contract.py` splits: the ABC's behaviour → `packages/coral-core/tests/` (+ each plugin asserting its own conformance) · the source-text greps → `tests/invariants/` | two unrelated subjects in one file. A `__future__` grep failing means *someone wrote a forbidden line*; an ABC failure means *the contract is broken* — different cause, different fix, different reader |
 | **R3** | `pytest_collection_modifyitems` is **deleted**, not moved. Each plugin suite skips itself in its own `conftest.py`; nothing else needs skipping | the hook exists to skip tests that name a plugin they do not own. Under the separation principle no such test remains: the host names none, the repo-level tests name none, and a plugin's own suite is skipped wholesale by its own conftest. The markers `math` / `string` / `phiflow` go with it — a plugin's tests are now selected by **path** |
 
+### Decided during implementation
+
+| # | decision | why |
+| --- | --- | --- |
+| **D10** | **A duplicate node type fails loud.** `build_function_map` / `build_class_map` raise `coral_app.DuplicateNodeTypeError` (a `ValueError`) when a name is declared twice — by two plugins, or by a plugin and one of the host's builtins. `RivalPlugin` exists to test *that error*, not "later wins" | the merge's "later wins" was never designed: it is `dict.update()` in a loop, ratified by #16 as characterization. A graph names only the node type, so the displaced callable is invisible in the JSON — with math + string both installed, `node_types.json` silently *lost* one of the two `print_result` entries. Supersedes the silent-ignore half of #25's decision 7 |
+| **D11** | `print_result` is **renamed per plugin**: math's is `print_number(value: float)`, string's is `print_text(value: str)`. Renamed consistently everywhere — both plugins, the three math exports that wire it, both characterization graphs, and the regenerated goldens | D10 is unimplementable while a real duplicate exists: the default `coral register` and `-p "math,string"` would start crashing. Naming each for what it prints also types the parameter, so graph check 6 can verify the edge feeding it (it could not, at `Any`) |
+
+**C0 note on D11.** Three real editor exports (`network-from-fe-{functions,math,classes}.json`) had one field
+edited each — the node's `type`, `print_result` → `print_number`. Recorded here because C0 rests on those
+files being genuine exports: they remain byte-identical apart from that one rename, and no node, edge,
+position or structure was authored by us.
+
 ### Closed open items
 
 | # | |
@@ -155,8 +167,9 @@ the wheel acceptance test. Both scan `packages/*` from disk.
 > host rule, not a plugin fact — rewrite it on the specimen plugins and give it to the host.
 
 That second clause is what dissolves the two awkward cross-plugin tests: the `print_result`
-collision is `build_function_map`'s later-wins merge (`SpecimenPlugin` + `RivalPlugin`), and the
-`node_types.all.json` golden is merge + ordering — both host rules. Each plugin's own golden (R1)
+collision is `build_function_map`'s duplicate-name rule (`SpecimenPlugin` + `RivalPlugin`, now
+asserting `DuplicateNodeTypeError` — see **D10**), and the `node_types.all.json` golden is merge +
+ordering — both host rules. Each plugin's own golden (R1)
 already pins its real content, so no all-plugins golden is needed.
 
 ### Who owns each data file
@@ -296,8 +309,9 @@ drifting back.
   function name) plus `SpecimenPlugin` and `RivalPlugin`;
 - move the four already-compliant files across unchanged;
 - respecify `test_executor.py` and `test_registry.py` on the specimen — this is where the ~38 plugin
-  markers disappear. `test_registry.py` also absorbs the **merge + "later wins"** rule, tested on the
-  two specimen plugins (this is `test_collisions.py`'s and the `all` golden's subject, re-owned);
+  markers disappear. `test_registry.py` also absorbs the **merge + ordering** rule, tested on the two
+  specimen plugins (the `all` golden's subject, re-owned), and the **duplicate-name refusal** of
+  **D10**, which is why `RivalPlugin` declares a name `SpecimenPlugin` already owns;
 - **R1**: `golden/node_types.format.json`, generated from the specimen plugins, pins format and
   ordering — byte-compared;
 - move `network-collections-{list,set,dict}.json` and `examples/collections/` here (**D5**'s

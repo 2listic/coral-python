@@ -208,13 +208,16 @@ it finds them at runtime via entry-point discovery.
    - `load(name) -> Plugin`: imports **only** that plugin, validates it resolves to a `Plugin` subclass
      (`TypeError` otherwise), instantiates it (`PluginClass()`); unknown name → `LookupError`.
    - `build_function_map(include=None, exclude=None)` / `build_class_map(...)`: same signatures as before, now
-     re-backed by `discover`/`load`. `include=None` → `sorted(discover())`; names are merged in selection order
-     (later wins on key collision, e.g. the `print_result` shared by math + string). An unknown name → `LookupError`.
-     `build_function_map` then applies `BUILTIN_FUNCTIONS` **last**, so **a builtin name cannot be shadowed**:
-     "later wins" settles a collision between two *plugins*, which are peers; a builtin is a host guarantee, and
-     a plugin silently redefining `list_append` for every graph on the platform would be undebuggable from the
-     graph, which names only the node type. Such a plugin declaration is ignored (silently — making it fail loud
-     is a separate change). `build_class_map` is unaffected: there are no builtin classes.
+     re-backed by `discover`/`load`. `include=None` → `sorted(discover())`; names are merged in selection order.
+     An unknown name → `LookupError`. **One node type, one owner**: a name declared twice raises
+     `DuplicateNodeTypeError` (a `ValueError` subclass, defined in `coral_app`) — whether the second declaration
+     comes from another plugin or collides with one of the host's `BUILTIN_FUNCTIONS`. There is nothing to
+     arbitrate: a graph names only the node type, so a silently displaced `list_append` would change what every
+     graph on the platform computes while the JSON looks identical. `build_function_map` still applies
+     `BUILTIN_FUNCTIONS` **last**, which is now only about *key order* in `node_types.json`, not about precedence.
+     This replaced the former "later wins" merge, which was never a designed rule but the behaviour of
+     `dict.update()`; the single real duplicate it papered over — `print_result`, declared by both math and
+     string — is gone, each plugin naming its own (`print_number` / `print_text`).
    - Re-exports the two host-owned node surfaces: `PRIMITIVES_MAP` / `COLLECTION_TYPES` / `TYPE_NAMES`
      (from `coral_app/primitives.py`) and `BUILTIN_FUNCTIONS` (from `coral_app/builtin_nodes.py`).
 
@@ -296,8 +299,9 @@ Edge format:
 
 1. **Discover/Load**: the host lists installed plugins (no import) and loads only the requested names.
 2. **Build maps**: each loaded plugin's `get_functions()`/`get_classes()` are merged into `function_map` /
-   `class_map` (selection order; later wins), then `BUILTIN_FUNCTIONS` is applied on top of `function_map`
-   — so the host's own nodes are present under every selection and cannot be shadowed. Primitives come
+   `class_map` (selection order; a duplicate name raises `DuplicateNodeTypeError`), then `BUILTIN_FUNCTIONS`
+   is added to `function_map` last — so the host's own nodes are present under every selection, and a plugin
+   claiming one of their names is refused rather than ignored. Primitives come
    from the host `PRIMITIVES_MAP`. With no plugin at all, stage 1 still yields a complete surface: the
    primitives plus the 15 builtins.
 3. **Describe node types**: `build_port_table()` turns the maps into one entry per node type, listing

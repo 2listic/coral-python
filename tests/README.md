@@ -26,8 +26,7 @@ tests/
 ├── test_acceptance.py          # Wheel/pip acceptance in a clean venv (marked `slow`)
 ├── golden/                     # Recorded node_types.json snapshots (permanent contract guard)
 └── fixtures/
-    ├── valid_workflows/        # Valid workflow test files (lean: nodes keyed by id, identified by type)
-    └── valid_nodes/            # Registry fixtures (node-type definitions)
+    └── valid_workflows/        # Valid workflow test files (lean: nodes keyed by id, identified by type)
 ```
 
 **Host-owned nodes carry no plugin marker.** The primitives and the builtin collection functions
@@ -146,9 +145,7 @@ pytest -n auto
 
 - **`project_root`**: Path to project root directory
 - **`workflow_files`**: Dictionary mapping workflow names to file paths
-- **`registry_files`**: Dictionary mapping registry names to file paths
 - **`load_workflow`**: Factory to load workflow JSON by name
-- **`load_registry`**: Factory to load registry JSON by name
 - **`simple_workflow_dict`**: Simple valid workflow for testing
 - **`circular_workflow_dict`**: Workflow with circular dependency
 - **`temp_workflow_file`**: Factory to create temporary workflow files
