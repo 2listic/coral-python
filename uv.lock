@@ -131,8 +131,16 @@ dependencies = [
     { name = "coral-core" },
 ]
 
+[package.dev-dependencies]
+test = [
+    { name = "coral-app" },
+]
+
 [package.metadata]
 requires-dist = [{ name = "coral-core", editable = "packages/coral-core" }]
+
+[package.metadata.requires-dev]
+test = [{ name = "coral-app", editable = "packages/coral-app" }]
 
 [[package]]
 name = "coral-plugin-phiflow"
@@ -145,6 +153,11 @@ dependencies = [
     { name = "phiflow" },
 ]
 
+[package.dev-dependencies]
+test = [
+    { name = "coral-app" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "coral-core", editable = "packages/coral-core" },
@@ -152,6 +165,9 @@ requires-dist = [
     { name = "jax" },
     { name = "phiflow" },
 ]
+
+[package.metadata.requires-dev]
+test = [{ name = "coral-app", editable = "packages/coral-app" }]
 
 [[package]]
 name = "coral-plugin-string"
@@ -161,8 +177,16 @@ dependencies = [
     { name = "coral-core" },
 ]
 
+[package.dev-dependencies]
+test = [
+    { name = "coral-app" },
+]
+
 [package.metadata]
 requires-dist = [{ name = "coral-core", editable = "packages/coral-core" }]
+
+[package.metadata.requires-dev]
+test = [{ name = "coral-app", editable = "packages/coral-app" }]
 
 [[package]]
 name = "coverage"

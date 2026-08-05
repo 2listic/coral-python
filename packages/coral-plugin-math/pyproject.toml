@@ -15,5 +15,12 @@ dependencies = ["coral-core"]
 [project.entry-points."coral.plugins"]
 math = "coral_plugin_math:MathPlugin"
 
+# Test-only: `tests/system/` drives this plugin's graphs through the host. Declared as a PEP 735
+# dependency group, never in `[project].dependencies` — build backends ignore it, so the wheel still
+# requires nothing but `coral-core` and the dependency direction (plugin -> core <- app) is intact.
+# Install with `uv sync --group test`; a third-party plugin author copies these two lines.
+[dependency-groups]
+test = ["coral-app"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/coral_plugin_math"]

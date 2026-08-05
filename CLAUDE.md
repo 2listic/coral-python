@@ -91,7 +91,7 @@ subcommands. `-p/--plugin` must precede the subcommand.
 # Run a workflow graph (graph path required; all installed plugins by default)
 coral run path/to/workflow.json
 coral -p "math" run path/to/workflow.json
-coral -p "math,string,phiflow" run examples/phiflow/network-from-fe.json
+coral -p "phiflow" run packages/coral-plugin-phiflow/examples/phiflow/network-from-fe.json
 
 # Generate the node registry (writes node_types.json into the cwd)
 coral register
@@ -115,45 +115,75 @@ entry-point group):
 - `phiflow` - PhiFlow physics simulation wrappers
 
 ### Running Tests
+
 ```bash
-# Run all tests (from the workspace root, against the editable-installed packages)
+# The whole suite: the repo-level tests plus every package's own (from the workspace root)
 pytest
 
-# Run with coverage
-pytest --cov=. --cov-report=html
-open htmlcov/index.html
+# The fast lane — everything except the one fluid simulation and the wheel build (~0.8s)
+pytest -m "not slow"
 
-# Run specific test file
-pytest tests/test_executor.py
-pytest tests/test_integration.py
-
-# Run specific test class or function
-pytest tests/test_executor.py::TestPrimitiveNodeExecution
-pytest tests/test_executor.py::TestPrimitiveNodeExecution::test_int_primitive
-
-# Run tests by category (using markers)
-pytest -m integration  # Integration tests with JSON network files
-pytest -m math         # Math plugin tests
-pytest -m phiflow      # PhiFlow tests
-pytest -m string       # String plugin tests
+# With coverage over packages/*/src
+pytest --cov --cov-report=html && open htmlcov/index.html
 ```
 
-**Plugin-set-agnostic suite**: the suite passes under any install subset/superset, not only the
-fully-synced workspace. Discovery/load *mechanics* tests derive names from `discover()` (never a
-hardcoded catalog); any test needing a specific plugin's nodes is tagged `@pytest.mark.<plugin>`
-(`math`/`string`/`phiflow`, class-level `pytestmark` when the whole class needs it).
-`tests/conftest.py::pytest_collection_modifyitems` **auto-skips** a plugin-tagged test when that
-plugin isn't in `discover()` (keyed on the `packages/coral-plugin-*` the repo ships, so it tracks the
-set automatically) — a missing plugin yields clean skips, not `LookupError`. Verify a subset with
-`uv pip uninstall coral-plugin-<x>` then `uv run --no-sync pytest` (the `--no-sync` stops `uv run`
-from re-installing it); restore with `uv sync`.
+**Selection is by path, not by marker** (issue #27, R3). A test lives in the package it is about, so
+naming a directory is how you name a subject:
 
 ```bash
-# Verbose output with print statements
-pytest -v   # Verbose
-pytest -vv  # Extra verbose
-pytest -s   # Show print statements
+pytest packages/coral-app/tests                  # the host, on its designed specimen
+pytest packages/coral-plugin-math/tests          # the math plugin: its own functions and its graphs
+pytest packages/coral-plugin-math/tests/unit     # just its callables — no host, no graph
+pytest packages/coral-plugin-phiflow/tests/system  # its graphs through the host
+pytest tests                                     # only what names no plugin at all
+pytest packages/coral-app/tests/test_graph.py::TestEdgeTypes  # a class, as usual
 ```
+
+One marker survives, and it is about **cost**, not about which plugin a test needs:
+
+- `slow` — the one phiflow simulation (~33s) and the wheel acceptance test (~4s). Everything else is
+  the fast lane.
+
+**The layout, and the rule that decides it** — every test belongs to exactly one of three kinds, and
+the directory says which (see [`tests/README.md`](tests/README.md) for the full statement):
+
+| kind | where | plugin names it may use |
+| --- | --- | --- |
+| host | `packages/coral-app/tests/` | **none**; never skips |
+| plugin unit | `packages/coral-plugin-<n>/tests/unit/` | `<n>` |
+| plugin system | `packages/coral-plugin-<n>/tests/system/` | `<n>` |
+
+> A test that needs one plugin's name belongs to that plugin. A test that needs *two* is testing a
+> host rule, not a plugin fact — rewrite it on the specimen plugins and give it to the host.
+
+Data ships with its owner: a graph, example or golden lives in the package whose tests use it, so a
+graph's plugin requirement is its directory and never something inferred at run time.
+
+**Two rules worth knowing before adding a test:**
+
+- **No unmarked test may run a simulation.** Exactly one test in the repo runs PhiFlow's solver
+  (`packages/coral-plugin-phiflow/tests/system/test_graphs_run.py`, marked `slow`). Every other
+  phiflow graph is *validated without being executed* — constructing a `Graph` runs all seven checks
+  and calls nothing, so the graph-JSON contract is guarded at ~0 ms per file.
+- **The host suite names no plugin.** `packages/coral-app/tests/specimen.py` provides a designed
+  plugin surface (`SpecimenPlugin`, `RivalPlugin`, and three clash plugins that exist to be refused),
+  handed to the host by patching the one name→instance lookup. Enforced from outside by
+  `tests/invariants/test_source_rules.py`, which fails on a `coral_plugin_*` import, a `mark.<plugin>`,
+  or a string literal equal to a plugin name anywhere under `packages/coral-app/tests`.
+
+**Subset installs.** Each plugin's `tests/` guards itself: its `conftest.py` reads its own entry point
+and drops `unit/` and `system/` from collection when absent (they cannot be imported without the
+plugin), while `test_plugin_present.py` survives to report the skip. So a subset install yields named
+skips, never errors:
+
+```bash
+uv pip uninstall coral-plugin-phiflow && uv run --no-sync pytest -m "not slow"
+uv sync   # restore
+```
+
+`packages/coral-app/tests` and `tests/` are the exception: they name no plugin, so with **every**
+plugin uninstalled they pass with zero skips — which is the property that makes the host agnostic
+rather than merely claiming to be.
 
 ## Architecture
 
@@ -471,9 +501,10 @@ Two details worth knowing before touching them:
   socket type that is not a registry key, these are the two platform-facing novelties to confirm in the
   editor.
 
-Runnable examples: `coral run examples/collections/list.json` (also `set.json`, `dict.json`). The
-"needs no plugin" property is asserted by `tests/test_integration.py::TestCollectionWorkflows`, which
-passes `plugins=[]` — the CLI cannot express it, since an empty `-p` means *all* installed plugins.
+Runnable examples: `coral run packages/coral-app/examples/collections/list.json` (also `set.json`,
+`dict.json`) — they ship with the host, because the host is what provides their node types. The
+"needs no plugin" property is asserted by `packages/coral-app/tests/test_examples.py`, which passes
+`plugins=[]` — the CLI cannot express it, since an empty `-p` means *all* installed plugins.
 
 ## Key Constraints and Design Decisions
 
@@ -493,14 +524,15 @@ passes `plugins=[]` — the CLI cannot express it, since an empty `-p` means *al
   `WorkflowExecutor(...)` fails before the first node runs — see [Graph validation](#graph-validation)
 - **One job per module**: `nodeports` knows callables but not graphs; `graph` knows graphs but not
   callables (it never imports `inspect` or a plugin); `executor` receives an already-validated graph
-  (no `json`, no `graphlib`, no edge list). `tests/test_core_contract.py` enforces these boundaries
+  (no `json`, no `graphlib`, no edge list). `tests/invariants/test_source_rules.py` enforces these
+  boundaries by reading the source
 - **Lazy discovery**: `discover()` never imports a plugin; `load(name)` imports only that one. An unselected
   `phiflow` is never imported, so its heavy deps aren't paid for.
 - **Fail-loud on unknown plugin**: an unknown / not-discoverable `-p` name raises `LookupError`; an
   installed-but-broken plugin raises `ImportError` at load. No silent partial state.
 - **No `from __future__ import annotations`** (project-wide): it stringizes annotations, which would make
   `registry.py:python_type_to_string` see `"float"` instead of `float` and collapse every socket to `"any"`. A
-  guard test (`tests/test_core_contract.py`) enforces this across `packages/*/src`.
+  guard test (`tests/invariants/test_source_rules.py`) enforces this across `packages/*/src`.
 - **Naming conventions**:
   - Functions: Use simple names in the function map (e.g., `"add"`, `"math.sqrt"`)
   - Methods: Use fully qualified names (e.g., `"Calculator.add_to_value"`)
@@ -578,6 +610,47 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
    coral -p "<name>" run my_test_graph.json
    ```
    The plugin's entry point is discovered automatically; `discover()` will list `<name>`.
+
+6. **Give it a test suite.** Copy the shape every plugin here uses — this is the step the recipe used
+   to be missing, and the reason a third-party plugin author had nowhere to put a test:
+
+   ```
+   packages/coral-plugin-<name>/
+   ├── examples/                       # optional: graphs a user is told to run
+   └── tests/
+       ├── <name>_suite.py             # PLUGIN_NAME, MODULE_NAME, INSTALLED, paths to graphs/golden
+       ├── conftest.py                 # fixtures + the collect-time guard (see below)
+       ├── test_plugin_present.py      # the entry-point name, and that it is *this* package's
+       ├── graphs/                     # editor exports this plugin owns
+       ├── unit/                       # its functions and classes, plus its ABC conformance.
+       │                               #   Imports only itself and `coral_core`.
+       └── system/                     # its graphs through the host; `coral_app` allowed here
+           ├── test_graphs_validate.py #   every shipped graph constructs a Graph — never executes
+           ├── test_graphs_run.py      #   they execute, with real value assertions
+           ├── test_registry.py        #   its slice of node_types.json, byte-compared
+           └── golden/node_types.<name>.json
+   ```
+
+   Three conventions, each with a reason:
+
+   - **`PLUGIN_NAME` is hardcoded** in `<name>_suite.py`. That is not the forbidden "plugin catalog":
+     it is a self-reference inside the package that declares the name in its own `pyproject.toml`, and
+     deriving it from installed metadata would silently follow a rename — destroying the one assertion
+     worth having, since the name is what the platform's `-p` selects.
+   - **The suite guards itself.** `conftest.py` reads its own entry point and sets
+     `collect_ignore_glob = ["unit/*", "system/*"]` when absent, because importing those modules imports
+     the plugin. `test_plugin_present.py` imports nothing from the plugin, so it survives to report a
+     visible skip.
+   - **`coral-app` is a test-only dependency**, declared as a PEP 735 group so it never reaches the
+     wheel:
+
+     ```toml
+     [dependency-groups]
+     test = ["coral-app"]
+     ```
+
+     Then `uv sync --group test`. Outside this workspace, that group is what makes `tests/system/`
+     installable at all.
 
 **How registration works internally:**
 1. Constructor nodes are generated from `__init__` signatures.

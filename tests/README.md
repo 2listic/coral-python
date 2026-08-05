@@ -1,300 +1,198 @@
-# Coral Python Test Suite
+# The test suite
 
-Comprehensive test suite for the coral-python workflow execution system.
+There is no single test directory. Every test lives in the package it is about, and this directory
+holds only what belongs to no package in particular.
 
-## Test Structure
+That is one rule, not a filing convention, and it is the whole content of issue #27. What follows is
+the rule, where each kind of test goes, and how to run what you want.
 
-Tests run from the workspace root against the editable-installed packages (`coral_app`, `coral_core`,
-and the `coral_plugin_*` distributions).
+## The separation principle
+
+Every test belongs to exactly one of three kinds, and the directory it sits in says which:
+
+| # | kind | where | plugin names it may use | skips? |
+| --- | --- | --- | --- | --- |
+| 1 | **host** — the app itself, on a designed specimen | `packages/coral-app/tests/` | **none** | never |
+| 2 | **plugin unit** — a plugin's own functions and classes | `packages/coral-plugin-<n>/tests/unit/` | `<n>` | whole dir, if `<n>` is absent |
+| 3 | **plugin system** — that plugin's graphs through `coral_app` | `packages/coral-plugin-<n>/tests/system/` | `<n>` | whole dir, if `<n>` is absent |
+
+Plus this directory, which keeps only what needs **no plugin name at all** and scans `packages/*` from
+disk.
+
+**The rule that decides every case:**
+
+> A test that needs one plugin's name belongs to that plugin. A test that needs *two* is testing a
+> host rule, not a plugin fact — rewrite it on the specimen plugins and give it to the host.
+
+The old suite sorted tests by what they *imported*, which is an accident of how each was written. It
+produced ~38 `@pytest.mark.<plugin>` markers on tests of the *host*, an auto-skip hook to keep them
+green on a subset install, and a shared `tests/fixtures/` directory of graphs with no owner. All three
+are gone.
+
+**Data ships with its owner.** A graph, an example or a golden lives in the package whose tests read
+it — so a graph's plugin requirement *is* its directory, never something a test works out at run time.
+That is what removed the last table mapping example directories to the plugins they need.
+
+## What is here
 
 ```
 tests/
-├── __init__.py                 # Test package initialization
-├── conftest.py                 # Pytest fixtures and configuration
-├── test_core_contract.py       # coral-core Plugin ABC + the "no __future__ annotations" guard (D3)
-├── test_executor.py            # Core WorkflowExecutor tests
-├── test_registry.py            # Registry generation tests
-├── test_nodeports.py           # Stage 2: the port table derived from callables
-├── test_graph.py               # Stage 3: graph reading, validation and ordering
-├── test_builtin_nodes.py       # The host's own list/set/dict functions (no plugin, no marker)
-├── test_plugins.py             # Plugin discovery / function+class map building tests
-├── test_plugin_discovery.py    # The discovery/load contract; the zero-plugin host
-├── test_integration.py         # End-to-end workflow tests
-├── test_golden_registry.py     # Registry contract pin: math/string/phiflow byte-identical, all by content
-├── test_characterization.py    # Pins run results + stdout for a math and a string graph
-├── test_examples.py            # Runs every graph shipped under examples/ (phiflow case marked `slow`)
-├── test_acceptance.py          # Wheel/pip acceptance in a clean venv (marked `slow`)
-├── golden/                     # Recorded node_types.json snapshots (permanent contract guard)
-└── fixtures/
-    └── valid_workflows/        # Valid workflow test files (lean: nodes keyed by id, identified by type)
+├── conftest.py                       # one fixture: project_root
+├── invariants/
+│   └── test_source_rules.py          # rules about the source *text*, read from disk
+├── discovery/
+│   └── test_installed_plugins.py     # the entry-point contract, against real distributions
+└── test_acceptance.py                # wheels built and pip-installed into a clean venv (`slow`)
 ```
 
-**Host-owned nodes carry no plugin marker.** The primitives and the builtin collection functions
-(`list_*` / `set_*` / `dict_*`) exist with zero plugins installed, so a test asserting their behaviour
-must **not** be tagged `@pytest.mark.math` / `string` / `phiflow` — `conftest.py` auto-skips tagged tests
-when the plugin is absent, which would skip precisely the tests that prove no plugin is needed. This
-applies to all of `test_builtin_nodes.py`, to `TestHostWithoutPlugins` / `TestBuiltinsAreNotShadowable`
-in `test_plugin_discovery.py`, and to `TestCollectionWorkflows` in `test_integration.py` (whose one
-`math` interop case is the sole tagged member).
+Nothing here imports a plugin or names one. `invariants` and `test_acceptance` derive the plugin set
+from `packages/coral-plugin-*` on disk; `discovery` derives it from `discover()`.
 
-## Running Tests
+**`invariants/test_source_rules.py`** fails when *someone wrote a forbidden line* — the fix is always
+to change that line. Four families:
 
-### Run All Tests
+| forbidden in | what |
+| --- | --- |
+| `packages/*/src` | `from __future__ import annotations` (it would collapse every registry socket to `any`) |
+| `packages/coral-app/src` | any `coral_plugin_*` import |
+| `packages/coral-plugin-*/src` | any `coral_app` import |
+| `packages/coral-app/tests` | a `coral_plugin_*` import, a `mark.<plugin>`, or a string literal equal to a plugin name |
+
+That last row is the separation principle made executable: it is what stops the host suite drifting
+back to being written against whichever plugin was handy. Allowed deliberately: a plugin's own name
+inside its own tests, and `coral_app` inside a plugin's `tests/system/`.
+
+The same file also holds the stage boundaries from issue #23 — `graph.py` never imports `inspect`,
+`executor.py` never imports `json` or `graphlib`.
+
+**`discovery/test_installed_plugins.py`** covers what needs a real installed distribution: that
+`discover()` matches entry-point metadata, that importing is lazy (checked in a subprocess, since this
+session has already imported things), that every installed plugin's nodes appear, and that the
+installed set is usable *together* — no two of them claiming one node type. It skips cleanly on a bare
+install, which is correct: there is no distribution to make a claim about.
+
+The host's own side of that contract — fail-loud on an unknown name, the zero-plugin host, the merge,
+the duplicate-name refusal — is in `packages/coral-app/tests/test_discovery.py`, against the specimen,
+where it runs with nothing installed and never skips.
+
+## Where everything else lives
+
+```
+packages/coral-core/tests/            # the Plugin ABC enforces both methods. Nothing else.
+
+packages/coral-app/
+├── examples/collections/             # `coral run .../list.json` — the host's own demos
+└── tests/
+    ├── specimen.py                   # the designed plugin surface + 5 plugins (see below)
+    ├── host_suite.py                 # paths, importable at collection time
+    ├── conftest.py                   # specimen_plugins, isolate_cwd, write_graph
+    ├── graphs/                       # the pure-collection graphs
+    ├── golden/node_types.format.json # the file *format*, byte-compared
+    ├── test_nodeports.py             # stage 2: describing a callable
+    ├── test_graph.py                 # stage 3: all seven checks
+    ├── test_executor.py              # stage 4: on the specimen
+    ├── test_registry.py              # stage 5: format, port numbering, key order
+    ├── test_builtin_nodes.py         # the host's list/set/dict functions
+    ├── test_discovery.py             # the host's side of the plugin contract
+    ├── test_graphs_validate.py       # its graphs construct; none executes
+    └── test_examples.py              # its examples run, with plugins=[]
+
+packages/coral-plugin-<n>/tests/      # per plugin: <n>_suite.py, conftest.py,
+                                      #   test_plugin_present.py, graphs/, unit/, system/
+```
+
+### The specimen
+
+The host suite runs against `packages/coral-app/tests/specimen.py`: functions and classes written only
+for testing, chosen so that between them they exhibit every shape the host must describe and execute —
+a zero-input function, a multi-output one, a `None`-returning one, an unannotated one, an explicit
+`Any`, a dotted function name, a class with methods, an unrelated class, a subclass.
+
+Five `Plugin` subclasses expose it, and the split is driven by the host's merge rules alone:
+`SpecimenPlugin` (the whole surface), `RivalPlugin` (a second, non-colliding peer, so ordering can be
+pinned), and `FunctionClashPlugin` / `ClassClashPlugin` / `BuiltinClashPlugin`, each of which exists
+only to be **refused** with `DuplicateNodeTypeError`.
+
+They are not a distribution. The suite hands them to the host by patching the one lookup that maps a
+plugin *name* to an instance (`coral_app.load`); everything downstream of it — the merge, the port
+table, the registry, graph validation, execution — is production code.
+
+## Running it
+
 ```bash
-pytest
+pytest                     # everything
+pytest -m "not slow"       # the fast lane: ~0.8s
+pytest -m slow             # the one fluid simulation, and the wheel acceptance test
 ```
 
-### Run Specific Test Files
-```bash
-pytest tests/test_executor.py
-pytest tests/test_integration.py
-```
-
-### Run Tests by Category (Markers)
-```bash
-# Run only integration tests
-pytest -m integration
-
-# Run only unit tests
-pytest -m unit
-
-# Run only math plugin tests
-pytest -m math
-
-# Run only phiflow tests (requires PhiFlow installed)
-pytest -m phiflow
-
-# Skip slow tests
-pytest -m "not slow"
-```
-
-### Run the Shipped Examples
-
-`test_examples.py` executes the graphs under `examples/` — the ones `README.md` and `CLAUDE.md` tell a
-user to type `coral run` against. The phiflow example runs a real simulation (~30s); the three
-collection examples are sub-second, so the expensive case is tagged `slow` and can be dropped.
+Selection is **by path**, because a test's subject is its directory:
 
 ```bash
-# All four examples, simulation included (~33s)
-pytest tests/test_examples.py
-
-# Only the fast ones — skips the phiflow simulation (~0.1s)
-pytest tests/test_examples.py -m "not slow"
-
-# One example: the parametrisation id is "<directory>/<filename>"
-pytest "tests/test_examples.py::test_example_executes[collections/list.json]"
+pytest packages/coral-app/tests                    # the host
+pytest packages/coral-plugin-math/tests/unit       # math's callables — no host, no graph
+pytest packages/coral-plugin-phiflow/tests/system  # phiflow's graphs through the host
+pytest tests                                       # only what names no plugin
 ```
 
-`-m "not slow"` works repo-wide too (it also drops `test_acceptance.py`), so the in-a-hurry full run
-is `pytest -m "not slow"`.
+### The two cost rules
 
-Cases are **discovered from disk**, so a new file under an already-registered directory is covered
-with no edit here. A new *directory* needs an `EXAMPLE_SPECS` entry naming the plugins its graphs
-require — `test_every_example_directory_is_registered` fails loud until it gets one, because a
-silently uncovered example is the exact hole this module was written to close.
+- **No unmarked test may run a simulation.** Exactly one test runs PhiFlow's solver
+  (`packages/coral-plugin-phiflow/tests/system/test_graphs_run.py`, `slow`, ~33s). Every other phiflow
+  graph is *validated without being executed*: constructing a `Graph` runs all seven checks and calls
+  nothing, so the graph-JSON contract is guarded at ~0 ms per file instead of up to 32.76s.
+- **A test that runs something asserts a value.** Several graphs used to be executed by tests whose
+  only assertion was `isinstance(results, dict)` — wall-clock with no failure mode. Those graphs now
+  assert their arithmetic, in their owner's `test_graphs_run.py`.
 
-### Run Specific Test Class or Function
+### Subset installs
+
+A plugin's `tests/` directory survives `uv pip uninstall`, so it guards itself: its `conftest.py` reads
+its own entry point and drops `unit/` and `system/` from collection when absent — they cannot be
+imported without the plugin — while `test_plugin_present.py` imports nothing from it and survives to
+report the skip.
+
 ```bash
-pytest tests/test_executor.py::TestPrimitiveNodeExecution
-pytest tests/test_executor.py::TestPrimitiveNodeExecution::test_int_primitive
+uv pip uninstall coral-plugin-phiflow && uv run --no-sync pytest -m "not slow"
+uv sync   # restore
 ```
 
-### Verbose Output
-```bash
-pytest -v
-pytest -vv  # Extra verbose
-```
+With **all three** plugins uninstalled, `packages/coral-app/tests` and `tests/` pass with **zero
+skips**. That is the property that makes the host agnostic rather than merely claiming to be, and it is
+worth re-checking after touching either.
 
-### Show Print Statements
-```bash
-pytest -s
-```
+## The two contracts
 
-### Code Coverage
-```bash
-# Run with coverage report
-pytest --cov=. --cov-report=html
+Both artefacts the DealiiX platform exchanges with us are pinned, and neither guard may be weakened:
 
-# View coverage report
-open htmlcov/index.html
-```
+| shape | guarded by | how |
+| --- | --- | --- |
+| `node_types.json` — format | `packages/coral-app/tests/golden/node_types.format.json` | bytes, from the specimen plugins |
+| `node_types.json` — content | each plugin's `tests/system/golden/node_types.<n>.json` | bytes, per plugin |
+| graph JSON | each owner's `test_graphs_validate.py` | every shipped graph constructs a `Graph` |
 
-### Run in Parallel (if pytest-xdist installed)
-```bash
-pip install pytest-xdist
-pytest -n auto
-```
+The registry golden was split by owner deliberately: renaming a format key should produce one diff in
+the host's golden, not force edits in three plugin packages before anyone can see what changed. Every
+replacement is a byte comparison of a fixed plugin set, which is *stricter* than the single all-plugins
+golden it replaced — that one had to be compared by parsed content, because its ordering depended on
+which plugins happened to be installed.
 
-## Test Categories
+The graph exports are ground truth: they are what the editor actually produces. Do not hand-author a
+graph and call it a format guard, and do not edit an export except as a recorded, deliberate act
+(issue #27 renamed one node type in three of them, and says so).
 
-### Unit Tests (`test_core_contract.py`, `test_executor.py`, `test_registry.py`, `test_plugins.py`)
-- Test individual components in isolation
-- Fast execution
-- No external dependencies (except PhiFlow for some plugin tests)
+## Writing a test here
 
-### Integration Tests (`test_integration.py`)
-- Test complete workflows using real JSON files
-- Tests the entire execution pipeline
-- Uses actual workflow files from project root:
-  - **PhiFlow workflows**: `network-from-fe-obstacle.json`, `network-from-fe-smoke_plume.json`
-  - **Math workflows**: `network-from-fe-math.json`, `network-from-fe-classes.json`, `network-from-fe-functions.json`
-
-## Test Fixtures
-
-### Available Fixtures (from `conftest.py`)
-
-- **`project_root`**: Path to project root directory
-- **`workflow_files`**: Dictionary mapping workflow names to file paths
-- **`load_workflow`**: Factory to load workflow JSON by name
-- **`simple_workflow_dict`**: Simple valid workflow for testing
-- **`circular_workflow_dict`**: Workflow with circular dependency
-- **`temp_workflow_file`**: Factory to create temporary workflow files
-- **`mock_print`**: Mock print function to capture output
-
-### Example Usage
-```python
-def test_example(workflow_files, load_workflow):
-    # Get path to workflow file
-    math_workflow_path = workflow_files["math"]
-
-    # Load workflow data
-    workflow_data = load_workflow("math")
-
-    # Execute workflow
-    executor = WorkflowExecutor(str(math_workflow_path), plugins=['math'])
-    results = executor.execute()
-```
-
-## Writing New Tests
-
-### Test Naming Convention
-- Test files: `test_*.py`
-- Test classes: `Test*`
-- Test functions: `test_*`
-- **Docstrings**: every new test uses the canonical **GIVEN / WHEN / THEN** structure.
-
-### Example Test
-```python
-import pytest
-from coral_app.executor import WorkflowExecutor
-
-class TestMyFeature:
-    """Test description."""
-
-    @pytest.mark.unit
-    def test_my_specific_case(self, temp_workflow_file):
-        """Test specific behavior."""
-        workflow = {
-            "workflow": {
-                "nodes": [...],
-                "edges": [...]
-            }
-        }
-        file_path = temp_workflow_file(workflow)
-        executor = WorkflowExecutor(str(file_path), plugins=['math'])
-        results = executor.execute()
-
-        assert "expected_node" in results
-        assert results["expected_node"] == expected_value
-```
-
-### Using Markers
-```python
-@pytest.mark.integration  # Integration test
-@pytest.mark.unit        # Unit test
-@pytest.mark.phiflow     # Requires PhiFlow
-@pytest.mark.math        # Uses the math plugin
-@pytest.mark.string      # Uses the string plugin
-@pytest.mark.slow        # Slow-running test
-```
-
-## Test Coverage
-
-The test suite covers:
-
-1. **Primitive Node Execution**: int, float, str, bool types
-2. **Function Node Execution**: Math operations, chaining
-3. **Constructor Node Execution**: Class instantiation
-4. **Method Node Execution**: Instance method calls
-5. **Topological Sorting**: DAG ordering, cycle detection
-6. **Edge Ordering**: Parameter order via `target_input`
-7. **Plugin Loading**: Dynamic function/class map building
-8. **Registry Generation**: Schema creation, type conversion
-9. **Integration**: Real workflow execution
-10. **Error Handling**: Missing nodes, invalid functions, cycles
-
-## Continuous Integration
-
-To set up CI/CD with GitHub Actions, create `.github/workflows/tests.yml`:
-
-```yaml
-name: Tests
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: '3.12'
-      - name: Install dependencies
-        run: |
-          pip install uv
-          uv sync
-      - name: Run tests
-        run: uv run pytest --cov=. --cov-report=xml
-      - name: Upload coverage
-        uses: codecov/codecov-action@v2
-```
-
-## Troubleshooting
-
-### PhiFlow Tests Skipped
-If PhiFlow tests are skipped, install PhiFlow:
-```bash
-uv pip install phiflow
-```
-
-### Import Errors
-Ensure you're running tests from the project root:
-```bash
-cd /path/to/coral-python
-pytest
-```
-
-### Test Discovery Issues
-Check that test files follow naming conventions:
-- Files: `test_*.py`
-- Functions: `test_*()`
-- Classes: `Test*`
-
-## Adding New Test Cases
-
-When adding new features to coral-python:
-
-1. Add unit tests in appropriate `test_*.py` file
-2. Add integration test with a real workflow JSON
-3. Update fixtures if needed
-4. Mark tests appropriately (`@pytest.mark.unit`, etc.)
-5. Ensure tests are independent and can run in any order
-6. Use descriptive test names that explain what's being tested
-
-## Performance Testing
-
-For performance-critical tests:
+Docstrings are **GIVEN / WHEN / THEN**, one clause per line:
 
 ```python
-@pytest.mark.slow
-def test_performance(workflow_files):
-    import time
-    start = time.time()
-
-    executor = WorkflowExecutor(str(workflow_files["math"]), plugins=['math'])
-    results = executor.execute()
-
-    elapsed = time.time() - start
-    assert elapsed < 1.0, f"Execution too slow: {elapsed:.2f}s"
+def test_a_zero_input_function_runs(self, run):
+    """GIVEN a function taking no inputs at all
+    WHEN it is executed
+    THEN it is called and its result stored — no edge is needed to trigger it."""
 ```
+
+Then a blank line before the assertions, so the arrangement and the claim stay visually separate. Where
+a test exists for a reason its name cannot carry — an otherwise unreachable branch, a value only
+checkable at run time, a number that must only ever go down — say so in a paragraph under the THEN.
+Several tests here are the only thing that can reach the code they cover, and that is worth writing
+down rather than rediscovering.

@@ -12,5 +12,11 @@ dependencies = ["coral-core"]
 [project.entry-points."coral.plugins"]
 string = "coral_plugin_string:StringPlugin"
 
+# Test-only: `tests/system/` drives this plugin through the host. A PEP 735 dependency group, never
+# `[project].dependencies` — the wheel still requires nothing but `coral-core`, keeping the direction
+# plugin -> core <- app. Install with `uv sync --group test`.
+[dependency-groups]
+test = ["coral-app"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/coral_plugin_string"]

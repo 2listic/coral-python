@@ -286,7 +286,7 @@ of the development loop.
 uv run coral -p "math" register
 
 # Run a graph with those plugins loaded
-uv run coral -p "math" run tests/fixtures/valid_workflows/network-from-fe-math.json
+uv run coral -p "math" run packages/coral-plugin-math/tests/graphs/network-from-fe-math.json
 ```
 
 Through the launcher (what the platform actually invokes):
@@ -571,7 +571,7 @@ wants `List[float]`, or returns one, you need a conversion node in the graph. Th
 the plugin *producing* a collection: a plugin author would have to import a host type to hand back
 something the collection nodes can consume, and the host↔plugin dependency only runs one way. With bare
 builtins, `list_get` hands a plugin function a genuine Python float out of a genuine Python list, and
-nothing is converted — see `tests/fixtures/valid_workflows/network-collections-math.json`, which wires
+nothing is converted — see `packages/coral-plugin-math/tests/graphs/network-collections-math.json`, which wires
 `list_get` straight into the math plugin's `add`.
 
 The cost of that choice is that `list`/`set`/`dict` cannot be registered as *classes* even if we wanted

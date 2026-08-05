@@ -125,9 +125,10 @@ Use the `run` subcommand with the path to a workflow graph:
 coral run path/to/your/workflow.json
 ```
 
-An example phiflow workflow ships under `examples/phiflow/`:
+An example phiflow workflow ships with the plugin that gives it meaning, under
+`packages/coral-plugin-phiflow/examples/phiflow/`:
 ```bash
-coral -p "phiflow" run examples/phiflow/network-from-fe.json
+coral -p "phiflow" run packages/coral-plugin-phiflow/examples/phiflow/network-from-fe.json
 ```
 
 Load specific plugins with `-p/--plugin` (before the subcommand):
@@ -204,41 +205,34 @@ is setup + commands; `CLAUDE.md` is the AI-assisted-development mechanics refere
 
 Run All Tests:
 ```bash
-pytest
+pytest                 # every package's suite plus the repo-level tests
+pytest -m "not slow"   # the fast lane (~0.8s): everything but one simulation and the wheel build
+pytest -m slow         # the PhiFlow simulation and the wheel acceptance test
 ```
 
 Run Tests with Coverage:
 ```bash
-pytest --cov=. --cov-report=html
+pytest --cov --cov-report=html
 open htmlcov/index.html  # View coverage report
 ```
 
-Run a Specific Test File:
+Select by **path**, not by plugin marker — each test lives in the package it is about:
 ```bash
-pytest tests/test_executor.py
-pytest tests/test_integration.py
+pytest packages/coral-app/tests                     # the host, on its designed specimen
+pytest packages/coral-plugin-math/tests             # the math plugin
+pytest packages/coral-plugin-math/tests/unit        # just its functions and classes
+pytest packages/coral-plugin-phiflow/tests/system   # its graphs through the host
+pytest tests                                        # only what names no plugin at all
 ```
 
-Run a Specific Test Class:
+Run a Specific Test Class or Function:
 ```bash
-pytest tests/test_executor.py::TestPrimitiveNodeExecution
-pytest tests/test_integration.py::TestPhiFlowWorkflows
+pytest packages/coral-app/tests/test_executor.py::TestPrimitiveNodes
+pytest packages/coral-app/tests/test_executor.py::TestFunctionNodes::test_a_zero_input_function_runs
 ```
 
-Run a Specific Test Function:
-```bash
-pytest tests/test_executor.py::TestPrimitiveNodeExecution::test_int_primitive
-```
-
-Running Specific Test Categories:
-
-```bash
-pytest -m unit        # To be marked
-pytest -m integration # Integration tests with Json network files
-pytest -m math        # Math plugin tests
-pytest -m phiflow     # PhiFlow tests (requires PhiFlow)
-pytest -m string      # String plugin tests
-```
+A plugin's suite skips itself when that plugin is not installed, so a subset install yields named skips
+rather than errors. See [`tests/README.md`](tests/README.md) for the layout and the rule behind it.
 
 Verbose Output:
 ```bash

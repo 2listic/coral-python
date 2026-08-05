@@ -14,8 +14,8 @@ from a test.
 """
 
 import pytest
-from conftest import EXAMPLES
 from coral_app.executor import WorkflowExecutor
+from host_suite import EXAMPLES
 
 
 def example_graphs():

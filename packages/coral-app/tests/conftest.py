@@ -19,12 +19,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import specimen  # noqa: E402  (needs the sys.path line above)
 
-#: Where the host suite's own graphs live.
-GRAPHS = Path(__file__).parent / "graphs"
-
-#: The examples this package ships — the collection graphs, which need no plugin.
-EXAMPLES = Path(__file__).parent.parent / "examples"
-
 
 @pytest.fixture
 def specimen_plugins(monkeypatch):

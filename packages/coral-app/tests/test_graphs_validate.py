@@ -18,10 +18,10 @@ they are under ``packages/coral-app/``, so they need **none**.
 from pathlib import Path
 
 import pytest
-from conftest import EXAMPLES, GRAPHS
 from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map
 from coral_app.graph import Graph
 from coral_app.nodeports import build_port_table
+from host_suite import EXAMPLES, GRAPHS
 
 
 def shipped_graphs():
