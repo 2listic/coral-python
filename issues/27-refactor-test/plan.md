@@ -311,9 +311,15 @@ second as an earlier draft had them — the guard has no home until its owner ex
 1–5 are developed against a ~59s suite. Work around it with `-m "not phiflow"` (~0.6s) while
 iterating; do not let it tempt anyone into deleting a simulation test early.
 
-**All eight steps are done.** Each is marked below with what actually landed, including where the
+**Steps 1–8 are done.** Each is marked below with what actually landed, including where the
 implementation had to differ from what was planned. The ordering rule held: no test was deleted before
 its data's owner had a suite guarding it, which is why every deletion sits in step 6.
+
+**Step 9 is not started.** It is the package-layout restructure, designed in
+[Step 9: the package-layout restructure](#follow-up-package-layout-restructure) and folded in as a step
+of this issue rather than deferred to its own. It stands apart from 1–8: it is about where
+*distributions* live, not where tests live, and the ordering rule above does not constrain it — it may
+be done at any point, because it moves directories without changing what is tested.
 
 ### 1. Collection mechanics — `pytest.ini` — **DONE**
 
@@ -500,6 +506,30 @@ Nothing went to `coral-app`: its half of the old file was executor results, and 
 Also updated for **D10/D11**, since they made the old text false rather than merely stale: `CLAUDE.md`
 and `docs/ONBOARDING.md` described the "later wins" merge and the silent builtin win.
 
+### 9. The package-layout restructure — **TODO**
+
+`packages/*` becomes `coral-core/`, `coral-app/` and `plugins/coral-<name>/`. Fully designed —
+rationale, naming decisions **L1–L5**, the exact edit list, the one real risk and the rejected
+alternatives are all in [the follow-up section](#follow-up-package-layout-restructure); this is only
+the checklist.
+
+Independent of steps 1–8: nothing inside any package moves, and the test count must not change.
+
+- [ ] the five `git mv`s and nothing else — `uv sync` fails until the next item, which is the proof
+      that the workspace really is driven by `members`;
+- [ ] `pyproject.toml` (workspace members, coverage source) + `pytest.ini` (`testpaths`, and the
+      example in the markers comment) → the suite fails **only** inside `tests/invariants/`, which is
+      the proof those rules read real paths rather than passing vacuously;
+- [ ] `tests/invariants/test_source_rules.py`: the six constant/derivation edits, the single
+      `SOURCE_ROOTS` rework, and `TestGuardsAreNotVacuous` strengthened to assert the **exact set** of
+      scanned roots — plus the dead `pytest.skip` branch in `test_host_test_suite_is_scanned`, whose
+      directory now exists;
+- [ ] docs: all 67 `packages/` references, re-verified by *running* every command a reader is told to
+      type, not by search-and-replace alone;
+- [ ] verify all four: `uv run pytest` → 449 passed; the two subset-install runs (249 passed /
+      13 skipped, and 232 passed / **0 skipped**); five wheels with unchanged names; `coral register`
+      in a scratch directory → a 50-key `node_types.json`, and one `coral run` per documented example.
+
 ## Mapping of the #25 findings
 
 All six are resolved; the table records how.
@@ -538,9 +568,10 @@ Raised by this work, deliberately not done here:
 
 ## Follow-up: package-layout restructure — designed, not implemented
 
-**Status: decided, nothing on disk changed. Implement next session.** Not part of #27 — it is about
-where *distributions* live, not where tests live — but it came out of #27's placement question, so it is
-recorded here and is written to be lifted into its own issue once numbered.
+**Status: decided, nothing on disk changed. This is [step 9](#9-the-package-layout-restructure--todo).**
+It came out of #27's placement question but is a different subject — where *distributions* live, not
+where tests live. Kept as a step of this issue rather than lifted into its own; the checklist is in the
+Steps section, and everything below is the reasoning behind it.
 
 ### Why, and why only this
 
