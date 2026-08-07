@@ -12,7 +12,7 @@ minute.
 
 Cases are discovered from disk: a graph added to ``graphs/`` or ``examples/`` is covered the day it
 lands. Nothing declares which plugins these need, because the owning directory already answers that —
-they are under ``packages/coral-app/``, so they need **none**.
+they are under ``coral-app/``, so they need **none**.
 """
 
 from pathlib import Path

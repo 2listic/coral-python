@@ -17,8 +17,9 @@ operations in `coral_app/builtin_nodes.py`, available with no plugin installed a
 
 The project uses PhiFlow for physics simulations and numerical computing.
 
-The repo is a **uv workspace / monorepo**: a small set of independently installable distributions
-under `packages/*`. A minimal contract package (`coral-core`) defines a `Plugin` ABC; the host
+The repo is a **uv workspace / monorepo**: a small set of independently installable distributions —
+the framework at the root (`coral-core/`, `coral-app/`) and one directory per plugin under `plugins/`.
+A minimal contract package (`coral-core`) defines a `Plugin` ABC; the host
 (`coral-app`) discovers and loads plugins at runtime via `importlib.metadata` entry points; each
 capability (`math`, `string`, `phiflow`) is its own `coral-plugin-*` distribution. See
 [Package layout](#package-layout) below.
@@ -54,8 +55,8 @@ the hook (no runners yet).
 
 ```bash
 uv run pre-commit run --all-files   # everything the hook would do, over the whole repo
-uv run ruff format packages tests
-uv run ruff check packages tests
+uv run ruff format coral-core coral-app plugins tests
+uv run ruff check coral-core coral-app plugins tests
 ```
 
 ### Package Management
@@ -91,7 +92,7 @@ subcommands. `-p/--plugin` must precede the subcommand.
 # Run a workflow graph (graph path required; all installed plugins by default)
 coral run path/to/workflow.json
 coral -p "math" run path/to/workflow.json
-coral -p "phiflow" run packages/coral-plugin-phiflow/examples/phiflow/network-from-fe.json
+coral -p "phiflow" run plugins/coral-phiflow/examples/phiflow/network-from-fe.json
 
 # Generate the node registry (writes node_types.json into the cwd)
 coral register
@@ -123,7 +124,7 @@ pytest
 # The fast lane — everything except the one fluid simulation and the wheel build (~0.8s)
 pytest -m "not slow"
 
-# With coverage over packages/*/src
+# With coverage over every package's src
 pytest --cov --cov-report=html && open htmlcov/index.html
 ```
 
@@ -131,12 +132,12 @@ pytest --cov --cov-report=html && open htmlcov/index.html
 naming a directory is how you name a subject:
 
 ```bash
-pytest packages/coral-app/tests                  # the host, on its designed specimen
-pytest packages/coral-plugin-math/tests          # the math plugin: its own functions and its graphs
-pytest packages/coral-plugin-math/tests/unit     # just its callables — no host, no graph
-pytest packages/coral-plugin-phiflow/tests/system  # its graphs through the host
-pytest tests                                     # only what names no plugin at all
-pytest packages/coral-app/tests/test_graph.py::TestEdgeTypes  # a class, as usual
+pytest coral-app/tests                    # the host, on its designed specimen
+pytest plugins/coral-math/tests           # the math plugin: its own functions and its graphs
+pytest plugins/coral-math/tests/unit      # just its callables — no host, no graph
+pytest plugins/coral-phiflow/tests/system # its graphs through the host
+pytest tests                              # only what names no plugin at all
+pytest coral-app/tests/test_graph.py::TestEdgeTypes  # a class, as usual
 ```
 
 One marker survives, and it is about **cost**, not about which plugin a test needs:
@@ -149,9 +150,9 @@ the directory says which (see [`tests/README.md`](tests/README.md) for the full 
 
 | kind | where | plugin names it may use |
 | --- | --- | --- |
-| host | `packages/coral-app/tests/` | **none**; never skips |
-| plugin unit | `packages/coral-plugin-<n>/tests/unit/` | `<n>` |
-| plugin system | `packages/coral-plugin-<n>/tests/system/` | `<n>` |
+| host | `coral-app/tests/` | **none**; never skips |
+| plugin unit | `plugins/coral-<n>/tests/unit/` | `<n>` |
+| plugin system | `plugins/coral-<n>/tests/system/` | `<n>` |
 
 > A test that needs one plugin's name belongs to that plugin. A test that needs *two* is testing a
 > host rule, not a plugin fact — rewrite it on the specimen plugins and give it to the host.
@@ -162,14 +163,14 @@ graph's plugin requirement is its directory and never something inferred at run 
 **Two rules worth knowing before adding a test:**
 
 - **No unmarked test may run a simulation.** Exactly one test in the repo runs PhiFlow's solver
-  (`packages/coral-plugin-phiflow/tests/system/test_graphs_run.py`, marked `slow`). Every other
+  (`plugins/coral-phiflow/tests/system/test_graphs_run.py`, marked `slow`). Every other
   phiflow graph is *validated without being executed* — constructing a `Graph` runs all seven checks
   and calls nothing, so the graph-JSON contract is guarded at ~0 ms per file.
-- **The host suite names no plugin.** `packages/coral-app/tests/specimen.py` provides a designed
+- **The host suite names no plugin.** `coral-app/tests/specimen.py` provides a designed
   plugin surface (`SpecimenPlugin`, `RivalPlugin`, and three clash plugins that exist to be refused),
   handed to the host by patching the one name→instance lookup. Enforced from outside by
   `tests/invariants/test_source_rules.py`, which fails on a `coral_plugin_*` import, a `mark.<plugin>`,
-  or a string literal equal to a plugin name anywhere under `packages/coral-app/tests`.
+  or a string literal equal to a plugin name anywhere under `coral-app/tests`.
 
 **Subset installs.** Each plugin's `tests/` guards itself: its `conftest.py` reads its own entry point
 and drops `unit/` and `system/` from collection when absent (they cannot be imported without the
@@ -181,7 +182,7 @@ uv pip uninstall coral-plugin-phiflow && uv run --no-sync pytest -m "not slow"
 uv sync   # restore
 ```
 
-`packages/coral-app/tests` and `tests/` are the exception: they name no plugin, so with **every**
+`coral-app/tests` and `tests/` are the exception: they name no plugin, so with **every**
 plugin uninstalled they pass with zero skips — which is the property that makes the host agnostic
 rather than merely claiming to be.
 
@@ -189,25 +190,38 @@ rather than merely claiming to be.
 
 ### Package layout
 
+The layout says which part is open and which is not: the framework sits at the root, and every
+extension is a directory under `plugins/`. Adding a plugin is routine; touching the host is not.
+
 ```
 pyproject.toml                     # virtual uv workspace root (no [project]); members + sources
-packages/
-├── coral-core/                    # the contract: the Plugin ABC, nothing else. Depends on nothing internal.
-│   └── src/coral_core/__init__.py
-├── coral-app/                     # the host: discovery, node types, graph, executor, CLI. Depends on coral-core only.
-│   └── src/coral_app/
-│       ├── __init__.py            # PLUGIN_GROUP, discover/load, build_function_map/build_class_map
-│       ├── primitives.py          # the type table: PRIMITIVES_MAP + COLLECTION_TYPES (host-only)
-│       ├── builtin_nodes.py       # the host's own functions: the list/set/dict operations
-│       ├── nodeports.py           # the port table: each node type's inputs and outputs
-│       ├── graph.py               # read, validate and order a workflow graph
-│       ├── registry.py            # node_types.json generation (renders the port table)
-│       ├── executor.py            # graph execution: walk the order, call each node
-│       └── cli.py                 # register / run subcommands; console script `coral`
-├── coral-plugin-math/             # entry point `math`  -> coral_plugin_math:MathPlugin
-├── coral-plugin-string/           # entry point `string`-> coral_plugin_string:StringPlugin
-└── coral-plugin-phiflow/          # entry point `phiflow` -> coral_plugin_phiflow:PhiFlowPlugin (owns phiflow/jax/h5py)
+coral-core/                        # the contract: the Plugin ABC, nothing else. Depends on nothing internal.
+└── src/coral_core/__init__.py
+coral-app/                         # the host: discovery, node types, graph, executor, CLI. Depends on coral-core only.
+└── src/coral_app/
+    ├── __init__.py                # PLUGIN_GROUP, discover/load, build_function_map/build_class_map
+    ├── primitives.py              # the type table: PRIMITIVES_MAP + COLLECTION_TYPES (host-only)
+    ├── builtin_nodes.py           # the host's own functions: the list/set/dict operations
+    ├── nodeports.py               # the port table: each node type's inputs and outputs
+    ├── graph.py                   # read, validate and order a workflow graph
+    ├── registry.py                # node_types.json generation (renders the port table)
+    ├── executor.py                # graph execution: walk the order, call each node
+    └── cli.py                     # register / run subcommands; console script `coral`
+plugins/                           # the open set: a third-party plugin is a peer of these three
+├── coral-math/                    # entry point `math`  -> coral_plugin_math:MathPlugin
+├── coral-string/                  # entry point `string`-> coral_plugin_string:StringPlugin
+└── coral-phiflow/                 # entry point `phiflow` -> coral_plugin_phiflow:PhiFlowPlugin (owns phiflow/jax/h5py)
 ```
+
+**A plugin has four names, and only the directory drops the word `plugin`** — worth knowing before
+grepping for one:
+
+| | value |
+| --- | --- |
+| directory | `plugins/coral-math` |
+| distribution (what `pip install` names) | `coral-plugin-math` |
+| import package | `coral_plugin_math` |
+| entry point (what `-p` selects) | `math` |
 
 **Dependency direction (strict):** `coral-core` depends on nothing internal; `coral-app` depends on `coral-core`;
 each plugin depends on `coral-core` **and only core** (never on `coral-app`); the host never imports a plugin —
@@ -460,7 +474,7 @@ that are checkable are precisely what decision 3's type names bought.
 
 PhiFlow physics simulations (fluid dynamics — smoke plumes, obstacles) are exposed to the workflow
 system by the `phiflow` plugin. Wrapper classes in
-`packages/coral-plugin-phiflow/src/coral_plugin_phiflow/__init__.py` provide a simplified,
+`plugins/coral-phiflow/src/coral_plugin_phiflow/__init__.py` provide a simplified,
 type-hinted API for workflow integration; the plugin owns the `phiflow`/`jax`/`h5py` dependencies.
 
 ### Built-in collection nodes
@@ -501,9 +515,9 @@ Two details worth knowing before touching them:
   socket type that is not a registry key, these are the two platform-facing novelties to confirm in the
   editor.
 
-Runnable examples: `coral run packages/coral-app/examples/collections/list.json` (also `set.json`,
+Runnable examples: `coral run coral-app/examples/collections/list.json` (also `set.json`,
 `dict.json`) — they ship with the host, because the host is what provides their node types. The
-"needs no plugin" property is asserted by `packages/coral-app/tests/test_examples.py`, which passes
+"needs no plugin" property is asserted by `coral-app/tests/test_examples.py`, which passes
 `plugins=[]` — the CLI cannot express it, since an empty `-p` means *all* installed plugins.
 
 ## Key Constraints and Design Decisions
@@ -532,7 +546,7 @@ Runnable examples: `coral run packages/coral-app/examples/collections/list.json`
   installed-but-broken plugin raises `ImportError` at load. No silent partial state.
 - **No `from __future__ import annotations`** (project-wide): it stringizes annotations, which would make
   `registry.py:python_type_to_string` see `"float"` instead of `float` and collapse every socket to `"any"`. A
-  guard test (`tests/invariants/test_source_rules.py`) enforces this across `packages/*/src`.
+  guard test (`tests/invariants/test_source_rules.py`) enforces this across every package's `src`.
 - **Naming conventions**:
   - Functions: Use simple names in the function map (e.g., `"add"`, `"math.sqrt"`)
   - Methods: Use fully qualified names (e.g., `"Calculator.add_to_value"`)
@@ -543,12 +557,12 @@ Runnable examples: `coral run packages/coral-app/examples/collections/list.json`
 
 ## Adding a New Plugin
 
-To add support for a new library or capability, create a **new plugin distribution** under `packages/`. Nothing
+To add support for a new library or capability, create a **new plugin distribution** under `plugins/`. Nothing
 in `coral-core` or `coral-app` changes — the host discovers the plugin at runtime once it's installed.
 
-1. **Create the package skeleton** `packages/coral-plugin-<name>/`:
+1. **Create the package skeleton** `plugins/coral-<name>/`:
    ```
-   packages/coral-plugin-<name>/
+   plugins/coral-<name>/
    ├── pyproject.toml
    └── src/coral_plugin_<name>/__init__.py
    ```
@@ -575,7 +589,7 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
            return {"MyClass": MyClass}
    ```
 
-3. **Declare the entry point and dependencies** in `packages/coral-plugin-<name>/pyproject.toml`:
+3. **Declare the entry point and dependencies** in `plugins/coral-<name>/pyproject.toml`:
    ```toml
    [build-system]
    requires = ["hatchling"]
@@ -601,7 +615,7 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
    [tool.uv.sources]
    coral-plugin-<name> = { workspace = true }
    ```
-   (`[tool.uv.workspace] members = ["packages/*"]` already includes the directory.)
+   (`[tool.uv.workspace] members = [..., "plugins/*"]` already includes the directory.)
 
 5. **Sync and regenerate the registry**:
    ```bash
@@ -615,7 +629,7 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
    to be missing, and the reason a third-party plugin author had nowhere to put a test:
 
    ```
-   packages/coral-plugin-<name>/
+   plugins/coral-<name>/
    ├── examples/                       # optional: graphs a user is told to run
    └── tests/
        ├── <name>_suite.py             # PLUGIN_NAME, MODULE_NAME, INSTALLED, paths to graphs/golden

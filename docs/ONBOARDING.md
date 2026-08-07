@@ -52,7 +52,8 @@ changing two settings (the executable path and the "plugin" value) and nothing e
 
 ### A plugin monorepo: core, host, plugins
 
-The code lives in packages under `packages/*`, with a strict one-directional dependency rule:
+The code lives in the framework packages at the root (`coral-core/`, `coral-app/`) and one directory
+per plugin under `plugins/`, with a strict one-directional dependency rule:
 **core → nothing internal; app → core; each plugin → core; the host never imports a plugin.**
 
 ```
@@ -258,7 +259,8 @@ Two things worth being precise about:
 ## Development setup
 
 coral-python is a [uv **workspace**](https://docs.astral.sh/uv/concepts/projects/workspaces/) — a monorepo
-of packages under `packages/*`, wired together by a virtual root `pyproject.toml` + `uv.lock`:
+of packages — `coral-core/`, `coral-app/`, `plugins/*` — wired together by a virtual root
+`pyproject.toml` + `uv.lock`:
 
 ```bash
 uv sync          # creates .venv, installs the whole workspace (incl. the dev group) from the lockfile
@@ -286,7 +288,7 @@ of the development loop.
 uv run coral -p "math" register
 
 # Run a graph with those plugins loaded
-uv run coral -p "math" run packages/coral-plugin-math/tests/graphs/network-from-fe-math.json
+uv run coral -p "math" run plugins/coral-math/tests/graphs/network-from-fe-math.json
 ```
 
 Through the launcher (what the platform actually invokes):
@@ -314,13 +316,13 @@ solver, a mesh library, or a numerics package.
 
 ### The steps
 
-You create a **new plugin distribution** under `packages/`. Nothing in `coral-core` or `coral-app`
+You create a **new plugin distribution** under `plugins/`. Nothing in `coral-core` or `coral-app`
 changes — the host discovers your plugin at runtime once it's installed.
 
-1. **Create the package skeleton** `packages/coral-plugin-mycfd/`:
+1. **Create the package skeleton** `plugins/coral-mycfd/`:
 
    ```
-   packages/coral-plugin-mycfd/
+   plugins/coral-mycfd/
    ├── pyproject.toml
    └── src/coral_plugin_mycfd/__init__.py
    ```
@@ -349,7 +351,7 @@ changes — the host discovers your plugin at runtime once it's installed.
            return {}
    ```
 
-3. **Declare the entry point and dependencies** in `packages/coral-plugin-mycfd/pyproject.toml`. The
+3. **Declare the entry point and dependencies** in `plugins/coral-mycfd/pyproject.toml`. The
    entry-point **name** (`mycfd`) is what `-p` references; the target is your `Plugin` **class**. Because
    the plugin *declares* the real library as a hard dependency, installing the plugin guarantees it's
    importable — a broken install fails loud with `ImportError` (there is **no** `try/except AVAILABLE`
@@ -374,7 +376,7 @@ changes — the host discovers your plugin at runtime once it's installed.
    ```
 
 4. **Cross-link the package** in the root `pyproject.toml` so `uv sync` installs it from the workspace
-   (`[tool.uv.workspace] members = ["packages/*"]` already covers the directory):
+   (`[tool.uv.workspace] members = [..., "plugins/*"]` already covers the directory):
 
    ```toml
    [tool.uv.sources]
@@ -395,7 +397,7 @@ changes — the host discovers your plugin at runtime once it's installed.
 
 > **Do not add `from __future__ import annotations`** to any plugin (or host) module. It stringizes
 > annotations, which makes the registry read `"float"` instead of the type `float` and collapse every
-> socket to `"any"`. A guard test (`tests/test_core_contract.py`) enforces this across `packages/*/src`.
+> socket to `"any"`. A guard test (`tests/invariants/test_source_rules.py`) enforces this across every package's `src`.
 
 ### Why does `math.sqrt` need a wrapper? Can't we load Python functions dynamically?
 
@@ -571,7 +573,7 @@ wants `List[float]`, or returns one, you need a conversion node in the graph. Th
 the plugin *producing* a collection: a plugin author would have to import a host type to hand back
 something the collection nodes can consume, and the host↔plugin dependency only runs one way. With bare
 builtins, `list_get` hands a plugin function a genuine Python float out of a genuine Python list, and
-nothing is converted — see `packages/coral-plugin-math/tests/graphs/network-collections-math.json`, which wires
+nothing is converted — see `plugins/coral-math/tests/graphs/network-collections-math.json`, which wires
 `list_get` straight into the math plugin's `add`.
 
 The cost of that choice is that `list`/`set`/`dict` cannot be registered as *classes* even if we wanted

@@ -11,8 +11,9 @@ wheels; end users *install* those wheels with `pip` and never touch uv.
 
 For working *on* coral-python. This is a
 [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/): a monorepo of independently
-installable packages under `packages/*` (`coral-core`, `coral-app`, and one `coral-plugin-*` per
-plugin), wired together for development by the virtual root `pyproject.toml` and pinned in `uv.lock`.
+installable packages — the framework at the root (`coral-core/`, `coral-app/`) and one directory per
+plugin under `plugins/` — wired together for development by the virtual root `pyproject.toml` and
+pinned in `uv.lock`.
 
 ### Prerequisites
 - Python 3.12+
@@ -59,7 +60,7 @@ uv lock
 uv sync
 ```
 
-> Each package declares its own dependencies in its `packages/<name>/pyproject.toml`
+> Each package declares its own dependencies in its own `pyproject.toml`
 > (e.g. `coral-plugin-phiflow` owns `phiflow`/`jax`/`h5py`); the per-package `pyproject.toml` files +
 > `uv.lock` are the source of truth for dependencies.
 
@@ -126,9 +127,9 @@ coral run path/to/your/workflow.json
 ```
 
 An example phiflow workflow ships with the plugin that gives it meaning, under
-`packages/coral-plugin-phiflow/examples/phiflow/`:
+`plugins/coral-phiflow/examples/phiflow/`:
 ```bash
-coral -p "phiflow" run packages/coral-plugin-phiflow/examples/phiflow/network-from-fe.json
+coral -p "phiflow" run plugins/coral-phiflow/examples/phiflow/network-from-fe.json
 ```
 
 Load specific plugins with `-p/--plugin` (before the subcommand):
@@ -188,7 +189,7 @@ point `coralBinaryPath` straight at the `coral` executable. Point the platform's
 ```
 
 ### More info about the plugin packages
-Each plugin is a self-contained distribution under `packages/coral-plugin-*/`. See
+Each plugin is a self-contained distribution under `plugins/coral-*/`. See
 [`docs/ONBOARDING.md`](docs/ONBOARDING.md) for how discovery works and how to add a new plugin.
 
 ## Extending coral-python
@@ -218,17 +219,17 @@ open htmlcov/index.html  # View coverage report
 
 Select by **path**, not by plugin marker — each test lives in the package it is about:
 ```bash
-pytest packages/coral-app/tests                     # the host, on its designed specimen
-pytest packages/coral-plugin-math/tests             # the math plugin
-pytest packages/coral-plugin-math/tests/unit        # just its functions and classes
-pytest packages/coral-plugin-phiflow/tests/system   # its graphs through the host
+pytest coral-app/tests                     # the host, on its designed specimen
+pytest plugins/coral-math/tests            # the math plugin
+pytest plugins/coral-math/tests/unit       # just its functions and classes
+pytest plugins/coral-phiflow/tests/system  # its graphs through the host
 pytest tests                                        # only what names no plugin at all
 ```
 
 Run a Specific Test Class or Function:
 ```bash
-pytest packages/coral-app/tests/test_executor.py::TestPrimitiveNodes
-pytest packages/coral-app/tests/test_executor.py::TestFunctionNodes::test_a_zero_input_function_runs
+pytest coral-app/tests/test_executor.py::TestPrimitiveNodes
+pytest coral-app/tests/test_executor.py::TestFunctionNodes::test_a_zero_input_function_runs
 ```
 
 A plugin's suite skips itself when that plugin is not installed, so a subset install yields named skips

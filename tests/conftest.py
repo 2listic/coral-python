@@ -3,7 +3,7 @@
 Almost nothing is left here, and that is the point of issue #27. This directory now holds only tests
 that **name no plugin**: the source-text invariants, the installed-plugin discovery contract, and the
 wheel acceptance test. Everything that needed a plugin's name moved to that plugin's own package, and
-everything about the host moved to ``packages/coral-app/tests`` where it runs against a designed
+everything about the host moved to ``coral-app/tests`` where it runs against a designed
 specimen.
 
 Two things are gone on purpose:

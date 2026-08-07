@@ -1,9 +1,9 @@
 """Rules about the repo's *source text*, checked by reading it.
 
 Nothing here imports the code under test, runs a graph, or needs a plugin installed: every test
-reads files under ``packages/`` and asserts something about what is written in them. A failure here
-means **someone wrote a forbidden line** — the fix is always to change that line, never to change
-the code's behaviour.
+reads the repo's package directories and asserts something about what is written in them. A failure
+here means **someone wrote a forbidden line** — the fix is always to change that line, never to
+change the code's behaviour.
 
 Three families of rule live here:
 
@@ -15,24 +15,78 @@ Three families of rule live here:
   never reaches for a plugin, a plugin never reaches for the host, and the host's *tests* never name
   a plugin at all.
 
-The plugin names come from ``packages/coral-plugin-*`` on disk. That is not a catalog anyone
-maintains: it is the set of plugin distributions the repo ships, read at run time, so adding a
-plugin extends these rules automatically.
+The plugin names come from ``plugins/coral-*`` on disk. That is not a catalog anyone maintains: it is
+the set of plugin distributions the repo ships, read at run time, so adding a plugin extends these
+rules automatically.
+
+**The list of source roots is duplicated in two files this module cannot read**, and that is the one
+duplication the layout cannot remove — neither ``uv`` nor ``pytest`` can read a Python constant:
+
+===========================  ==============================================================
+``pyproject.toml``           ``[tool.uv.workspace] members``, ``[tool.coverage.run] source``
+``pytest.ini``               ``testpaths``
+``SOURCE_ROOTS`` below       every rule in this module
+===========================  ==============================================================
+
+Adding a fourth root means editing all three. ``TestGuardsAreNotVacuous`` compares ``SOURCE_ROOTS``
+against the distributions actually on disk, so forgetting *this* file fails loudly rather than
+silently narrowing a guard.
 """
 
 import ast
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
-PACKAGES = REPO_ROOT / "packages"
-PLUGIN_PREFIX = "coral-plugin-"
+CORE = REPO_ROOT / "coral-core"
+HOST = REPO_ROOT / "coral-app"
+PLUGINS = REPO_ROOT / "plugins"
+PLUGIN_PREFIX = "coral-"
+
+# Directories that hold no source of ours but do contain `pyproject.toml` files (dependencies) or
+# stale copies (build output). Skipped when discovering distributions on disk.
+NOT_OURS = {".venv", ".git", "dist", "build", "__pycache__", "issues", "node_modules"}
+
+
+def source_roots() -> list:
+    """Every distribution directory this repo ships: the two framework packages, then the plugins.
+
+    Derived in **one** place, because four things used to rely on the single glob ``packages/*``
+    meaning "every distribution". Now that the framework sits at the root and the plugins under
+    ``plugins/``, a rule that listed the roots itself could silently cover fewer than all of them.
+    """
+    plugins = sorted(p for p in PLUGINS.glob(f"{PLUGIN_PREFIX}*") if p.is_dir())
+    return [CORE, HOST] + plugins
+
+
+SOURCE_ROOTS = source_roots()
+
+
+def distributions_on_disk() -> set:
+    """Every directory in the repo that is an installable distribution — it has its own pyproject.
+
+    Deliberately derived a *different* way from :func:`source_roots`: by finding the manifests rather
+    than by knowing where to look. That independence is what lets the vacuity test notice a package
+    added somewhere nobody updated.
+    """
+    found = set()
+    for manifest in REPO_ROOT.glob("**/pyproject.toml"):
+        relative = manifest.relative_to(REPO_ROOT)
+        if manifest.parent == REPO_ROOT:
+            continue  # the virtual workspace root: wires the members, ships nothing
+        if NOT_OURS & set(relative.parts):
+            continue
+        found.add(manifest.parent)
+    return found
 
 
 def repo_plugin_names() -> list:
-    """Plugin names this repo ships, from ``packages/coral-plugin-<name>`` (the source of truth)."""
-    return sorted(p.name[len(PLUGIN_PREFIX) :] for p in PACKAGES.glob(f"{PLUGIN_PREFIX}*"))
+    """Plugin names this repo ships, from ``plugins/coral-<name>`` (the source of truth).
+
+    The directory name drops the word ``plugin`` that the distribution keeps, so ``coral-math`` here
+    is distribution ``coral-plugin-math``, import package ``coral_plugin_math``, entry point ``math``
+    (issue #27, L3–L5). It is the last of those four that these rules care about.
+    """
+    return sorted(p.name[len(PLUGIN_PREFIX) :] for p in PLUGINS.glob(f"{PLUGIN_PREFIX}*"))
 
 
 def python_files(directory: Path) -> list:
@@ -66,7 +120,7 @@ class TestNoFutureAnnotations:
     """No package source may `from __future__ import annotations`."""
 
     def _package_sources(self):
-        return python_files(PACKAGES) if PACKAGES.exists() else []
+        return [path for root in SOURCE_ROOTS for path in python_files(root)]
 
     def test_sources_present(self):
         """GIVEN the workspace packages
@@ -102,7 +156,7 @@ class TestStageSeparation:
     """
 
     def _path(self, module_name):
-        path = PACKAGES / "coral-app" / "src" / "coral_app" / f"{module_name}.py"
+        path = HOST / "src" / "coral_app" / f"{module_name}.py"
         assert path.exists(), f"missing module: {path}"
         return path
 
@@ -167,14 +221,14 @@ class TestDependencyDirection:
         """GIVEN the workspace
         WHEN plugin packages are collected from disk
         THEN at least one exists to guard."""
-        assert repo_plugin_names(), f"no {PLUGIN_PREFIX}* package found under {PACKAGES}"
+        assert repo_plugin_names(), f"no {PLUGIN_PREFIX}* package found under {PLUGINS}"
 
     def test_host_never_imports_a_plugin(self):
         """GIVEN every coral-app source file
         WHEN its imports are parsed
         THEN none names a `coral_plugin_*` module — the host only discovers them at run time."""
         offenders = {}
-        for path in python_files(PACKAGES / "coral-app" / "src"):
+        for path in python_files(HOST / "src"):
             named = {m for m in imported_modules(path) if m.startswith("coral_plugin")}
             if named:
                 offenders[str(path.relative_to(REPO_ROOT))] = sorted(named)
@@ -186,7 +240,7 @@ class TestDependencyDirection:
         THEN none names `coral_app` — a plugin depends on `coral_core` and nothing else of ours."""
         offenders = {}
         for name in repo_plugin_names():
-            for path in python_files(PACKAGES / f"{PLUGIN_PREFIX}{name}" / "src"):
+            for path in python_files(PLUGINS / f"{PLUGIN_PREFIX}{name}" / "src"):
                 named = {m for m in imported_modules(path) if m.split(".")[0] == "coral_app"}
                 if named:
                     offenders[str(path.relative_to(REPO_ROOT))] = sorted(named)
@@ -196,16 +250,15 @@ class TestDependencyDirection:
 class TestHostTestsNameNoPlugin:
     """The separation principle, made executable: the host's own suite names no plugin.
 
-    `coral-app`'s tests run against the designed specimen in `packages/coral-app/tests/specimen.py`,
-    so they pass with **zero** plugins installed and never skip. Three ways a plugin name could
-    creep back in are checked; a plugin's own name inside its own `tests/` is fine and untouched
-    here.
+    `coral-app`'s tests run against the designed specimen in `coral-app/tests/specimen.py`, so they
+    pass with **zero** plugins installed and never skip. Three ways a plugin name could creep back in
+    are checked; a plugin's own name inside its own `tests/` is fine and untouched here.
 
     The literal check compares a string for *equality* with a plugin name, so `"math.sqrt"` and the
     word "string" in prose do not trip it, while `build_function_map(include=["math"])` does.
     """
 
-    HOST_TESTS = PACKAGES / "coral-app" / "tests"
+    HOST_TESTS = HOST / "tests"
 
     def _host_test_files(self):
         return python_files(self.HOST_TESTS) if self.HOST_TESTS.exists() else []
@@ -247,29 +300,48 @@ class TestHostTestsNameNoPlugin:
 
 
 class TestGuardsAreNotVacuous:
-    """Each directory these rules scan must actually contain files.
+    """Every rule above must actually be reading something — the guard on the guards.
 
-    A grep over an empty directory passes for the wrong reason. `coral-app/tests` is exempt until it
-    exists (issue #27, step 4 creates it) — `_host_test_files` returns nothing until then, and this
-    test is where that gap becomes visible.
+    Two distinct ways a rule in this module can stop protecting anything, and neither announces
+    itself, because a grep that finds no files *passes*:
+
+    * a directory it scans is **empty** or has moved — `test_scanned_directories_are_populated`;
+    * ``SOURCE_ROOTS`` is **narrower than the repo** — a package was added, or moved, and this file
+      was not updated. Before issue #27's step 9 one glob (``packages/*``) meant "every
+      distribution"; now three roots are listed, here and in `pyproject.toml` and `pytest.ini`, so
+      "someone extended two of the three" is a real way to silently drop a package from the
+      ``__future__`` rule. `test_source_roots_cover_every_distribution` is the answer to that.
     """
 
     def test_scanned_directories_are_populated(self):
         """GIVEN the directories the source rules scan
         WHEN their Python files are collected
-        THEN each holds at least one file, or is a known pending directory."""
-        scanned = {"coral-app/src": PACKAGES / "coral-app" / "src"}
+        THEN each holds at least one file."""
+        scanned = {"coral-app/src": HOST / "src"}
         for name in repo_plugin_names():
-            scanned[f"{PLUGIN_PREFIX}{name}/src"] = PACKAGES / f"{PLUGIN_PREFIX}{name}" / "src"
+            scanned[f"plugins/{PLUGIN_PREFIX}{name}/src"] = (
+                PLUGINS / f"{PLUGIN_PREFIX}{name}" / "src"
+            )
 
         empty = [label for label, path in scanned.items() if not python_files(path)]
         assert not empty, f"source rules would scan nothing in: {empty}"
+
+    def test_source_roots_cover_every_distribution(self):
+        """GIVEN the distributions on disk, found by their own pyproject.toml
+        WHEN compared with the SOURCE_ROOTS these rules scan
+        THEN the two sets are equal — no package escapes the source rules."""
+        expected = {path.relative_to(REPO_ROOT).as_posix() for path in distributions_on_disk()}
+        scanned = {path.relative_to(REPO_ROOT).as_posix() for path in SOURCE_ROOTS}
+
+        assert scanned == expected, (
+            "SOURCE_ROOTS and the repo disagree about which distributions exist. "
+            f"unscanned: {sorted(expected - scanned)}; missing from disk: {sorted(scanned - expected)}. "
+            "Update SOURCE_ROOTS here, and `members`/`source` in pyproject.toml and `testpaths` "
+            "in pytest.ini with it."
+        )
 
     def test_host_test_suite_is_scanned(self):
         """GIVEN coral-app's test directory
         WHEN its Python files are collected
         THEN at least one exists, so the host-suite rules guard something."""
-        host_tests = PACKAGES / "coral-app" / "tests"
-        if not host_tests.exists():
-            pytest.skip("packages/coral-app/tests does not exist yet (issue #27, step 4)")
-        assert python_files(host_tests), f"no test files under {host_tests}"
+        assert python_files(HOST / "tests"), f"no test files under {HOST / 'tests'}"

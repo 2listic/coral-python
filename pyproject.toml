@@ -1,8 +1,14 @@
 # Virtual uv workspace root (issue #16). There is intentionally no `[project]` table here: the
-# repo is a monorepo of independently installable distributions under packages/*, and this file
-# only wires them together for development. A virtual root means `uv sync` installs every member
-# editable and cross-linked. This file is dev/uv-only — pip never reads it and it is never baked
-# into any wheel.
+# repo is a monorepo of independently installable distributions — the framework at the root
+# (`coral-core`, `coral-app`) and the open set of extensions under `plugins/*` — and this file only
+# wires them together for development. A virtual root means `uv sync` installs every member editable
+# and cross-linked. This file is dev/uv-only — pip never reads it and it is never baked into any wheel.
+#
+# The three source roots below are listed again in `pytest.ini` (testpaths) and derived once in
+# `tests/invariants/test_source_rules.py` (SOURCE_ROOTS, which asserts its own list against what is on
+# disk). Neither uv nor pytest can read a Python constant, so this duplication cannot be removed —
+# adding a fourth root means editing all three files, and the invariants test is what fails if you
+# forget.
 
 [dependency-groups]
 dev = [
@@ -13,14 +19,15 @@ dev = [
 ]
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["coral-core", "coral-app", "plugins/*"]
 
-# Coverage measures the workspace's source, wherever it lives: `packages` is the one directory that
-# holds all of it, so a new `coral-plugin-*` is included without editing this file (and without a
-# hardcoded list of plugin names anywhere). Each package's own tests/ are excluded — they are the
-# instrument, not the subject. Run with `pytest --cov --cov-report=html`.
+# Coverage measures the workspace's source, wherever it lives. `plugins` is a glob-free directory
+# name, so a new `coral-plugin-*` is included without editing this file (and without a hardcoded list
+# of plugin names anywhere); the two framework packages are named because nothing is ever a peer of
+# them. Each package's own tests/ are excluded — they are the instrument, not the subject. Run with
+# `pytest --cov --cov-report=html`.
 [tool.coverage.run]
-source = ["packages"]
+source = ["coral-core", "coral-app", "plugins"]
 omit = ["*/tests/*"]
 
 # Resolve these internal package names from the workspace checkout rather than a package index.
@@ -32,8 +39,8 @@ coral-plugin-math = { workspace = true }
 coral-plugin-string = { workspace = true }
 coral-plugin-phiflow = { workspace = true }
 
-# Formatter + linter config for the whole monorepo (issue #20). No `packages/*/pyproject.toml`
-# declares its own `[tool.ruff]`, so ruff walks up to this file for every source file it visits —
+# Formatter + linter config for the whole monorepo (issue #20). No package's own `pyproject.toml`
+# declares a `[tool.ruff]`, so ruff walks up to this file for every source file it visits —
 # one config governs the workspace. Enforced on commit by `.pre-commit-config.yaml`.
 [tool.ruff]
 # The virtual root has no `[project]`, so ruff cannot infer `requires-python` — state it explicitly.

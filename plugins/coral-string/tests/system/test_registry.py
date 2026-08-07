@@ -1,6 +1,6 @@
 """What this plugin contributes to ``node_types.json``, pinned byte-for-byte.
 
-The **format** is the host's and is pinned in ``packages/coral-app/tests`` against a designed
+The **format** is the host's and is pinned in ``coral-app/tests`` against a designed
 specimen. What is pinned here is this plugin's **content**: the entries its own functions and classes
 render to. The split is deliberate — renaming a format key should show up as one diff in the host's
 golden, not force an edit in three plugin packages before anyone can see what changed.
@@ -11,7 +11,7 @@ plugin's surface produces a diff someone has to look at.
 
 To regenerate, from the workspace root::
 
-    uv run coral -p "string" register --output=packages/coral-plugin-string/tests/system/golden/node_types.string.json
+    uv run coral -p "string" register --output=plugins/coral-string/tests/system/golden/node_types.string.json
 """
 
 import inspect

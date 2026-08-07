@@ -12,12 +12,12 @@ Every test belongs to exactly one of three kinds, and the directory it sits in s
 
 | # | kind | where | plugin names it may use | skips? |
 | --- | --- | --- | --- | --- |
-| 1 | **host** — the app itself, on a designed specimen | `packages/coral-app/tests/` | **none** | never |
-| 2 | **plugin unit** — a plugin's own functions and classes | `packages/coral-plugin-<n>/tests/unit/` | `<n>` | whole dir, if `<n>` is absent |
-| 3 | **plugin system** — that plugin's graphs through `coral_app` | `packages/coral-plugin-<n>/tests/system/` | `<n>` | whole dir, if `<n>` is absent |
+| 1 | **host** — the app itself, on a designed specimen | `coral-app/tests/` | **none** | never |
+| 2 | **plugin unit** — a plugin's own functions and classes | `plugins/coral-<n>/tests/unit/` | `<n>` | whole dir, if `<n>` is absent |
+| 3 | **plugin system** — that plugin's graphs through `coral_app` | `plugins/coral-<n>/tests/system/` | `<n>` | whole dir, if `<n>` is absent |
 
-Plus this directory, which keeps only what needs **no plugin name at all** and scans `packages/*` from
-disk.
+Plus this directory, which keeps only what needs **no plugin name at all** and scans the package
+directories from disk.
 
 **The rule that decides every case:**
 
@@ -46,17 +46,17 @@ tests/
 ```
 
 Nothing here imports a plugin or names one. `invariants` and `test_acceptance` derive the plugin set
-from `packages/coral-plugin-*` on disk; `discovery` derives it from `discover()`.
+from `plugins/coral-*` on disk; `discovery` derives it from `discover()`.
 
 **`invariants/test_source_rules.py`** fails when *someone wrote a forbidden line* — the fix is always
 to change that line. Four families:
 
 | forbidden in | what |
 | --- | --- |
-| `packages/*/src` | `from __future__ import annotations` (it would collapse every registry socket to `any`) |
-| `packages/coral-app/src` | any `coral_plugin_*` import |
-| `packages/coral-plugin-*/src` | any `coral_app` import |
-| `packages/coral-app/tests` | a `coral_plugin_*` import, a `mark.<plugin>`, or a string literal equal to a plugin name |
+| every package's `src` | `from __future__ import annotations` (it would collapse every registry socket to `any`) |
+| `coral-app/src` | any `coral_plugin_*` import |
+| `plugins/coral-*/src` | any `coral_app` import |
+| `coral-app/tests` | a `coral_plugin_*` import, a `mark.<plugin>`, or a string literal equal to a plugin name |
 
 That last row is the separation principle made executable: it is what stops the host suite drifting
 back to being written against whichever plugin was handy. Allowed deliberately: a plugin's own name
@@ -72,15 +72,15 @@ installed set is usable *together* — no two of them claiming one node type. It
 install, which is correct: there is no distribution to make a claim about.
 
 The host's own side of that contract — fail-loud on an unknown name, the zero-plugin host, the merge,
-the duplicate-name refusal — is in `packages/coral-app/tests/test_discovery.py`, against the specimen,
+the duplicate-name refusal — is in `coral-app/tests/test_discovery.py`, against the specimen,
 where it runs with nothing installed and never skips.
 
 ## Where everything else lives
 
 ```
-packages/coral-core/tests/            # the Plugin ABC enforces both methods. Nothing else.
+coral-core/tests/                      # the Plugin ABC enforces both methods. Nothing else.
 
-packages/coral-app/
+coral-app/
 ├── examples/collections/             # `coral run .../list.json` — the host's own demos
 └── tests/
     ├── specimen.py                   # the designed plugin surface + 5 plugins (see below)
@@ -97,13 +97,13 @@ packages/coral-app/
     ├── test_graphs_validate.py       # its graphs construct; none executes
     └── test_examples.py              # its examples run, with plugins=[]
 
-packages/coral-plugin-<n>/tests/      # per plugin: <n>_suite.py, conftest.py,
-                                      #   test_plugin_present.py, graphs/, unit/, system/
+plugins/coral-<n>/tests/               # per plugin: <n>_suite.py, conftest.py,
+                                       #   test_plugin_present.py, graphs/, unit/, system/
 ```
 
 ### The specimen
 
-The host suite runs against `packages/coral-app/tests/specimen.py`: functions and classes written only
+The host suite runs against `coral-app/tests/specimen.py`: functions and classes written only
 for testing, chosen so that between them they exhibit every shape the host must describe and execute —
 a zero-input function, a multi-output one, a `None`-returning one, an unannotated one, an explicit
 `Any`, a dotted function name, a class with methods, an unrelated class, a subclass.
@@ -128,16 +128,16 @@ pytest -m slow             # the one fluid simulation, and the wheel acceptance 
 Selection is **by path**, because a test's subject is its directory:
 
 ```bash
-pytest packages/coral-app/tests                    # the host
-pytest packages/coral-plugin-math/tests/unit       # math's callables — no host, no graph
-pytest packages/coral-plugin-phiflow/tests/system  # phiflow's graphs through the host
-pytest tests                                       # only what names no plugin
+pytest coral-app/tests                    # the host
+pytest plugins/coral-math/tests/unit      # math's callables — no host, no graph
+pytest plugins/coral-phiflow/tests/system # phiflow's graphs through the host
+pytest tests                              # only what names no plugin
 ```
 
 ### The two cost rules
 
 - **No unmarked test may run a simulation.** Exactly one test runs PhiFlow's solver
-  (`packages/coral-plugin-phiflow/tests/system/test_graphs_run.py`, `slow`, ~33s). Every other phiflow
+  (`plugins/coral-phiflow/tests/system/test_graphs_run.py`, `slow`, ~33s). Every other phiflow
   graph is *validated without being executed*: constructing a `Graph` runs all seven checks and calls
   nothing, so the graph-JSON contract is guarded at ~0 ms per file instead of up to 32.76s.
 - **A test that runs something asserts a value.** Several graphs used to be executed by tests whose
@@ -156,7 +156,7 @@ uv pip uninstall coral-plugin-phiflow && uv run --no-sync pytest -m "not slow"
 uv sync   # restore
 ```
 
-With **all three** plugins uninstalled, `packages/coral-app/tests` and `tests/` pass with **zero
+With **all three** plugins uninstalled, `coral-app/tests` and `tests/` pass with **zero
 skips**. That is the property that makes the host agnostic rather than merely claiming to be, and it is
 worth re-checking after touching either.
 
@@ -166,7 +166,7 @@ Both artefacts the DealiiX platform exchanges with us are pinned, and neither gu
 
 | shape | guarded by | how |
 | --- | --- | --- |
-| `node_types.json` — format | `packages/coral-app/tests/golden/node_types.format.json` | bytes, from the specimen plugins |
+| `node_types.json` — format | `coral-app/tests/golden/node_types.format.json` | bytes, from the specimen plugins |
 | `node_types.json` — content | each plugin's `tests/system/golden/node_types.<n>.json` | bytes, per plugin |
 | graph JSON | each owner's `test_graphs_validate.py` | every shipped graph constructs a `Graph` |
 

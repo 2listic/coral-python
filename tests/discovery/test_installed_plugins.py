@@ -8,7 +8,7 @@ about.
 
 What is *not* here: anything the host guarantees on its own. Discovery's fail-loud rules, the
 zero-plugin host, the merge and its duplicate-name refusal are all in
-``packages/coral-app/tests/test_discovery.py``, tested against the designed specimen so they run with
+``coral-app/tests/test_discovery.py``, tested against the designed specimen so they run with
 no plugin installed and never skip.
 
 The laziness / no-import assertions run in a **fresh subprocess**: within a single pytest session
