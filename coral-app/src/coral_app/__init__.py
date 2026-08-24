@@ -10,7 +10,10 @@ them at runtime through standard metadata.
 in the old ``definitions`` package, but are now re-backed by discovery: each
 selected plugin is loaded and its ``get_functions()`` / ``get_classes()`` merged
 in selection order. **A node type may have exactly one owner**: two contributors
-declaring the same name raise :class:`DuplicateNodeTypeError`.
+declaring the same name raise :class:`DuplicateNodeTypeError`. The two surfaces
+are merged separately, so a name claimed by a function *and* a class is invisible
+here; :func:`coral_app.nodeports.build_port_table` is where the maps meet and
+raises the same error.
 
 The host owns two node surfaces of its own, present under every plugin selection
 and with no plugin installed at all: ``PRIMITIVES_MAP`` (the primitive node
@@ -24,6 +27,7 @@ from typing import Any, Dict, List, Optional
 from coral_core import Plugin
 
 from coral_app.builtin_nodes import BUILTIN_FUNCTIONS
+from coral_app.errors import DuplicateNodeTypeError
 from coral_app.primitives import COLLECTION_TYPES, PRIMITIVES_MAP, TYPE_NAMES
 
 __all__ = [
@@ -41,16 +45,6 @@ __all__ = [
 
 #: The entry-point group plugins declare themselves under. Public API; stable.
 PLUGIN_GROUP = "coral.plugins"
-
-
-class DuplicateNodeTypeError(ValueError):
-    """Two contributors declared the same node type.
-
-    A graph names only the node type, so a name with two owners is unresolvable *from the graph*:
-    whichever callable ran, the graph looks identical. The host therefore refuses the selection
-    instead of picking a winner. ``ValueError``, like the graph-validation errors, because it is a
-    bad configuration; an unknown *plugin* name stays a ``LookupError``.
-    """
 
 
 def discover() -> List[str]:

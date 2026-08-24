@@ -16,6 +16,8 @@ import inspect
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Mapping, Tuple, get_args, get_origin
 
+from coral_app.errors import DuplicateNodeTypeError
+
 __all__ = [
     "CONSTRUCTOR",
     "FUNCTION",
@@ -164,14 +166,33 @@ def build_port_table(
     Returns:
         Node type -> :class:`NodePorts`, inserted primitives first, then functions, constructors and
         methods.
+
+    Raises:
+        DuplicateNodeTypeError: if one name is claimed by two declared node types — a primitive, a
+            function and a constructor all key the table by a bare name, and this is the only place
+            the three surfaces meet. A ``Class.method`` key colliding with a function or constructor
+            of the same name is *not* an error: see ``put`` below.
     """
     table: Dict[str, NodePorts] = {}
 
     def put(node_type: str, ports: NodePorts) -> None:
-        # First writer wins, so the insertion order above doubles as the precedence order:
-        # primitive > function > constructor > method. That keeps a dotted function name such as
-        # `math.sqrt` a function even if some class `math` also had a `sqrt` method.
-        table.setdefault(node_type, ports)
+        # A collision between two *declared* node types — primitive, function or constructor — is a
+        # bad configuration and is refused: a graph names only the node type, so whichever entry won
+        # would decide what the graph computes while the JSON looks identical. Stage 1 cannot catch
+        # this one, because it merges the function and class surfaces into separate maps.
+        #
+        # A collision involving a *method* entry keeps first-writer-wins, which is what the
+        # insertion order above is for: it makes a dotted function name such as `math.sqrt` stay a
+        # function even if some class `math` also had a `sqrt` method. A method key is derived from a
+        # class the host was handed, not declared by anyone, so there is no competing claim to refuse.
+        existing = table.get(node_type)
+        if existing is not None:
+            if METHOD in (existing.kind, ports.kind):
+                return
+            raise DuplicateNodeTypeError(
+                f"node type {node_type!r} is declared as both a {existing.kind} and a {ports.kind}"
+            )
+        table[node_type] = ports
 
     for prim_name, prim_type in (primitives or {}).items():
         put(prim_name, NodePorts(kind=PRIMITIVE, inputs=[], outputs=[prim_type]))

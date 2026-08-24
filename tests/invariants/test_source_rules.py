@@ -19,8 +19,8 @@ The plugin names come from ``plugins/coral-*`` on disk. That is not a catalog an
 the set of plugin distributions the repo ships, read at run time, so adding a plugin extends these
 rules automatically.
 
-**The list of source roots is duplicated in two files this module cannot read**, and that is the one
-duplication the layout cannot remove — neither ``uv`` nor ``pytest`` can read a Python constant:
+**The list of source roots is duplicated across three files**, and that is the one duplication the
+layout cannot remove — neither ``uv`` nor ``pytest`` can read a Python constant:
 
 ===========================  ==============================================================
 ``pyproject.toml``           ``[tool.uv.workspace] members``, ``[tool.coverage.run] source``
@@ -28,13 +28,20 @@ duplication the layout cannot remove — neither ``uv`` nor ``pytest`` can read 
 ``SOURCE_ROOTS`` below       every rule in this module
 ===========================  ==============================================================
 
-Adding a fourth root means editing all three. ``TestGuardsAreNotVacuous`` compares ``SOURCE_ROOTS``
-against the distributions actually on disk, so forgetting *this* file fails loudly rather than
-silently narrowing a guard.
+Adding a fourth root means editing all three, and every one of those edits is guarded here.
+``TestGuardsAreNotVacuous`` compares ``SOURCE_ROOTS`` against the distributions actually on disk;
+``TestConfigCoversEveryDistribution`` does the same for the two config files, which this module
+*reads as text* rather than importing. That second guard exists because two of the four edits fail
+**silently** when forgotten: a missing ``testpaths`` entry means a package's tests are never
+collected and the suite stays green, and a missing ``source`` entry means its lines are never
+measured. (The other two are loud on their own — ``SOURCE_ROOTS`` by the vacuity test, ``members``
+by ``uv sync`` never installing the package.)
 """
 
 import ast
-from pathlib import Path
+import tomllib
+from configparser import ConfigParser
+from pathlib import Path, PurePosixPath
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CORE = REPO_ROOT / "coral-core"
@@ -77,6 +84,53 @@ def distributions_on_disk() -> set:
             continue
         found.add(manifest.parent)
     return found
+
+
+def workspace_members() -> list:
+    """``[tool.uv.workspace] members`` from the root manifest — glob patterns naming directories."""
+    config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    return config["tool"]["uv"]["workspace"]["members"]
+
+
+def coverage_sources() -> list:
+    """``[tool.coverage.run] source`` from the root manifest — directory *prefixes*, not globs."""
+    config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    return config["tool"]["coverage"]["run"]["source"]
+
+
+def testpaths() -> list:
+    """``testpaths`` from ``pytest.ini`` — glob patterns naming *tests* directories, not packages."""
+    parser = ConfigParser()
+    parser.read(REPO_ROOT / "pytest.ini")
+    return parser["pytest"]["testpaths"].split()
+
+
+def matches_a_glob(target: Path, patterns: list) -> bool:
+    """Whether *target* (repo-relative) is matched by any of *patterns*.
+
+    ``PurePath.match`` rather than ``fnmatch``: ``fnmatch``'s ``*`` also crosses ``/``, so
+    ``plugins/*`` would match ``plugins/coral-math/src`` and the assertion could pass on a pattern
+    that does not really name the directory.
+
+    Both sides are anchored with a leading ``/`` because ``match`` otherwise compares *from the
+    right*: unanchored, the ``testpaths`` entry ``tests`` matches ``anything/anywhere/tests`` and the
+    rule below would pass on a suite pytest never collects. (``PurePath.full_match`` says this
+    directly but arrived in 3.13; the workspace targets 3.12.)
+    """
+    relative = PurePosixPath("/" + target.relative_to(REPO_ROOT).as_posix())
+    return any(relative.match("/" + pattern) for pattern in patterns)
+
+
+def lies_under(target: Path, prefixes: list) -> bool:
+    """Whether *target* (repo-relative) is one of *prefixes* or sits beneath one.
+
+    Coverage's ``source`` is not glob-shaped: naming ``plugins`` measures everything below it.
+    """
+    relative = PurePosixPath(target.relative_to(REPO_ROOT).as_posix())
+    return any(
+        relative == PurePosixPath(prefix) or PurePosixPath(prefix) in relative.parents
+        for prefix in prefixes
+    )
 
 
 def repo_plugin_names() -> list:
@@ -297,6 +351,74 @@ class TestHostTestsNameNoPlugin:
             if named:
                 offenders[str(path.relative_to(REPO_ROOT))] = sorted(named)
         assert not offenders, f"the host suite must not name a plugin: {offenders}"
+
+
+class TestConfigCoversEveryDistribution:
+    """The two config files must name every distribution the repo ships.
+
+    ``TestGuardsAreNotVacuous`` already fails when ``SOURCE_ROOTS`` is narrower than the repo, and
+    its message says to update ``members`` / ``source`` / ``testpaths`` too. This class is what makes
+    the other half of that message enforceable rather than advisory — because forgetting it is the
+    one failure mode in this area that produces no red: a package outside ``testpaths`` has its
+    tests silently never collected, and one outside ``source`` is silently never measured.
+
+    A distribution is a directory with its own ``pyproject.toml`` (:func:`distributions_on_disk`),
+    found by globbing for manifests — so a new package is discovered here without being listed
+    anywhere. The three entries are matched three different ways, because they mean three different
+    things: ``members`` globs the *package* directory, ``source`` is a directory *prefix*, and
+    ``testpaths`` globs the package's ``tests/`` directory.
+    """
+
+    def test_distributions_present(self):
+        """GIVEN the repo
+        WHEN its manifests are globbed
+        THEN at least one distribution is found, so the rules below cover something."""
+        assert distributions_on_disk(), f"no distribution manifest found under {REPO_ROOT}"
+
+    def test_every_distribution_is_a_workspace_member(self):
+        """GIVEN every distribution on disk
+        WHEN compared with `members` in pyproject.toml
+        THEN each is matched by some member pattern — `uv sync` installs it."""
+        members = workspace_members()
+        missing = sorted(
+            path.relative_to(REPO_ROOT).as_posix()
+            for path in distributions_on_disk()
+            if not matches_a_glob(path, members)
+        )
+        assert not missing, (
+            f"not matched by `[tool.uv.workspace] members` ({members}): {missing}. "
+            "`uv sync` would not install these packages."
+        )
+
+    def test_every_distribution_is_measured_by_coverage(self):
+        """GIVEN every distribution on disk
+        WHEN compared with `source` in pyproject.toml
+        THEN each lies under some source entry — coverage measures it."""
+        sources = coverage_sources()
+        missing = sorted(
+            path.relative_to(REPO_ROOT).as_posix()
+            for path in distributions_on_disk()
+            if not lies_under(path, sources)
+        )
+        assert not missing, (
+            f"not under `[tool.coverage.run] source` ({sources}): {missing}. "
+            "These packages' lines would silently never be measured."
+        )
+
+    def test_every_test_suite_is_collected(self):
+        """GIVEN every distribution on disk that has a tests/ directory
+        WHEN compared with `testpaths` in pytest.ini
+        THEN each is matched by some testpath pattern — pytest collects it."""
+        paths = testpaths()
+        missing = sorted(
+            (path / "tests").relative_to(REPO_ROOT).as_posix()
+            for path in distributions_on_disk()
+            if (path / "tests").is_dir() and not matches_a_glob(path / "tests", paths)
+        )
+        assert not missing, (
+            f"not matched by `testpaths` in pytest.ini ({paths}): {missing}. "
+            "These suites would silently never be collected, and the run would stay green."
+        )
 
 
 class TestGuardsAreNotVacuous:

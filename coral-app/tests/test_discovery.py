@@ -45,11 +45,16 @@ class TestLoadFailsLoud:
 
         from coral_app import PLUGIN_GROUP
 
-        fake = EntryPoint(name="fake", value="builtins:int", group=PLUGIN_GROUP)
-        monkeypatch.setattr("coral_app.entry_points", lambda *a, **k: (fake,))
+        # The name is deliberately one no plugin could plausibly be called: the invariants forbid a
+        # literal here equal to a plugin name, so a short word like "fake" would turn shipping
+        # `plugins/coral-fake` into a failure pointing at this file. See tests/README.md.
+        not_a_plugin = EntryPoint(
+            name="not-a-real-plugin", value="builtins:int", group=PLUGIN_GROUP
+        )
+        monkeypatch.setattr("coral_app.entry_points", lambda *a, **k: (not_a_plugin,))
 
         with pytest.raises(TypeError):
-            load("fake")
+            load("not-a-real-plugin")
 
 
 class TestBuildMapsFailLoud:

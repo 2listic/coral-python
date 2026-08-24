@@ -323,6 +323,11 @@ changing what is tested. Its three deviations are recorded under the step, and t
 correction to this plan rather than to the code: `uv sync` between the moves and the config edit is
 **harmful**, not merely expected to fail.
 
+**Step 10 closes [`TODO.md`](TODO.md)** — the six items step 9 shipped as known-open. Three needed no
+code, three did, and one of the three deferrals in *Left for another issue* below turned out to rest on
+a wrong premise and was fixed. It is listed as a step because the decisions belong with the rest of the
+record, not because the refactor grew a tenth stage.
+
 ### 1. Collection mechanics — `pytest.ini` — **DONE**
 
 Prerequisite for everything: tests are about to exist outside `tests/`.
@@ -590,6 +595,106 @@ coral-app/examples/collections/*.json`, the phiflow example, and ONBOARDING's ma
 `test_registry.py` golden-regeneration commands reproduce their goldens **byte-identically**; and
 `ruff format --check` / `ruff check` clean over `coral-core coral-app plugins tests`.
 
+### 10. The six open items from `TODO.md` — **DONE**
+
+Not a tenth stage of the refactor: step 9 shipped with a written list of what it left behind
+([`TODO.md`](TODO.md)), and this step closes that list. Each item was decided before being touched, so
+this section records the **decision** first and the change second — three of the six turned out to be
+decisions with no code attached.
+
+- [x] **1 — the source-root list is duplicated four ways, one copy guarded.** *Decision: close the
+      gap (option a).* `TestConfigCoversEveryDistribution` in `tests/invariants/test_source_rules.py`
+      now parses `pyproject.toml` (`tomllib`) and `pytest.ini` (`configparser`) and asserts every
+      directory in `distributions_on_disk()` is a workspace member, lies under a coverage source, and
+      — if it has a `tests/` — is matched by some `testpaths` entry. Three matchers because the three
+      entries mean three different things: `members` globs the package directory, `source` is a
+      directory *prefix*, `testpaths` globs the `tests/` directory.
+
+      Two findings while doing it, both correcting `TODO.md`'s own framing:
+
+      1. The risk was **smaller** than the item claimed. The `from __future__` rule follows
+         `SOURCE_ROOTS`, which was already guarded, so the damaging case (a package's sockets
+         collapsing to `"any"`) could not actually happen silently. Of the four edits a new root
+         needs, two were already loud — `SOURCE_ROOTS` by the vacuity test, `members` by `uv sync`
+         never installing the package. What was unguarded is `testpaths` (**a package's tests never
+         collected, suite green**) and `source` (lines never measured). Those two are what this now
+         covers.
+      2. The **first version of the guard contained the exact bug it exists to prevent.** Verified
+         by planting `tools/coral-bench/` — a new *category* of root, not a plugin — and only three of
+         four guards fired: `PurePath.match` compares **from the right**, so the bare `testpaths`
+         entry `tests` matched `tools/coral-bench/tests`. Fixed by anchoring both sides with a leading
+         `/` (`full_match` says this directly but arrived in 3.13; the workspace targets 3.12). All
+         four fire now, and a planted `plugins/coral-zeta/` still passes — the common case stays
+         automatic, which was the property worth keeping.
+- [x] **2 — a plugin named `fake` would break the build.** *Decision: rename and document, not narrow
+      the rule.* `coral-app/tests/test_discovery.py`'s bogus entry-point name is now
+      `"not-a-real-plugin"`, and `tests/README.md` states the consequence of the exact-literal design:
+      the rule reads the plugin set from disk, so **it constrains the plugin namespace too**, and the
+      fix for such a failure is to rename the literal, never to weaken the rule. Verified by planting
+      `plugins/coral-fake/`: green, where it was red before. Narrowing the rule to argument position
+      was rejected — a bare-word grep would trip on `python_type_to_string`, on prose, and on every
+      use of the stdlib `math`.
+- [x] **3 — nothing stops `uv.lock` picking up unrelated upgrades.** *Decision: documentation only.*
+      `CLAUDE.md`'s Package Management section now carries the incident (deviation 1 above), the two
+      habits it implies, and — the part worth writing down — that **`uv lock --check` does not answer
+      this question**: it verifies the lock is consistent with the manifests, and after that accidental
+      re-resolve it was perfectly consistent. A hook would have passed. Item 1's new guard does cover
+      the *root cause* (a stale `members` matching nothing now fails the suite), but only once tests
+      run, i.e. after the re-resolve has happened.
+- [x] **4 — `definitions/` is an empty directory.** *Decision: remove.* Confirmed empty including
+      hidden entries, untracked, and referenced nowhere but history — the one code mention,
+      `coral_app/__init__.py`'s docstring, already says "the **old** `definitions` package". `rmdir`;
+      no git change, since git does not track empty directories.
+- [x] **5 — a plugin's four names differ three ways.** *Decision: no action, as designed (**L3**).*
+      The mismatch is documented where a reader stands when they hit it — `CLAUDE.md`'s *Package
+      layout* table and `repo_plugin_names()`. Recorded here so the question is not re-derived a third
+      time.
+- [x] **6a — `test_tuple_return`.** *Decision: fix, because the deferral rested on a wrong premise.*
+      `TODO.md` and the *Left for another issue* section below both assumed the fix meant renaming the
+      **node type**, which is platform-facing. It does not: the node type is the *dict key* in
+      `get_functions()`, and pytest collects the *Python symbol*, which it only ever sees because a
+      test module imports it. So the symbol is now `tuple_return` and the key is untouched — verified
+      by regenerating the registry (`test_tuple_return` still present, `outputs: [2, 3, 4]`) and by
+      the golden byte-compare. **D13's aliased import and its `noqa` are gone.**
+- [x] **6b — phiflow's `Any` slots.** *Decision: leave the annotations alone (the plugin owner's
+      call), but the number was wrong.* Recounted from the port table, on the stated definition (every
+      input and output annotation, a method's `self` excluded): math **0** `Any` of 28, string **0** of
+      8, phiflow 23 of 48, builtins 9 of 36 — **32 `Any` of 120 slots, 88 checkable**, where
+      `CLAUDE.md` said 34 / 86. The two stale `1`s were math's and string's, left from the era of the
+      shared `print_result(value: Any)`; each plugin now names its own typed printer. `TODO.md`'s
+      "13 of 21" was unsourced — no test pins those numbers; the only pin is `["any", "any", "any"]`
+      on `phiflow_iterate`'s outputs.
+- [x] **6c — a function and a class sharing one name.** *Decision: fix in the host, with the
+      exception carved out explicitly.* This was the only one of the three that was a host gap rather
+      than a deferral. `build_port_table`'s `put()` used `table.setdefault`, so the loser vanished in
+      silence; it now raises `DuplicateNodeTypeError` when the collision is between two **declared**
+      node types (primitive / function / constructor), and keeps first-writer-wins **only** when a
+      `Class.method` entry is involved — that key is derived from a class the host was handed, not
+      declared by anyone, so a function named `math.sqrt` still beats a class `math` with a `sqrt`
+      method. Discriminating by *kind* rather than by "has a dot" also makes a function-vs-constructor
+      clash on a dotted name raise, which it should.
+
+      The exception now lives in a new leaf module, `coral_app/errors.py`, re-exported from
+      `coral_app` so `coral_app.DuplicateNodeTypeError` is unchanged. Two stages raise it, so it
+      belongs to neither; the alternative — stage 2 importing the package root — was rejected as the
+      kind of directional coupling `tests/invariants` exists to police, even though no current rule
+      forbids it.
+
+      Five tests in `coral-app/tests/test_nodeports.py`, on hand-written maps as that file requires:
+      the three clashes that must raise, the message naming both kinds, and the constructor-vs-method
+      case that must **not**. The three per-plugin disjointness assertions are kept — they keep the
+      failure local to the plugin, with nothing installed but that package — but their docstrings are
+      corrected: they claimed the host "cannot even report" this, which is no longer true.
+
+**Verification:** 458 passed in 33 s (`-m "not network"`, so including the phiflow simulation and every
+golden byte-compare); 455 in the fast lane, up from 450 — nothing removed, and the additions are the
+four config guards, the five clash tests, minus the aliased-import line. `pre-commit run --all-files`
+clean.
+
+**One deviation from `TODO.md`'s suggested order:** item 1 was still first, but its *reason* for being
+first turned out to be wrong (see finding 1 above). It remains the right one to do first, because it
+is the only item that leaves a hole nothing else reports.
+
 ## Mapping of the #25 findings
 
 All six are resolved; the table records how.
@@ -606,7 +711,8 @@ All six are resolved; the table records how.
 ## Out of scope, noted
 
 - `definitions/` contains **only** `__pycache__/*.pyc` — the `.py` files are gone. Dead directory;
-  deleting it is unrelated to this issue. **Still present**: deliberately not touched.
+  deleting it is unrelated to this issue. **Was** deliberately not touched; step 9's cache cleanup
+  emptied it and step 10 removed the directory (`TODO.md` item 4).
 - The `all` golden's **content**-comparison (decided in #16, for cross-plugin ordering) is no longer
   a standing exception: **R1** deletes that golden and every replacement is byte-compared. See
   [What replaces the `all` golden](#what-replaces-the-all-golden). **Done**: `node_types.all.json` is
@@ -614,17 +720,26 @@ All six are resolved; the table records how.
 
 ## Left for another issue
 
-Raised by this work, deliberately not done here:
+Raised by this work, deliberately not done here — **as first written**. Step 10 revisited all three;
+what each says now is recorded under it, and only the middle one is still open.
 
-- **`test_tuple_return` is a poor node-type name** and now needs an aliased import in math's tests
-  (**D13**), because pytest collects `test_*` functions. Renaming a node type is platform-facing.
-- **phiflow's 13 `Any` slots** (of 21) are pinned as a number, not fixed. Giving the wrappers precise
-  types would let graph check 6 reject a mis-wired simulation at t=0 instead of 30 seconds in; it is a
-  plugin change, and belongs to whoever owns the plugin.
-- **A plugin declaring a function and a class under one name** cannot be reported by the host at all —
+- ~~**`test_tuple_return` is a poor node-type name** and now needs an aliased import in math's tests
+  (**D13**), because pytest collects `test_*` functions. Renaming a node type is platform-facing.~~
+  **Fixed in step 10, and this entry was wrong:** the node type never had to change. It is the dict
+  key in `get_functions()`; pytest collects the *Python symbol*. Renaming the symbol alone removed
+  **D13** with no platform impact.
+- **phiflow's `Any` slots** are pinned as a number, not fixed. Giving the wrappers precise types would
+  let graph check 6 reject a mis-wired simulation at t=0 instead of 30 seconds in; it is a plugin
+  change, and belongs to whoever owns the plugin. **Still open, and the number here was wrong**: it is
+  23 of 48 slots (recounted in step 10), not 13 of 21, and no test pins those totals — the only pin is
+  `["any", "any", "any"]` on `phiflow_iterate`'s outputs.
+- ~~**A plugin declaring a function and a class under one name** cannot be reported by the host at all —
   the two surfaces are merged separately, and the port table silently prefers the function. Each
   plugin's conformance test asserts its own two surfaces are disjoint, which is the only place the
-  check can currently live.
+  check can currently live.~~ **Fixed in step 10:** the two surfaces do meet — in
+  `build_port_table`, which now raises `DuplicateNodeTypeError` instead of resolving it with
+  `setdefault`. The per-plugin assertions stay, as a local and earlier signal rather than the only
+  possible one.
 
 ## Follow-up: package-layout restructure — the design behind step 9
 

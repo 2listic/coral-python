@@ -75,8 +75,15 @@ def math_pow(x: float, y: float) -> float:
     return result
 
 
-def test_tuple_return(x: float, y: float) -> Tuple[float, float, float]:
-    """Test function that returns a tuple of three values"""
+def tuple_return(x: float, y: float) -> Tuple[float, float, float]:
+    """Test function that returns a tuple of three values.
+
+    The **node type** is ``test_tuple_return`` (see ``get_functions`` below) and the printed line
+    names it, because that is the name a graph author wired. The Python symbol deliberately differs:
+    a symbol starting with ``test_`` is collected as a test by pytest's ``python_functions`` the
+    moment a test module imports it, and would then be called with no arguments. Renaming the node
+    type would be a platform-facing change; renaming the symbol is not.
+    """
     result1 = x + y
     result2 = x * y
     result3 = x - y
@@ -122,7 +129,7 @@ class MathPlugin(Plugin):
             "math.sin": math_sin,
             "math.cos": math_cos,
             "math.pow": math_pow,
-            "test_tuple_return": test_tuple_return,
+            "test_tuple_return": tuple_return,
         }
 
     def get_classes(self) -> Dict[str, Any]:

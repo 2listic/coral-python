@@ -63,6 +63,14 @@ That last row is the separation principle made executable: it is what stops the 
 back to being written against whichever plugin was handy. Allowed deliberately: a plugin's own name
 inside its own tests, and `coral_app` inside a plugin's `tests/system/`.
 
+It compares literals for *equality*, so `"math.sqrt"` and the word "string" in prose pass while
+`build_function_map(include=["math"])` does not. The price of that precision: the rule reads the
+plugin set from `plugins/coral-*` at run time, so **it constrains the plugin namespace too** — a new
+plugin whose entry-point name equals some literal in the host suite fails the invariants, pointing at
+a host test file with nothing wrong in it. Names there are chosen to make this implausible
+(`"not-a-real-plugin"`, `"bogus"`), but if you ever see that failure, the fix is to rename the
+literal, never to weaken the rule.
+
 The same file also holds the stage boundaries from issue #23 — `graph.py` never imports `inspect`,
 `executor.py` never imports `json` or `graphlib`.
 

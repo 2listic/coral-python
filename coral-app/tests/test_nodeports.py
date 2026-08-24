@@ -8,6 +8,8 @@ plugins are described correctly is proven by the golden registry files.
 import inspect
 from typing import Any, Tuple
 
+import pytest
+from coral_app.errors import DuplicateNodeTypeError
 from coral_app.nodeports import (
     CONSTRUCTOR,
     FUNCTION,
@@ -276,7 +278,12 @@ class TestMethodEnumeration:
 
 
 class TestPrecedence:
-    """Key collisions resolve the way the executor's old ``_classify`` did."""
+    """A collision with a *method* key resolves the way the executor's old ``_classify`` did.
+
+    A ``Class.method`` entry is derived from a class the host was handed, not declared by anyone, so
+    there is no competing claim to refuse: whoever declared the name keeps it. Collisions between two
+    *declared* node types are a different matter — see :class:`TestDeclaredNameClashIsRefused`.
+    """
 
     def test_a_dotted_function_name_wins_over_a_method(self):
         """GIVEN a function named ``Widget.resize`` alongside the class ``Widget``
@@ -289,3 +296,56 @@ class TestPrecedence:
 
         assert table["Widget.resize"].kind == FUNCTION
         assert table["Widget.resize"].inputs == [("a", int), ("b", str)]
+
+    def test_a_constructor_wins_over_a_method_of_the_same_key(self):
+        """GIVEN a class keyed ``Widget.resize`` alongside the class ``Widget``
+        WHEN the table is built
+        THEN the constructor keeps the key, and nothing is refused."""
+        table = build_port_table(class_map={"Widget.resize": Widget, "Widget": Widget})
+
+        assert table["Widget.resize"].kind == CONSTRUCTOR
+
+
+class TestDeclaredNameClashIsRefused:
+    """One name declared as two different *kinds* of node is refused, not silently resolved.
+
+    A graph names only the node type, so whichever entry won would decide what the graph computes
+    while the JSON looks identical — the same argument that makes a duplicate function name a
+    ``DuplicateNodeTypeError`` in stage 1. Stage 1 cannot see these: it merges the function and class
+    surfaces into two separate maps, and this is the only place all three surfaces meet.
+    """
+
+    def test_a_function_and_a_class_sharing_a_name_raise(self):
+        """GIVEN one name declared as both a function and a class
+        WHEN the table is built
+        THEN DuplicateNodeTypeError is raised, rather than the function silently winning."""
+        with pytest.raises(DuplicateNodeTypeError):
+            build_port_table(
+                function_map={"Widget": annotated},
+                class_map={"Widget": Widget},
+            )
+
+    def test_a_function_named_after_a_primitive_raises(self):
+        """GIVEN a function named ``int``
+        WHEN the table is built alongside the primitives
+        THEN DuplicateNodeTypeError is raised — a primitive is a node type too."""
+        with pytest.raises(DuplicateNodeTypeError):
+            build_port_table(function_map={"int": annotated}, primitives=PRIMITIVES)
+
+    def test_a_class_named_after_a_primitive_raises(self):
+        """GIVEN a class keyed ``float``
+        WHEN the table is built alongside the primitives
+        THEN DuplicateNodeTypeError is raised."""
+        with pytest.raises(DuplicateNodeTypeError):
+            build_port_table(class_map={"float": Widget}, primitives=PRIMITIVES)
+
+    def test_the_message_names_the_node_type_and_both_kinds(self):
+        """GIVEN a function and a class both named ``Widget``
+        WHEN the table is built
+        THEN the message names the node type and the two kinds that claimed it."""
+        with pytest.raises(DuplicateNodeTypeError) as raised:
+            build_port_table(function_map={"Widget": annotated}, class_map={"Widget": Widget})
+
+        message = str(raised.value)
+        assert "Widget" in message
+        assert FUNCTION in message and CONSTRUCTOR in message

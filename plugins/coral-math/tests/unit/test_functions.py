@@ -19,13 +19,12 @@ from coral_plugin_math import (
     math_sqrt,
     multiply,
     print_number,
+    tuple_return,
 )
-from coral_plugin_math import test_tuple_return as tuple_return  # noqa: E501
 
-# Imported under an alias on purpose: this plugin declares a node type called `test_tuple_return`,
-# and pytest's `python_functions = test_*` would otherwise *collect the plugin's own function as a
-# test* — it would be called with no arguments and error on a missing fixture. The node type keeps
-# its name (renaming one is a platform-facing change); only this import is renamed.
+# `tuple_return` is the callable behind the node type `test_tuple_return`. The two names differ so
+# that importing it here does not hand pytest a `test_*` symbol to collect as a test — see the
+# function's own docstring. The node type keeps its name; renaming one is platform-facing.
 
 
 class TestArithmetic:

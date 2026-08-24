@@ -133,7 +133,8 @@ class TestDeclaredSurface:
         WHEN their names are compared
         THEN they are disjoint.
 
-        A node type is one string. If a function and a class shared a name, the port table's
-        precedence (function first) would silently hide the constructor — within one plugin the host
-        cannot even report a duplicate, since the two surfaces are merged separately."""
+        A node type is one string, so a name cannot mean both. The host refuses this too — the two
+        surfaces meet in ``build_port_table``, which raises ``DuplicateNodeTypeError`` — but only once
+        a host is involved. Asserting it here keeps the failure local to the plugin that caused it,
+        and needs nothing installed but this package."""
         assert not set(plugin.get_functions()) & set(plugin.get_classes())

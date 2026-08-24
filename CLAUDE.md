@@ -71,6 +71,27 @@ uv add --dev <package-name>
 uv lock && uv sync
 ```
 
+**Read the `uv.lock` diff before committing it.** Nothing enforces this, and one specific accident is
+why it is written down (issue #27, step 9): a `uv sync` run while `[tool.uv.workspace] members` was
+stale — it pointed at a directory that no longer existed, and a **memberless workspace is valid**, so
+the command succeeded. It uninstalled all five packages, re-resolved from scratch, and silently
+upgraded `jax` 0.10.2 → 0.11.0 along with `jaxlib` and `matplotlib`. Reading the diff is what caught it.
+
+Two habits follow, and neither is checkable by a tool:
+
+- **Never run `uv sync` after moving a package directory without updating `members` first.** The
+  failure is silent in both directions: uv accepts a workspace that matches nothing, and the upgrade
+  it performs looks like an unrelated commit's noise. (The invariants suite now fails on a stale root —
+  `TestConfigCoversEveryDistribution` in `tests/invariants/test_source_rules.py` — but only once tests
+  run, i.e. after the re-resolve has already happened.)
+- **A `uv.lock` diff should touch only what you meant to change.** After a package move that is
+  exactly the `editable = { path = ... }` strings and nothing else; after a `uv add` it is that
+  dependency and its transitive closure. Any other version bump in the diff is an accident until
+  proven deliberate.
+
+`uv lock --check` does *not* answer this question — it verifies the lock is consistent with the
+manifests, and after that accidental re-resolve it was perfectly consistent.
+
 ### Distribution (wheels)
 
 The wheel is the boundary between the two audiences: this repo's workflow is uv-only, end users are
@@ -266,8 +287,11 @@ it finds them at runtime via entry-point discovery.
    - `build_function_map(include=None, exclude=None)` / `build_class_map(...)`: same signatures as before, now
      re-backed by `discover`/`load`. `include=None` → `sorted(discover())`; names are merged in selection order.
      An unknown name → `LookupError`. **One node type, one owner**: a name declared twice raises
-     `DuplicateNodeTypeError` (a `ValueError` subclass, defined in `coral_app`) — whether the second declaration
-     comes from another plugin or collides with one of the host's `BUILTIN_FUNCTIONS`. There is nothing to
+     `DuplicateNodeTypeError` (a `ValueError` subclass, in `coral_app/errors.py`, re-exported here) — whether
+     the second declaration comes from another plugin or collides with one of the host's
+     `BUILTIN_FUNCTIONS`. A name claimed by a function *and* a class escapes this check, because the two
+     surfaces are merged into two separate maps; `nodeports.build_port_table` is where they meet and raises
+     the same error. There is nothing to
      arbitrate: a graph names only the node type, so a silently displaced `list_append` would change what every
      graph on the platform computes while the JSON looks identical. `build_function_map` still applies
      `BUILTIN_FUNCTIONS` **last**, which is now only about *key order* in `node_types.json`, not about precedence.
@@ -286,7 +310,11 @@ it finds them at runtime via entry-point discovery.
      port order, `outputs` one annotation per output port. The **single place** that derives a node's
      arity from a callable, so the registry and the executor can no longer disagree about it. A
      method's port 0 is its instance (`("self", cls)`); a missing annotation is normalised to `Any`.
-     `methods_of(port_table, class_name)` lists a class's `Class.method` entries.
+     `methods_of(port_table, class_name)` lists a class's `Class.method` entries. Also the only place
+     the three node surfaces meet, so it is where **one name declared as two kinds** — a primitive and
+     a function, a function and a class — raises `DuplicateNodeTypeError`. A collision with a
+     `Class.method` key is *not* refused: that key is derived from a class, not declared by anyone, so
+     a function named `math.sqrt` keeps its name against a class `math` with a `sqrt` method.
    - **`graph.py`** (stage 3): `Graph(nodes, edges, port_table)` and
      `Graph.from_file(path, port_table)`. **Constructing one validates it** — see
      [Graph validation](#graph-validation). Exposes `.order`, `.node(id)`, `.ports_of(id)` and
@@ -360,8 +388,10 @@ Edge format:
    claiming one of their names is refused rather than ignored. Primitives come
    from the host `PRIMITIVES_MAP`. With no plugin at all, stage 1 still yields a complete surface: the
    primitives plus the 15 builtins.
-3. **Describe node types**: `build_port_table()` turns the maps into one entry per node type, listing
-   its input parameters and its outputs. Stages 4 and 5 both read it; neither introspects again.
+3. **Describe node types**: `build_port_table()` turns the maps into one entry per node type — and
+   raises `DuplicateNodeTypeError` if one name is declared as two kinds, the duplicate stage 2 sees
+   because it holds all three surfaces at once. Each entry lists the node type's input parameters and
+   its outputs. Stages 4 and 5 both read it; neither introspects again.
 4. **Read, validate and order the graph**: `Graph.from_file()` loads `workflow.nodes` /
    `workflow.edges`, runs every check in [Graph validation](#graph-validation), and orders the nodes
    with `graphlib.TopologicalSorter` (`{node: predecessors}`, each ready batch sorted so the order
@@ -460,13 +490,13 @@ standard library's own `numbers` tower rather than a hand-written table.
 The check only sees what a node's author declares, so **annotation quality is the author's
 responsibility**. A *slot* below is one annotation the check can look at — every input and output of
 every node type, except a method's `self` (which the port table synthesises from the class). Across
-the three plugins and the host's builtins, 86 of 120 slots are checkable and 34 are `Any` — and the
-`Any` is concentrated in one plugin:
+the three plugins and the host's builtins, 88 of 120 slots are checkable and 32 are `Any` — and every
+one of the 32 is in phiflow or in the builtins, where 9 are deliberate (see below):
 
 | source | slots | `Any` | checkable |
 | --- | --- | --- | --- |
-| math | 28 | 1 | 27 |
-| string | 8 | 1 | 7 |
+| math | 28 | 0 | 28 |
+| string | 8 | 0 | 8 |
 | phiflow | 48 | 23 | 25 |
 | builtins (host) | 36 | 9 | 27 |
 

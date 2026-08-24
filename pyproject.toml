@@ -5,10 +5,10 @@
 # and cross-linked. This file is dev/uv-only — pip never reads it and it is never baked into any wheel.
 #
 # The three source roots below are listed again in `pytest.ini` (testpaths) and derived once in
-# `tests/invariants/test_source_rules.py` (SOURCE_ROOTS, which asserts its own list against what is on
-# disk). Neither uv nor pytest can read a Python constant, so this duplication cannot be removed —
-# adding a fourth root means editing all three files, and the invariants test is what fails if you
-# forget.
+# `tests/invariants/test_source_rules.py` (SOURCE_ROOTS). Neither uv nor pytest can read a Python
+# constant, so this duplication cannot be removed — adding a fourth root means editing all three
+# files. `TestConfigCoversEveryDistribution` there reads *this file* and asserts both lists below
+# cover every directory with a pyproject.toml, so forgetting either one fails the suite.
 
 [dependency-groups]
 dev = [
