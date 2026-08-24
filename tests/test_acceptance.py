@@ -12,10 +12,14 @@ use):
 * discovery/load stay lazy                       -> ``load("math")`` never imports ``coral_plugin_phiflow``;
 * uninstalling a plugin removes its nodes        -> ``phiflow`` disappears from discovery.
 
-This is the one heavy test (``uv build`` + a throwaway venv + installs), so it is marked ``slow``:
-it runs with a plain ``pytest`` but can be skipped with ``-m "not slow"``. ``uv`` is used for the venv
-and installs so the phiflow stack (jax/h5py/phiflow) resolves from uv's existing cache instead of
-re-downloading from PyPI on every run. Skipped if ``uv`` is not on PATH.
+This is the one heavy test (``uv build`` + a throwaway venv + installs), and it is the only test in the
+repo that needs the internet — hence **both** markers, ``slow`` and ``network``: it runs with a plain
+``pytest`` and is skipped by either ``-m "not slow"`` or ``-m "not network"``. ``uv`` is used for the
+venv and installs so the phiflow stack (jax/h5py/phiflow) resolves from uv's existing cache instead of
+re-downloading from PyPI on every run — but that only holds while the cache happens to contain what a
+*fresh* resolution picks. ``uv pip install`` does not read ``uv.lock``, so once PyPI publishes a jax
+newer than the workspace's pin, this test downloads jax+jaxlib (~4 minutes here, against 4s warm) with
+no output, because :func:`_run` captures it. Skipped if ``uv`` is not on PATH.
 """
 
 import json
@@ -26,7 +30,7 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.slow
+pytestmark = [pytest.mark.slow, pytest.mark.network]
 
 UV = shutil.which("uv")
 

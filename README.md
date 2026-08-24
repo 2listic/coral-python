@@ -206,9 +206,10 @@ is setup + commands; `CLAUDE.md` is the AI-assisted-development mechanics refere
 
 Run All Tests:
 ```bash
-pytest                 # every package's suite plus the repo-level tests
-pytest -m "not slow"   # the fast lane (~0.8s): everything but one simulation and the wheel build
-pytest -m slow         # the PhiFlow simulation and the wheel acceptance test
+pytest                  # every package's suite plus the repo-level tests
+pytest -m "not slow"    # the fast lane (~0.8s): everything but one simulation and the wheel build
+pytest -m "not network" # the offline lane: everything but the wheel acceptance test
+pytest -m slow          # the PhiFlow simulation and the wheel acceptance test
 ```
 
 Run Tests with Coverage:

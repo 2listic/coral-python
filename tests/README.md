@@ -42,7 +42,8 @@ tests/
 │   └── test_source_rules.py          # rules about the source *text*, read from disk
 ├── discovery/
 │   └── test_installed_plugins.py     # the entry-point contract, against real distributions
-└── test_acceptance.py                # wheels built and pip-installed into a clean venv (`slow`)
+└── test_acceptance.py                # wheels built and pip-installed into a clean venv
+                                      #   (`slow` + `network` — the only test needing the internet)
 ```
 
 Nothing here imports a plugin or names one. `invariants` and `test_acceptance` derive the plugin set
@@ -122,8 +123,23 @@ table, the registry, graph validation, execution — is production code.
 ```bash
 pytest                     # everything
 pytest -m "not slow"       # the fast lane: ~0.8s
+pytest -m "not network"    # the offline lane: everything but the wheel acceptance test
 pytest -m slow             # the one fluid simulation, and the wheel acceptance test
 ```
+
+Two markers, both about **cost**, and they are independent rather than a partition — `slow` is *costs
+real time*, `network` is *needs the internet*:
+
+| | `slow` | `network` |
+| --- | --- | --- |
+| `plugins/coral-phiflow/tests/system/test_graphs_run.py` (the simulation, ~33s) | yes | — |
+| `tests/test_acceptance.py` (wheels into a clean venv) | yes | yes |
+
+The acceptance test carries both on purpose. It is 4s with a warm uv cache but ~250s when PyPI has
+published a jax the workspace does not pin — `uv pip install` resolves fresh and never reads
+`uv.lock` — and `_run()` captures output, so that run prints nothing and looks hung. Dropping `slow`
+from it would let the fast lane collect it, which would give the ~0.8s lane a network dependency; that
+is why it is marked twice rather than moved.
 
 Selection is **by path**, because a test's subject is its directory:
 

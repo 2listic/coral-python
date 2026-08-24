@@ -124,6 +124,9 @@ pytest
 # The fast lane — everything except the one fluid simulation and the wheel build (~0.8s)
 pytest -m "not slow"
 
+# The offline lane — everything except the one test that downloads from PyPI
+pytest -m "not network"
+
 # With coverage over every package's src
 pytest --cov --cov-report=html && open htmlcov/index.html
 ```
@@ -140,10 +143,19 @@ pytest tests                              # only what names no plugin at all
 pytest coral-app/tests/test_graph.py::TestEdgeTypes  # a class, as usual
 ```
 
-One marker survives, and it is about **cost**, not about which plugin a test needs:
+Two markers survive, both about **cost** rather than about which plugin a test needs. They are
+independent properties, not a partition, so one test carries both:
 
-- `slow` — the one phiflow simulation (~33s) and the wheel acceptance test (~4s). Everything else is
-  the fast lane.
+- `slow` — *costs real time*: the one phiflow simulation (~33s) and the wheel acceptance test.
+  Everything else is the fast lane.
+- `network` — *needs the internet*: `tests/test_acceptance.py` only, which pip-installs wheels into a
+  clean venv. It is 4s with a warm uv cache, but **~250s** whenever PyPI has published a `jax` newer
+  than the workspace's pin — `uv pip install` resolves fresh and never reads `uv.lock`, so the cache
+  misses and it downloads jax+jaxlib. Its `_run()` captures output, so such a run prints nothing and
+  looks hung; it is not.
+
+The acceptance test is marked twice deliberately: dropping `slow` from it would let the fast lane
+collect it, giving the ~0.8s lane a network dependency.
 
 **The layout, and the rule that decides it** — every test belongs to exactly one of three kinds, and
 the directory says which (see [`tests/README.md`](tests/README.md) for the full statement):
