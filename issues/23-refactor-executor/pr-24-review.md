@@ -7,7 +7,7 @@ Status: **in progress.** Each finding states what was reproduced and how.
 
 ## Scope
 
-**14 files, +2784 / −387.**
+**14 files, +2784 / −387** at the point of review (before this document was committed to the branch).
 
 | area | files |
 | --- | --- |
@@ -329,8 +329,9 @@ over hundreds of generated mutations — useful for CI trends, wrong instrument 
   *Here:* the choice to derive compatibility from the `numbers` tower propagated into `graph.py`, into
   both `architecture.md` and `CLAUDE.md`, and into the shape of the tests. Everything corroborates
   everything else — and the pair it gets wrong, `int → bool`, appears in none of them. `architecture.md`
-  and `CLAUDE.md` state only `bool → int`; the sole `bool` case in a compatibility test is the opposite
-  direction. Coherence is what let finding 1 through, not what would have caught it.
+  and `CLAUDE.md` state only `bool → int`; the only `bool` case in a compatibility test is `bool → float`,
+  and neither direction between `int` and `bool` is tested anywhere. Coherence is what let finding 1
+  through, not what would have caught it.
 - **Accidental vs essential complexity** (p.68, after Brooks). AI is strong on the mechanical, weak on
   the inherent difficulty of the problem. *Here:* consolidating arity derivation is accidental — skim it,
   the golden files verify it. Deciding what type compatibility *means* is essential — no amount of
