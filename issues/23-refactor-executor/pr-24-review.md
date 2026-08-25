@@ -326,8 +326,11 @@ over hundreds of generated mutations — useful for CI trends, wrong instrument 
 
 - **Coherent incorrectness** (Osmani p.199). Sequential autonomous decisions do not produce one flawed
   function — they produce an internally consistent architecture built on the first misunderstanding.
-  *Here:* if `_is_compatible` is wrong, it is wrong consistently across `graph.py`, `test_graph.py`,
-  `architecture.md` and `CLAUDE.md`. That is one decision stated four times, not four pieces of evidence.
+  *Here:* the choice to derive compatibility from the `numbers` tower propagated into `graph.py`, into
+  both `architecture.md` and `CLAUDE.md`, and into the shape of the tests. Everything corroborates
+  everything else — and the pair it gets wrong, `int → bool`, appears in none of them. `architecture.md`
+  and `CLAUDE.md` state only `bool → int`; the sole `bool` case in a compatibility test is the opposite
+  direction. Coherence is what let finding 1 through, not what would have caught it.
 - **Accidental vs essential complexity** (p.68, after Brooks). AI is strong on the mechanical, weak on
   the inherent difficulty of the problem. *Here:* consolidating arity derivation is accidental — skim it,
   the golden files verify it. Deciding what type compatibility *means* is essential — no amount of
@@ -339,10 +342,11 @@ over hundreds of generated mutations — useful for CI trends, wrong instrument 
 - **Generator/reviewer asymmetry, and the review bottleneck** (p.194, p.200). Agents shift human effort
   from writing to vetting, but their PRs arrive complete rather than incrementally, so the reviewer must
   reverse-engineer the reasoning from the code — Osmani's phrase is "archaeological expedition." *Here:*
-  2784 lines plus four markdown files, all at once.
+  +2784 / −387 at the point of review, across two new modules and four markdown files, all at once.
 - **Docstring-vs-code drift is a named, expected failure mode** (p.101): "a function docstring saying one
   thing but the code doing another (if it revised the logic but not the comment)." *Here:* both entries
-  in [Non-blocking doc fixes](#non-blocking-doc-fixes), and finding 3's comment.
+  in [Non-blocking doc fixes](#non-blocking-doc-fixes), finding 3's comment, and finding 5 — a deviation
+  note describing an effect its own code does not have. Four instances in one PR.
 - **Don't merge code you don't understand** (p.78), and its reviewer half (p.165): if the author cannot
   explain a line and reaches for "the AI did it," that is the red flag. *Here:* that is what the one
   question above is for.
