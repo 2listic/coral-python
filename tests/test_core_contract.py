@@ -121,6 +121,15 @@ class TestStageSeparation:
         assert "json" not in modules
         assert "graphlib" not in modules
 
+    def test_executor_does_not_introspect(self):
+        """GIVEN executor.py
+        WHEN its imports are parsed
+        THEN `inspect` is absent — a node's arity comes from the port table, not from a fresh
+        signature at run time."""
+        modules, _ = self._imports("executor")
+
+        assert "inspect" not in modules
+
     def test_executor_never_holds_the_edge_list(self):
         """GIVEN executor.py
         WHEN its source is read

@@ -88,9 +88,9 @@ Validation, all of it before any node runs:
    catches two edges on one port and ports out of range;
 4. the incoming edge count equals the type's input count — catches missing and extra connections;
 5. every `source_output` is valid for the source type's output count (see below);
-6. no cycles;
-7. every edge's source output type is compatible with its target input type (see
-   [Edge type validation](#edge-type-validation)).
+6. every edge's source output type is compatible with its target input type (see
+   [Edge type validation](#edge-type-validation));
+7. no cycles.
 
 Rule for check 4. **Every argument must be connected.** Default values declared in plugin code are
 ignored — a node with a defaulted parameter left unwired is an error, not a request for the default.
@@ -181,7 +181,7 @@ stays. The three `_add_*` functions keep their names and their output; their bod
 
 ## Edge type validation
 
-Stage 3 also check 7: the source's output annotation against the target's input annotation. This is
+Stage 3 also check 6: the source's output annotation against the target's input annotation. This is
 what protects a long run — a mismatch fails at t=0 instead of after the upstream node has executed.
 
 The rule is deliberately narrow. When the answer is not certain, it skips:
@@ -195,6 +195,7 @@ The rule is deliberately narrow. When the answer is not certain, it skips:
 | a class | the same class, or a base of it | accept |
 | `bool` → `int` | | accept — `bool` really is an `int` subclass |
 | `int` → `float` | | accept — numeric widening |
+| anything | `bool` | **reject** — widening never lands on `bool` |
 | a class | an unrelated class | **reject** |
 | a class | a primitive, and the reverse | **reject** |
 | `str` → `float`, `float` → `int`, `none` → `float`, … | | **reject** |
@@ -203,7 +204,8 @@ Two rows were decided during implementation, and are stricter than this table fi
 against an unrelated class, and a class against a primitive, both **reject**: they were the
 mismatches most worth catching, and duck typing across unrelated plugin classes is rare while a
 mis-dragged wire is not. No existing graph is affected — across the six fixtures and the phiflow
-example, all 144 edges are `Any`-involved, exact-match or exact-class match.
+example, all 148 edges are `Any`-involved (37) or an exact type match (111); no edge relies on
+subclassing or numeric widening, and none is rejected.
 
 **The rule names no coral type.** A hand-written table of scalars and their widenings was rejected as
 invented knowledge: `PRIMITIVES_MAP` declares which types exist and nothing in the codebase declares

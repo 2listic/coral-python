@@ -166,6 +166,20 @@ class TestOrdering:
 
         assert build(nodes, {}).order == ["a", "b", "c"]
 
+    def test_ready_nodes_are_sorted_within_each_batch(self):
+        """GIVEN two independent chains whose node ids sort against their dependency order
+        WHEN the graph is ordered
+        THEN each ready batch is emitted sorted, and predecessors still precede successors."""
+        nodes = {
+            "d": {"type": "float", "value": 1.0},
+            "a": {"type": "sqrt"},
+            "b": {"type": "float", "value": 2.0},
+            "c": {"type": "sqrt"},
+        }
+        edges = {"e1": edge("d", "a", 0), "e2": edge("b", "c", 0)}
+
+        assert build(nodes, edges).order == ["b", "d", "a", "c"]
+
 
 class TestCycles:
     """Cycle detection, and what the error says."""
@@ -499,6 +513,29 @@ class TestEdgeTypes:
 
         with pytest.raises(ValueError, match=r"feeds float .* expects int"):
             Graph(nodes, {"e1": edge("a", "b", 0)}, table)
+
+    def test_int_into_bool_is_rejected(self):
+        """GIVEN an int primitive feeding a bool parameter
+        WHEN the graph is built
+        THEN it raises — bool is an int subclass, but widening never lands on bool."""
+        table = dict(
+            PORT_TABLE, toggle=NodePorts(kind=FUNCTION, inputs=[("flag", bool)], outputs=[bool])
+        )
+        nodes = {"a": {"type": "int", "value": 5}, "b": {"type": "toggle"}}
+
+        with pytest.raises(ValueError, match=r"feeds int .* expects bool"):
+            Graph(nodes, {"e1": edge("a", "b", 0)}, table)
+
+    def test_bool_into_bool_is_accepted(self):
+        """GIVEN a bool primitive feeding a bool parameter
+        WHEN the graph is built
+        THEN it is accepted — the bool guard must not refuse an exact match."""
+        table = dict(
+            PORT_TABLE, toggle=NodePorts(kind=FUNCTION, inputs=[("flag", bool)], outputs=[bool])
+        )
+        nodes = {"a": {"type": "bool", "value": True}, "b": {"type": "toggle"}}
+
+        assert Graph(nodes, {"e1": edge("a", "b", 0)}, table).order == ["a", "b"]
 
     def test_any_on_the_source_skips_the_check(self):
         """GIVEN an `any` primitive feeding a float parameter

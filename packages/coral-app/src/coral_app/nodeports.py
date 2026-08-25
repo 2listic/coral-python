@@ -112,8 +112,12 @@ def _constructor_ports(cls: type) -> NodePorts:
 
     ``signature(cls)`` already omits ``self``. It refuses outright on a C extension type
     (``ValueError: no signature found for builtin type``), so those fall back to reading
-    ``__init__`` and dropping ``self`` by name — which is how this was always derived, and keeps a C
-    extension class registering its constructor as documented.
+    ``__init__`` and dropping ``self`` by name — which is how this was always derived.
+
+    That fallback keeps a C extension class from raising here, but its entry is a placeholder rather
+    than a usable constructor: the class defines no ``__init__`` of its own, so this reads
+    ``object``'s and records two ``Any`` inputs named ``args``/``kwargs``. A pure-Python wrapper
+    class is the way to expose such a type properly.
     """
     try:
         params = list(inspect.signature(cls).parameters.items())

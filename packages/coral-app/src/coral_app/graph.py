@@ -66,6 +66,9 @@ def _is_compatible(source_annotation, target_annotation) -> bool:
     - class to class, which covers every primitive and every plugin type: accepted when the source
       is the target or a subclass of it (this is also what makes ``bool`` feed ``int``), or when it
       widens to it numerically. Rejected otherwise.
+    - ``bool`` as the *target* is the one exception the tower needs: ``bool`` is an ``int`` subclass,
+      so it shares ``int``'s rank, and without a guard any Integral would be accepted where a
+      ``bool`` is expected. Widening never lands on ``bool``.
     """
     if source_annotation is Any or target_annotation is Any:
         return True
@@ -75,6 +78,11 @@ def _is_compatible(source_annotation, target_annotation) -> bool:
 
     if issubclass(source_annotation, target_annotation):
         return True
+
+    # `bool` is an `int` subclass, so the tower ranks it alongside `int` — without this, any
+    # Integral would be accepted where a `bool` is expected. Widening never lands on `bool`.
+    if target_annotation is bool:
+        return False
 
     source_rank = _numeric_rank(source_annotation)
     target_rank = _numeric_rank(target_annotation)
@@ -155,7 +163,8 @@ class Graph:
 
     def ports_of(self, node_id: str) -> NodePorts:
         """The port-table entry describing one node's type."""
-        return self.port_table[self.nodes[node_id]["type"]]
+        node_type = self.node(node_id)["type"]
+        return self.port_table[node_type]
 
     def inputs_of(self, node_id: str) -> List[Edge]:
         """The node's incoming edges, sorted by ``target_input`` — i.e. in parameter order."""
@@ -261,7 +270,10 @@ class Graph:
         """
         for edge in self.edges:
             source_annotation = self._output_annotation(edge)
-            target_name, target_annotation = self.ports_of(edge.target).inputs[edge.target_input]
+            ports = self.ports_of(edge.target)
+            # `target_input` is a safe index here: checks 3 and 4 established that this node's
+            # incoming edges occupy exactly ports 0..n-1 for its type's n inputs.
+            target_name, target_annotation = ports.inputs[edge.target_input]
 
             if not _is_compatible(source_annotation, target_annotation):
                 raise ValueError(

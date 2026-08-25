@@ -92,6 +92,9 @@ class _CleanEnv:
                 str(self.python),
                 "--find-links",
                 str(self.dist),
+                # Our wheels keep the same name and version across rebuilds, so uv's cache can
+                # serve an older build of them; refresh just those, leaving the heavy deps cached.
+                *[arg for package in packages for arg in ("--refresh-package", package)],
                 *packages,
             ]
         )
