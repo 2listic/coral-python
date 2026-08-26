@@ -402,3 +402,50 @@ handles via `issubclass`. Add cases to the existing type-compatibility class, us
   issue #25 added runs plugin-free: `test_builtin_nodes.py` (43), `test_graph.py` (62), and
   `TestCollectionWorkflows` minus its one tagged interop case. The 60s difference is entirely PhiFlow —
   see [`TODO.md`](TODO.md) finding 1.
+
+### 8. Post-review — integer node ids
+
+Not part of the original plan. Added after PR #28 was returned with one blocking finding
+([`pr-28-review.md`](pr-28-review.md)): every node id and edge key in the seven new graph files was a
+word, and the protocol keys nodes by integer, so the platform's exporter wrote every edge endpoint as
+`null` and the graph could not round-trip through the editor — the only consumer the examples exist
+for. Step 6's deviation note ("verified through the real CLI") is exactly where this hid: the CLI is
+the one consumer that treats ids as opaque.
+
+- [x] Renumber all seven files — `examples/collections/{list,set,dict}.json` and the four
+      `network-collections-*.json` fixtures. Nodes get `0…n-1` and edges `0…m-1` in declaration order,
+      so each file still reads top to bottom (primitives, then operations). The three examples stay
+      byte-identical to their fixtures.
+- [x] Write edge endpoints as JSON **numbers** (`"source": 5`), not strings. All ten pre-existing
+      graphs do, and the renumbered files were the only ones that did not; `graph.py::_read_edges`
+      coerces with `str()` either way, so this is about matching the shape the editor writes.
+- [x] `tests/test_integration.py` — the five `TestCollectionWorkflows` assertions now read through a
+      `LIST_NODES` / `SET_NODES` / `DICT_NODES` / `MATH_NODES` name→id map. The ids carry no meaning
+      any more, so the names had to go somewhere a reader can look them up; the JSON has no field for
+      them (an editor-exported node holds only `type`, `value` and `position`).
+- [x] `tests/test_graph_ids.py` (new) — every graph discovered under `examples/` and `tests/fixtures/`
+      is checked for integer node ids, integer edge keys, and integer endpoints naming a declared node.
+      14 graphs × 3 checks + a non-vacuity test = 43 cases.
+- [x] `CLAUDE.md` — a Key Constraints bullet stating the rule, the three platform mechanisms that rest
+      on it, and why it is enforced on files rather than in the loader.
+
+**Decisions taken.**
+
+- **Enforce on files, not in `graph.py`.** Three options were weighed: renumber only; renumber plus a
+  guard test; renumber plus validation in `Graph`. The third was rejected because `test_graph.py` (808
+  lines) builds its graphs with ids `"a"`, `"b"`, `"c"` throughout — rewriting it would be the bulk of
+  the change, for a rule whose whole purpose is protecting *files handed to the platform*. `graph.py`
+  keeps treating ids as opaque, deliberately, and its `_read_edges` docstring already said so.
+- **Edge keys are in scope too.** The review named node ids; edge keys (`e1`…`e11`) had the same
+  divergence, and the ten pre-existing graphs are unanimous the other way. Fixing half of one class of
+  divergence was not worth the smaller readability loss — an edge name carries nothing.
+- **No `"name"` field on nodes.** It would have tied each fixture's names to its file and let the guard
+  check the map, but it invents a key the editor would drop on re-export — the same kind of divergence
+  this whole step exists to remove. Consequence accepted: renumbering a fixture without updating its
+  map in `test_integration.py` moves the assertions to the wrong nodes, and nothing catches it. Both
+  are maintained by hand, together.
+
+**Still unverified.** The renumbered graphs have **not** been opened in the editor. The platform repo
+is not available here, so the CLI is all that could be run (320 tests pass; all three examples execute).
+The review's own reproduction — repairing the endpoints on the platform's exported file and running it
+unchanged — is the evidence that these graphs round-trip; confirming it in the app is still owed.

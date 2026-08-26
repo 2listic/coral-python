@@ -484,6 +484,17 @@ passes `plugins=[]` — the CLI cannot express it, since an empty `-p` means *al
   node type and graph check 2 rejects it. `TYPE_NAMES` is their union and is what `registry.py` renders
   from. Consequence to know: `"list"` is the first socket type string with no matching `registry[...]`
   key — see [Built-in collection nodes](#built-in-collection-nodes)
+- **Node ids are decimal integers** in any graph the repo ships. The protocol keys nodes by integer:
+  the reference C++ backend reads each key with `std::stoi` into an `unsigned int`, and the platform's
+  exporter `parseInt`s every edge endpoint — a word id becomes `NaN`, which `JSON.stringify` writes as
+  `null`, so the graph comes back with its wiring gone. `graph.py` itself takes the opposite position on
+  purpose: it coerces endpoints with `str()` and treats ids as opaque, which keeps readable ids
+  (`"a"`, `"b"`) available to the in-memory graphs `tests/test_graph.py` builds. The rule is therefore
+  enforced on *files*, not in the loader — `tests/test_graph_ids.py` checks every graph under
+  `examples/` and `tests/fixtures/`, node ids, edge keys and both endpoints of every edge. Leading
+  zeros and negative ids are rejected too (`std::stoi("01")` is `1`, so `"01"` and `"1"` would name one
+  node). Consequence for test data: a fixture's node names live in a `*_NODES` map in
+  `tests/test_integration.py`, not in the JSON, which has no field for them
 - **No cycles**: Workflow graphs must be acyclic (DAG) — `graph.py` raises `ValueError` naming the
   cycle path, using `graphlib.TopologicalSorter` (stdlib, `{node: predecessors}`)
 - **Validate before executing**: every wiring error raises while the `Graph` is being constructed, so

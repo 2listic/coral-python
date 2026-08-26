@@ -318,6 +318,73 @@ class TestDeterministicExecution:
                 assert val1 == val2, f"Node {key} produced different results: {val1} vs {val2}"
 
 
+# Node ids in the four `network-collections-*` fixtures, by the name each node plays in its graph.
+#
+# The graphs key their nodes by decimal integer, as the protocol requires (the editor's exporter
+# `parseInt`s every endpoint and the reference C++ backend `std::stoi`s every key), which leaves the
+# ids carrying no meaning. These maps are where the meaning lives, so an assertion below still reads
+# as a sentence about the graph rather than about node "8". Every node is listed, not only the
+# asserted ones, so the map doubles as the graph's legend.
+#
+# Nothing ties a map to its file: renumber a fixture without updating the map here and the
+# assertions move to the wrong nodes. Both are hand-maintained together, deliberately — the
+# alternative was a `"name"` field the protocol has no room for.
+LIST_NODES = {
+    "one": "0",
+    "two": "1",
+    "three": "2",
+    "index_0": "3",
+    "index_1": "4",
+    "empty": "5",
+    "with_one": "6",
+    "with_two": "7",
+    "with_three": "8",
+    "size": "9",
+    "second": "10",
+    "without_first": "11",
+}
+
+SET_NODES = {
+    "five": "0",
+    "seven": "1",
+    "five_again": "2",
+    "index_0": "3",
+    "empty": "4",
+    "with_five": "5",
+    "with_seven": "6",
+    "with_duplicate": "7",
+    "size": "8",
+    "as_list": "9",
+    "smallest": "10",
+}
+
+DICT_NODES = {
+    "key_alpha": "0",
+    "key_beta": "1",
+    "value_alpha": "2",
+    "value_beta": "3",
+    "empty": "4",
+    "with_alpha": "5",
+    "with_both": "6",
+    "beta_value": "7",
+    "without_alpha": "8",
+    "size": "9",
+}
+
+MATH_NODES = {
+    "three": "0",
+    "four": "1",
+    "index_0": "2",
+    "index_1": "3",
+    "empty": "4",
+    "with_three": "5",
+    "with_both": "6",
+    "first": "7",
+    "second": "8",
+    "total": "9",
+}
+
+
 class TestCollectionWorkflows:
     """End-to-end graphs built from the host's builtin collection nodes.
 
@@ -325,9 +392,11 @@ class TestCollectionWorkflows:
     finished — a collection graph whose answer is wrong is exactly the failure worth catching.
 
     They also pass ``plugins=[]``, which is the point: these node types need no plugin. That
-    contract cannot be expressed through the CLI (an empty ``-p`` resolves to *all* installed
+    contract cannot be expressed through the CLI (an empty ``-p`` means *all* installed
     plugins), so it is asserted here or nowhere. None of them carries a plugin marker; only the
     interop graph, which reaches into ``math``, does.
+
+    Results are keyed by node id, so each assertion goes through the graph's name map above.
     """
 
     @pytest.mark.integration
@@ -337,11 +406,11 @@ class TestCollectionWorkflows:
         THEN the size is 3, index 1 holds 2, and removal drops index 0."""
         results = WorkflowExecutor(str(workflow_files["collections_list"]), plugins=[]).execute()
 
-        assert results["empty"] == []
-        assert results["with_three"] == [1, 2, 3]
-        assert results["size"] == 3
-        assert results["second"] == 2
-        assert results["without_first"] == [2, 3]
+        assert results[LIST_NODES["empty"]] == []
+        assert results[LIST_NODES["with_three"]] == [1, 2, 3]
+        assert results[LIST_NODES["size"]] == 3
+        assert results[LIST_NODES["second"]] == 2
+        assert results[LIST_NODES["without_first"]] == [2, 3]
 
     @pytest.mark.integration
     def test_list_append_leaves_its_input_untouched(self, workflow_files):
@@ -351,11 +420,11 @@ class TestCollectionWorkflows:
         end, not just in the unit tests, which is what lets two consumers read one node."""
         results = WorkflowExecutor(str(workflow_files["collections_list"]), plugins=[]).execute()
 
-        assert results["empty"] == []
-        assert results["with_one"] == [1]
-        assert results["with_two"] == [1, 2]
+        assert results[LIST_NODES["empty"]] == []
+        assert results[LIST_NODES["with_one"]] == [1]
+        assert results[LIST_NODES["with_two"]] == [1, 2]
         # `with_three` was fed to list_size, list_get *and* list_remove_at; none of them touched it.
-        assert results["with_three"] == [1, 2, 3]
+        assert results[LIST_NODES["with_three"]] == [1, 2, 3]
 
     @pytest.mark.integration
     def test_dict_workflow_values(self, workflow_files):
@@ -364,10 +433,10 @@ class TestCollectionWorkflows:
         THEN the read returns its value, the delete leaves one entry, and the source dict is intact."""
         results = WorkflowExecutor(str(workflow_files["collections_dict"]), plugins=[]).execute()
 
-        assert results["with_both"] == {"alpha": 1.5, "beta": 2.5}
-        assert results["beta_value"] == 2.5
-        assert results["without_alpha"] == {"beta": 2.5}
-        assert results["size"] == 1
+        assert results[DICT_NODES["with_both"]] == {"alpha": 1.5, "beta": 2.5}
+        assert results[DICT_NODES["beta_value"]] == 2.5
+        assert results[DICT_NODES["without_alpha"]] == {"beta": 2.5}
+        assert results[DICT_NODES["size"]] == 1
 
     @pytest.mark.integration
     def test_set_workflow_deduplicates(self, workflow_files):
@@ -377,10 +446,10 @@ class TestCollectionWorkflows:
         set_to_list yields a sorted list the next node can index."""
         results = WorkflowExecutor(str(workflow_files["collections_set"]), plugins=[]).execute()
 
-        assert results["with_duplicate"] == {5, 7}
-        assert results["size"] == 2
-        assert results["as_list"] == [5, 7]
-        assert results["smallest"] == 5
+        assert results[SET_NODES["with_duplicate"]] == {5, 7}
+        assert results[SET_NODES["size"]] == 2
+        assert results[SET_NODES["as_list"]] == [5, 7]
+        assert results[SET_NODES["smallest"]] == 5
 
     @pytest.mark.math
     @pytest.mark.integration
@@ -396,5 +465,5 @@ class TestCollectionWorkflows:
             str(workflow_files["collections_math"]), plugins=["math"]
         ).execute()
 
-        assert results["with_both"] == [3.0, 4.0]
-        assert results["total"] == 7.0
+        assert results[MATH_NODES["with_both"]] == [3.0, 4.0]
+        assert results[MATH_NODES["total"]] == 7.0
