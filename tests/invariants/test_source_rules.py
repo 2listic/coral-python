@@ -247,6 +247,15 @@ class TestStageSeparation:
         assert not [name for name in modules if name.startswith("coral_plugin")]
         assert not symbols & {"discover", "load", "build_function_map", "build_class_map"}
 
+    def test_executor_does_not_introspect(self):
+        """GIVEN executor.py
+        WHEN its imports are parsed
+        THEN `inspect` is absent — a node's arity comes from the port table, not from a fresh
+        signature at run time."""
+        modules, _ = self._imports("executor")
+
+        assert "inspect" not in modules
+
     def test_executor_does_not_read_or_order_the_graph(self):
         """GIVEN executor.py
         WHEN its imports are parsed

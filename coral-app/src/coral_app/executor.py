@@ -1,4 +1,3 @@
-import inspect
 from typing import Any, List, Optional
 
 from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
@@ -61,10 +60,9 @@ class WorkflowExecutor:
             values = self._input_values(node_id)
             target, arguments = self._resolve(node_id, node["type"], kind, values)
 
-            # Inputs arrive in port order, which is parameter order, so binding is a zip. The
-            # signature is the callable's own: `self` is already gone from a bound method.
-            parameters = list(inspect.signature(target).parameters)
-            self.results[node_id] = target(**dict(zip(parameters, arguments)))
+            # Inputs arrive in port order, which is parameter order, so a positional call binds
+            # them correctly — no need to look at the callable's signature.
+            self.results[node_id] = target(*arguments)
 
             if kind == CONSTRUCTOR:
                 print(f"{node_id} (constructor {node['type']}) = {self.results[node_id]}")
