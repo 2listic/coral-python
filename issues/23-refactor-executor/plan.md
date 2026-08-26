@@ -76,8 +76,15 @@ literals in `tests/*.py` pass the 7 validations, as does
   `registry.py` never asks for primitive entries — it emits those from its own loop.
 - `signature(cls)` needs a **fallback**. It raises `ValueError: no signature found for builtin type`
   on a C extension class, where the old `signature(cls.__init__)` did not. Both agree for all seven
-  installed classes, but a bare `signature(cls)` would have regressed the documented "C extension
-  classes register a constructor, not methods" behaviour, so it falls back to `__init__` minus `self`.
+  installed classes; the fallback to `__init__` minus `self` is what keeps `build_port_table` from
+  raising on a C extension class, exactly as the old code did. What it produces, though, is not a
+  usable constructor: such a class defines no `__init__` of its own, so this reads `object`'s —
+  `(self, /, *args, **kwargs)` — and the entry records two `Any` inputs named `args`/`kwargs`. Graph
+  check 4 then demands two incoming edges for it, and the call fails on the callable's own arguments
+  (`datetime(2020, 1)` → `TypeError: function missing required argument 'day'`). So of the documented
+  "C extension classes register a constructor, not methods", the *not methods* half holds exactly and
+  the constructor is a placeholder. Preserved behaviour, not new behaviour: the old
+  `signature(cls.__init__)` produced the same entry.
 - A **missing annotation is normalised to `Any`**. Every consumer already treats "annotated `Any`" and
   "not annotated" alike — the registry writes `"any"` for both, the edge check skips both — and
   collapsing them here is what spares `graph.py` from importing `inspect` to recognise
@@ -163,7 +170,7 @@ Mechanical. The golden files are the proof.
    class, or a base of it: accept" and then "anything else: skip", leaving class → unrelated class and
    class ↔ primitive undecided. Both reject: `PhiFlowBox → PhiFlowSphere`, `Calculator → float` and
    `none → float` are errors. No existing graph is affected — across the six fixtures and the phiflow
-   example, all 144 edges are `Any`-involved, exact-match or exact-class match.
+   example, all 148 edges are `Any`-involved (37) or an exact type match (111).
 2. **`graph.py` names no coral type.** A hand-written scalar/widening table was rejected as invented
    knowledge: `PRIMITIVES_MAP` declares which types exist and nothing declares how they relate, so
    such a table would be a third, drifting source of truth. Everything decidable comes from

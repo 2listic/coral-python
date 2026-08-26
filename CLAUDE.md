@@ -388,6 +388,7 @@ certain, because wrongly refusing a good graph is worse than not checking one.
 | a class | the same class, or a base of it | accept |
 | `bool` | `int` | accept — `bool` really is an `int` subclass |
 | `int` | `float` | accept — numeric widening |
+| anything | `bool` | **reject** — widening never lands on `bool`; only `bool` itself is accepted |
 | a class | an unrelated class, or a scalar | **reject** |
 | `str` -> `float`, `float` -> `int`, `none` -> `float`, … | | **reject** |
 | a union, a generic alias | | skip — `issubclass` cannot judge it |
@@ -503,7 +504,7 @@ passes `plugins=[]` — the CLI cannot express it, since an empty `-p` means *al
   - Classes: Class name becomes the `type` field for constructors (e.g., `"Calculator"`)
   - Plugin entry-point names (`math` / `string` / `phiflow`) are the platform-facing identity — do not change them.
 - **Type hint requirement**: All functions/methods must have type hints for proper registry generation
-- **C extension limitation**: C extension classes (like `datetime`) only register constructors, not methods (due to `inspect.isfunction()` behavior)
+- **C extension limitation**: C extension classes (like `datetime`) only register constructors, not methods (due to `inspect.isfunction()` behavior) — and the constructor is a placeholder, `object.__init__`'s `*args`/`**kwargs` as two `any` ports, not the type's real arguments
 
 ## Adding a New Plugin
 
@@ -583,7 +584,10 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
 
 **Limitations:**
 - C extension classes (like `datetime`) only register constructors, not methods (due to `inspect.isfunction()`
-  returning False for C extension methods). For full method support, create a pure-Python wrapper class.
+  returning False for C extension methods). The constructor is a placeholder too: such a class defines no
+  `__init__` of its own, so the port table reads `object`'s — `(self, /, *args, **kwargs)` — and emits two
+  `"any"` sockets named `args`/`kwargs`, which no graph can wire usefully. For a real constructor and full
+  method support, create a pure-Python wrapper class.
 
 ### Type Hint Requirements
 
