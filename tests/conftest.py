@@ -100,10 +100,20 @@ def simple_workflow_dict() -> Dict[str, Any]:
 
 @pytest.fixture
 def circular_workflow_dict() -> Dict[str, Any]:
-    """Return a workflow with circular dependency for testing cycle detection."""
+    """Return a workflow whose *only* defect is a circular dependency.
+
+    ``add`` and ``multiply`` both take two arguments, so each cyclic node also gets a primitive on
+    port 1. Without those, the fixture is invalid twice over (arity *and* cycle) and the arity check
+    — which runs first — would mask the cycle this fixture exists to exercise.
+    """
     return {
         "workflow": {
-            "nodes": {"node1": {"type": "add"}, "node2": {"type": "multiply"}},
+            "nodes": {
+                "node1": {"type": "add"},
+                "node2": {"type": "multiply"},
+                "p1": {"type": "float", "value": 1.0},
+                "p2": {"type": "float", "value": 2.0},
+            },
             "edges": {
                 "edge1": {
                     "source": "node1",
@@ -116,6 +126,18 @@ def circular_workflow_dict() -> Dict[str, Any]:
                     "target": "node1",
                     "source_output": 0,
                     "target_input": 0,
+                },
+                "edge3": {
+                    "source": "p1",
+                    "target": "node1",
+                    "source_output": 0,
+                    "target_input": 1,
+                },
+                "edge4": {
+                    "source": "p2",
+                    "target": "node2",
+                    "source_output": 0,
+                    "target_input": 1,
                 },
             },
         }

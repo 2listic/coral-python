@@ -11,10 +11,14 @@ class TestWorkflowExecutorInitialization:
 
     @pytest.mark.math
     def test_executor_with_file_path(self, workflow_files):
-        """Test executor initialization with file path."""
+        """Test executor initialization with file path.
+
+        The nodes and edges now live on the validated graph the executor holds, not on the executor
+        itself.
+        """
         executor = WorkflowExecutor(str(workflow_files["math"]), plugins=["math"])
-        assert executor.nodes is not None
-        assert executor.edges is not None
+        assert executor.graph.nodes
+        assert executor.graph.edges
 
     @pytest.mark.math
     @pytest.mark.string
@@ -252,7 +256,7 @@ class TestTopologicalSorting:
         }
         file_path = temp_workflow_file(workflow)
         executor = WorkflowExecutor(str(file_path), plugins=["math"])
-        execution_order = executor.get_execution_order()
+        execution_order = executor.graph.order
 
         # n3 should come after n1 and n2
         n1_idx = execution_order.index("n1")
@@ -262,13 +266,121 @@ class TestTopologicalSorting:
         assert n1_idx < n3_idx
         assert n2_idx < n3_idx
 
-    def test_cycle_detection(self, circular_workflow_dict, temp_workflow_file):
-        """Test that circular dependencies are detected."""
-        file_path = temp_workflow_file(circular_workflow_dict)
+    def test_parallel_edges_to_one_node(self, temp_workflow_file):
+        """GIVEN one primitive wired into both ports of a single `add` node
+        WHEN the execution order is computed
+        THEN both nodes appear exactly once, the primitive first."""
+        workflow = {
+            "workflow": {
+                "nodes": {
+                    "n1": {"type": "float", "value": 4.0},
+                    "n2": {"type": "add"},
+                },
+                "edges": {
+                    "e1": {"source": "n1", "target": "n2", "source_output": 0, "target_input": 0},
+                    "e2": {"source": "n1", "target": "n2", "source_output": 0, "target_input": 1},
+                },
+            }
+        }
+        file_path = temp_workflow_file(workflow)
+        executor = WorkflowExecutor(str(file_path), plugins=["math"])
+        order = executor.graph.order
+
+        assert order.count("n1") == 1
+        assert order.count("n2") == 1
+        assert order.index("n1") < order.index("n2")
+
+    def test_diamond(self, temp_workflow_file):
+        """GIVEN a diamond — one source feeding two branches that rejoin at one sink
+        WHEN the execution order is computed
+        THEN every node appears once, after all of its predecessors."""
+        workflow = {
+            "workflow": {
+                "nodes": {
+                    "src": {"type": "float", "value": 9.0},
+                    "left": {"type": "math.sqrt"},
+                    "right": {"type": "math.sin"},
+                    "sink": {"type": "add"},
+                },
+                "edges": {
+                    "e1": {
+                        "source": "src",
+                        "target": "left",
+                        "source_output": 0,
+                        "target_input": 0,
+                    },
+                    "e2": {
+                        "source": "src",
+                        "target": "right",
+                        "source_output": 0,
+                        "target_input": 0,
+                    },
+                    "e3": {
+                        "source": "left",
+                        "target": "sink",
+                        "source_output": 0,
+                        "target_input": 0,
+                    },
+                    "e4": {
+                        "source": "right",
+                        "target": "sink",
+                        "source_output": 0,
+                        "target_input": 1,
+                    },
+                },
+            }
+        }
+        file_path = temp_workflow_file(workflow)
+        executor = WorkflowExecutor(str(file_path), plugins=["math"])
+        order = executor.graph.order
+
+        assert sorted(order) == ["left", "right", "sink", "src"]
+        assert order.index("src") < order.index("left") < order.index("sink")
+        assert order.index("src") < order.index("right") < order.index("sink")
+
+    def test_isolated_node(self, temp_workflow_file):
+        """GIVEN a graph holding a connected pair plus a node with no edges at all
+        WHEN the execution order is computed
+        THEN the isolated node is still scheduled, alongside the connected ones."""
+        workflow = {
+            "workflow": {
+                "nodes": {
+                    "n1": {"type": "float", "value": 16.0},
+                    "n2": {"type": "math.sqrt"},
+                    "lonely": {"type": "str", "value": "unconnected"},
+                },
+                "edges": {
+                    "e1": {"source": "n1", "target": "n2", "source_output": 0, "target_input": 0},
+                },
+            }
+        }
+        file_path = temp_workflow_file(workflow)
+        executor = WorkflowExecutor(str(file_path), plugins=["math"])
+        order = executor.graph.order
+
+        assert sorted(order) == ["lonely", "n1", "n2"]
+        assert order.index("n1") < order.index("n2")
+
+    def test_empty_graph(self, temp_workflow_file):
+        """GIVEN a workflow with no nodes and no edges
+        WHEN the execution order is computed
+        THEN it is empty, and no error is raised."""
+        workflow = {"workflow": {"nodes": {}, "edges": {}}}
+        file_path = temp_workflow_file(workflow)
         executor = WorkflowExecutor(str(file_path), plugins=["math"])
 
+        assert executor.graph.order == []
+
+    def test_cycle_detection(self, circular_workflow_dict, temp_workflow_file):
+        """Test that circular dependencies are detected.
+
+        Validation now happens while the executor is constructed, so the cycle is caught before any
+        node runs rather than on a later call.
+        """
+        file_path = temp_workflow_file(circular_workflow_dict)
+
         with pytest.raises(ValueError, match="Cycle detected"):
-            executor.get_execution_order()
+            WorkflowExecutor(str(file_path), plugins=["math"])
 
 
 class TestEdgeOrdering:
