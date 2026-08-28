@@ -49,7 +49,8 @@ class WorkflowExecutor:
 
         for node_id in self.graph.order:
             node = self.graph.node(node_id)
-            kind = self.graph.ports_of(node_id).kind
+            ports = self.graph.ports_of(node_id)
+            kind = ports.kind
 
             if kind == PRIMITIVE:
                 self.results[node_id] = self._convert(node)
@@ -62,7 +63,9 @@ class WorkflowExecutor:
 
             # Inputs arrive in port order, which is parameter order, so a positional call binds
             # them correctly — no need to look at the callable's signature.
-            self.results[node_id] = target(*arguments)
+            result = target(*arguments)
+            self._check_output_arity(node_id, node["type"], ports, result)
+            self.results[node_id] = result
 
             if kind == CONSTRUCTOR:
                 print(f"{node_id} (constructor {node['type']}) = {self.results[node_id]}")
@@ -70,6 +73,44 @@ class WorkflowExecutor:
 
         print("All nodes executed successfully!")
         return self.results
+
+    @staticmethod
+    def _check_output_arity(node_id: str, node_type: str, ports, result) -> None:
+        """A node declaring more than one output must return a tuple of exactly that many.
+
+        The port table's output arity comes from a return annotation, which is a *claim* by the
+        function's author. Everything downstream trusts it: the registry emits that many sockets,
+        graph checks 5 and 6 bound and type an edge by it, and :meth:`_input_values` indexes with
+        it. This is the one place the claim meets what the function actually returned.
+
+        Confronting them here — at the node that made the claim, right after the call — rather than
+        at a consumer's edge is deliberate: it fires whether or not the offending port is wired, so
+        an under-declared node cannot slip through by nobody reading its last output, and the error
+        names the function whose annotation is wrong rather than the graph that believed it.
+
+        Only ``n > 1`` is checkable. At ``n == 1`` a returned tuple is legitimate — that is exactly
+        the ``-> tuple`` case issue #31 turns on — so there is nothing to compare. At ``n == 0`` the
+        value is unreachable anyway: graph check 5 rejects every outgoing edge of a node with no
+        outputs.
+
+        Raises:
+            ValueError: if the result is not a tuple, or is a tuple of the wrong length.
+        """
+        expected = len(ports.outputs)
+        if expected <= 1:
+            return
+
+        if not isinstance(result, tuple):
+            raise ValueError(
+                f"Node {node_id} ({node_type}) declares {expected} outputs but returned "
+                f"{type(result).__name__}"
+            )
+
+        if len(result) != expected:
+            raise ValueError(
+                f"Node {node_id} ({node_type}) declares {expected} outputs but returned "
+                f"a tuple of {len(result)}"
+            )
 
     def _convert(self, node: dict):
         """A primitive node's value, cast to the type the node declares.
@@ -88,8 +129,19 @@ class WorkflowExecutor:
         """The values feeding a node, in port order.
 
         The graph hands over the incoming edges already sorted by ``target_input``; each is read
-        from the results of the node it comes from, unwrapping the requested element of a tuple
-        return.
+        from the results of the node it comes from.
+
+        Whether that result is a *bundle* of outputs to index into is decided by the **port table**,
+        never by the value. How many outputs a node has is a static fact, settled in stage 2 from
+        the return annotation; a runtime ``isinstance(value, tuple)`` cannot tell "three outputs,
+        bundled" from "one output that happens to be a tuple", and answering it that way was
+        issue #31. ``graph.py:_output_annotation`` asks the same question the same way.
+
+        So a single-output node passes its value on whole whatever ``source_output`` says — the
+        three spellings graph check 5 accepts for "the only output" (``0``, ``-1``, and the key
+        omitted) therefore deliver one and the same value. A multi-output node always indexes, and
+        the index is in range because check 5 bounded it by the declared output count and
+        :meth:`_check_output_arity` confronted that count with what the node actually returned.
         """
         values = []
         for edge in self.graph.inputs_of(node_id):
@@ -97,9 +149,8 @@ class WorkflowExecutor:
                 raise ValueError(f"Node {edge.source} hasn't been executed yet!")
             value = self.results[edge.source]
 
-            if edge.source_output is not None:
-                if isinstance(value, tuple) and edge.source_output < len(value):
-                    value = value[edge.source_output]
+            if len(self.graph.ports_of(edge.source).outputs) > 1:
+                value = value[edge.source_output]
 
             values.append(value)
         return values

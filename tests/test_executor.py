@@ -2,6 +2,8 @@
 Tests for the WorkflowExecutor core functionality - corrected workflow format.
 """
 
+from typing import Any, Tuple
+
 import pytest
 from coral_app.executor import WorkflowExecutor
 
@@ -410,3 +412,182 @@ class TestEdgeOrdering:
 
         assert "n3" in results
         assert results["n3"] == 8.0  # 2^3 = 8, not 3^2 = 9
+
+
+def pair() -> tuple:
+    """One output port, whose value happens to be a tuple."""
+    return (10, 20)
+
+
+def triple() -> Tuple[Any, Any, Any]:
+    """Three output ports, bundled into one returned tuple."""
+    return (10, 20, 30)
+
+
+def sink(x: Any) -> Any:
+    """Records whatever arrives on its single input port."""
+    return x
+
+
+def short_triple() -> Tuple[Any, Any, Any]:
+    """Declares three outputs but returns only two — an over-declaring annotation."""
+    return (10, 20)
+
+
+def long_pair() -> Tuple[Any, Any]:
+    """Declares two outputs but returns three — an under-declaring annotation."""
+    return (10, 20, 30)
+
+
+def not_a_tuple() -> Tuple[Any, Any]:
+    """Declares two outputs but returns something that is not a bundle at all."""
+    return 10
+
+
+@pytest.fixture
+def executor_over(temp_workflow_file, monkeypatch):
+    """Build a real ``WorkflowExecutor`` over an ad-hoc function map.
+
+    The node types these tests need are deliberately not in any plugin, so the map is injected by
+    monkeypatching the executor's own ``build_function_map``. Everything else is production code:
+    ``__init__`` still builds the port table and constructs (hence validates) the ``Graph``, which
+    matters because that is the path issue #31's fixes fail in.
+    """
+
+    def _build(function_map, nodes, edges):
+        monkeypatch.setattr(
+            "coral_app.executor.build_function_map", lambda **kwargs: dict(function_map)
+        )
+        workflow = {"workflow": {"nodes": nodes, "edges": edges}}
+        return WorkflowExecutor(str(temp_workflow_file(workflow)), plugins=[])
+
+    return _build
+
+
+class TestOutputPortResolution:
+    """Which value an edge carries is decided by the port table, not by the value (issue #31)."""
+
+    FUNCTIONS = {"pair": pair, "triple": triple, "sink": sink}
+
+    def _received(self, executor_over, source, **edge_extras):
+        """What ``sink`` is handed, over a graph the ``Graph`` accepted as valid."""
+        executor = executor_over(
+            self.FUNCTIONS,
+            {"n1": {"type": source}, "n2": {"type": "sink"}},
+            {"e1": {"source": "n1", "target": "n2", "target_input": 0, **edge_extras}},
+        )
+        return executor.execute()["n2"]
+
+    @pytest.mark.parametrize(
+        "edge_extras",
+        [{}, {"source_output": 0}, {"source_output": -1}],
+        ids=["omitted", "0", "-1"],
+    )
+    def test_the_three_spellings_of_the_only_output_agree(self, executor_over, edge_extras):
+        """GIVEN a single-output node whose value is a tuple, read by an edge spelling "the only
+        output" as an omitted key, as ``0``, and as ``-1``
+        WHEN the workflow runs
+        THEN all three deliver the whole tuple.
+
+        Graph check 5 documents the three as synonyms; before the fix they produced ``(10, 20)``,
+        ``10`` and ``20`` respectively, because the executor indexed on ``isinstance(value, tuple)``
+        instead of asking the port table."""
+        assert self._received(executor_over, "pair", **edge_extras) == (10, 20)
+
+    @pytest.mark.parametrize("port, expected", [(0, 10), (1, 20), (2, 30)])
+    def test_a_multi_output_node_is_still_indexed(self, executor_over, port, expected):
+        """GIVEN a node declaring three outputs and returning a tuple of three
+        WHEN each port is read in turn
+        THEN each edge carries its own element — the bundle is still unpacked."""
+        assert self._received(executor_over, "triple", source_output=port) == expected
+
+
+class TestOutputArity:
+    """A node's declared output count is confronted with what it returned (issue #31)."""
+
+    FUNCTIONS = {
+        "short_triple": short_triple,
+        "long_pair": long_pair,
+        "not_a_tuple": not_a_tuple,
+        "sink": sink,
+    }
+
+    def _run(self, executor_over, source, edges):
+        executor = executor_over(
+            self.FUNCTIONS,
+            {"n1": {"type": source}, "n2": {"type": "sink"}},
+            edges,
+        )
+        return executor.execute()
+
+    def _wire(self, port):
+        return {"e1": {"source": "n1", "target": "n2", "source_output": port, "target_input": 0}}
+
+    @pytest.mark.parametrize("port", [0, 1, 2], ids=["port-0", "port-1", "port-2"])
+    def test_a_short_tuple_raises_whichever_port_is_read(self, executor_over, port):
+        """GIVEN a node declaring three outputs that returns a tuple of two
+        WHEN the workflow runs
+        THEN it raises ValueError at the producing node, no matter which port the consumer reads.
+
+        Before the fix, reading port 2 fell past the ``< len(value)`` bound and delivered the whole
+        ``(10, 20)`` bundle silently; ports 0 and 1 gave the right answer and hid the mismatch."""
+        with pytest.raises(ValueError, match="declares 3 outputs but returned a tuple of 2"):
+            self._run(executor_over, "short_triple", self._wire(port))
+
+    def test_a_short_tuple_raises_even_with_no_consumer(self, executor_over):
+        """GIVEN the same node with none of its outputs wired to anything
+        WHEN the workflow runs
+        THEN it still raises — the check sits at the producer, so a mismatch cannot hide behind an
+        unread port."""
+        executor = executor_over(self.FUNCTIONS, {"n1": {"type": "short_triple"}}, {})
+
+        with pytest.raises(ValueError, match="declares 3 outputs but returned a tuple of 2"):
+            executor.execute()
+
+    def test_a_long_tuple_raises(self, executor_over):
+        """GIVEN a node declaring two outputs that returns a tuple of three
+        WHEN the workflow runs
+        THEN it raises, rather than silently dropping the undeclared element."""
+        with pytest.raises(ValueError, match="declares 2 outputs but returned a tuple of 3"):
+            self._run(executor_over, "long_pair", self._wire(0))
+
+    def test_a_non_tuple_result_raises_naming_its_type(self, executor_over):
+        """GIVEN a node declaring two outputs that returns a bare int
+        WHEN the workflow runs
+        THEN it raises, naming what came back instead of a bundle."""
+        with pytest.raises(ValueError, match="declares 2 outputs but returned int"):
+            self._run(executor_over, "not_a_tuple", self._wire(0))
+
+    def test_the_message_names_the_node_and_its_type(self, executor_over):
+        """GIVEN any such mismatch
+        WHEN it is reported
+        THEN the message carries the node id and the node type, so the offending annotation can be
+        found from the error alone."""
+        with pytest.raises(ValueError, match=r"Node n1 \(short_triple\)"):
+            self._run(executor_over, "short_triple", self._wire(0))
+
+    def test_a_matching_multi_output_node_is_untouched(self, executor_over):
+        """GIVEN a node whose returned tuple matches its declared three outputs
+        WHEN the workflow runs
+        THEN nothing is raised and the ports carry their elements — the check is a guard, not a
+        new restriction on well-annotated nodes."""
+        executor = executor_over(
+            {"triple": triple, "sink": sink},
+            {"n1": {"type": "triple"}, "n2": {"type": "sink"}},
+            self._wire(1),
+        )
+
+        assert executor.execute()["n2"] == 20
+
+    def test_a_single_output_node_returning_a_tuple_is_not_checked(self, executor_over):
+        """GIVEN a node declaring one output whose value is a tuple
+        WHEN the workflow runs
+        THEN nothing is raised — at n == 1 a returned tuple is legitimate and there is nothing to
+        compare it against."""
+        executor = executor_over(
+            {"pair": pair, "sink": sink},
+            {"n1": {"type": "pair"}, "n2": {"type": "sink"}},
+            {"e1": {"source": "n1", "target": "n2", "source_output": 0, "target_input": 0}},
+        )
+
+        assert executor.execute()["n2"] == (10, 20)
