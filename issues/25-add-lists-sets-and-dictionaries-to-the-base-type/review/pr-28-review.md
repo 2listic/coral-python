@@ -1,7 +1,7 @@
 # Review: PR #28 — collection nodes
 
 Working notes on [PR #28](https://github.com/2listic/coral-python/pull/28), which implements
-[`plan.md`](plan.md) against [`desiderata.md`](desiderata.md) for
+[`plan.md`](../plan.md) against [`desiderata.md`](../desiderata.md) for
 [issue #25](https://github.com/2listic/coral-python/issues/25).
 
 Status: **returned to the author. Review not completed.** One blocking defect was found before the
@@ -25,7 +25,7 @@ PR #28's own contribution: **31 files, +3632 / −125**.
 | goldens | `node_types.all.json` rewritten, 3 per-plugin goldens added |
 | docs | `CLAUDE.md`, `docs/ONBOARDING.md`, 3 files in `issues/25-.../` |
 
-PR #24's own findings are in [`../23-refactor-executor/pr-24-review.md`](../23-refactor-executor/pr-24-review.md)
+PR #24's own findings are in [`../23-refactor-executor/pr-24-review.md`](../../23-refactor-executor/pr-24-review.md)
 and are not repeated.
 
 ## Why this is returned rather than reviewed
@@ -137,7 +137,7 @@ Everything else. Named only so the next pass has a starting list, not as a claim
 - `registry.py`'s changes and the four goldens, which are the largest single diff in the PR.
 - The `PRIMITIVES_MAP` / `COLLECTION_TYPES` split.
 - `test_builtin_nodes.py` (372 lines), `test_examples.py`, and the mutation-testing pass that
-  [`../23-refactor-executor/pr-24-review.md`](../23-refactor-executor/pr-24-review.md) applied to
+  [`../23-refactor-executor/pr-24-review.md`](../../23-refactor-executor/pr-24-review.md) applied to
   PR #24's modules.
 - Documentation accuracy. The PR's docs make counted claims (`120` annotation slots, `86` checkable,
   the per-source table in `CLAUDE.md`); none were checked. Per PR #24's review stance, treat
