@@ -11,6 +11,11 @@ in the old ``definitions`` package, but are now re-backed by discovery: each
 selected plugin is loaded and its ``get_functions()`` / ``get_classes()`` merged
 in selection order (later wins on key collisions, e.g. the ``print_result``
 duplicate shared by math and string).
+
+The host owns two node surfaces of its own, present under every plugin selection
+and with no plugin installed at all: ``PRIMITIVES_MAP`` (the primitive node
+types, in :mod:`coral_app.primitives`) and ``BUILTIN_FUNCTIONS`` (the collection
+operations, in :mod:`coral_app.builtin_nodes`).
 """
 
 from importlib.metadata import entry_points
@@ -18,7 +23,8 @@ from typing import Any, Dict, List, Optional
 
 from coral_core import Plugin
 
-from coral_app.primitives import PRIMITIVES_MAP
+from coral_app.builtin_nodes import BUILTIN_FUNCTIONS
+from coral_app.primitives import COLLECTION_TYPES, PRIMITIVES_MAP, TYPE_NAMES
 
 __all__ = [
     "PLUGIN_GROUP",
@@ -27,6 +33,9 @@ __all__ = [
     "build_function_map",
     "build_class_map",
     "PRIMITIVES_MAP",
+    "COLLECTION_TYPES",
+    "TYPE_NAMES",
+    "BUILTIN_FUNCTIONS",
 ]
 
 #: The entry-point group plugins declare themselves under. Public API; stable.
@@ -74,12 +83,22 @@ def build_function_map(
 ) -> Dict[str, Any]:
     """Build the function map by merging the selected plugins' ``get_functions()``.
 
+    The host's own ``BUILTIN_FUNCTIONS`` are applied **last**, so a builtin name can never be
+    shadowed. Plugin-versus-plugin is still "later wins" — a collision there (``print_result`` in
+    both math and string) is between two peers, neither with a claim to precedence. A builtin is not
+    a peer: it is a guarantee the host makes to every graph, and a plugin silently redefining
+    ``list_append`` would be undebuggable from the graph, which names only the node type. A plugin
+    declaring a builtin's name is therefore ignored, silently; making that fail loud instead would be
+    a separate change.
+
     Args:
         include: Plugin names to load. If ``None``, loads every discovered plugin.
         exclude: Plugin names to drop, applied after ``include``.
 
     Returns:
-        Mapping of function name -> callable, merged in selection order.
+        Mapping of function name -> callable: the selected plugins merged in selection order, then
+        the builtins. The builtins land last, so they also come last in ``node_types.json``, which
+        leaves every plugin-contributed entry at the position it already had.
 
     Raises:
         LookupError: if a selected name is not a discoverable plugin (D4).
@@ -87,6 +106,7 @@ def build_function_map(
     function_map: Dict[str, Any] = {}
     for name in _selected(include, exclude):
         function_map.update(load(name).get_functions())
+    function_map.update(BUILTIN_FUNCTIONS)  # host guarantee: not shadowable
     return function_map
 
 

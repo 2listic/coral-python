@@ -74,6 +74,369 @@
     "node_type": "function",
     "type": "print_result"
   },
+  "list_new": {
+    "arguments": [
+      {
+        "connection_type": "output",
+        "type": "list",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "outputs": [
+      0
+    ],
+    "node_type": "function",
+    "type": "list_new"
+  },
+  "list_append": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "list",
+        "name": "lst"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "item"
+      },
+      {
+        "connection_type": "output",
+        "type": "list",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "list_append"
+  },
+  "list_get": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "list",
+        "name": "lst"
+      },
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "index"
+      },
+      {
+        "connection_type": "output",
+        "type": "any",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "list_get"
+  },
+  "list_size": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "list",
+        "name": "lst"
+      },
+      {
+        "connection_type": "output",
+        "type": "int",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "function",
+    "type": "list_size"
+  },
+  "list_remove_at": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "list",
+        "name": "lst"
+      },
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "index"
+      },
+      {
+        "connection_type": "output",
+        "type": "list",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "list_remove_at"
+  },
+  "set_new": {
+    "arguments": [
+      {
+        "connection_type": "output",
+        "type": "set",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "outputs": [
+      0
+    ],
+    "node_type": "function",
+    "type": "set_new"
+  },
+  "set_add": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "set",
+        "name": "s"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "item"
+      },
+      {
+        "connection_type": "output",
+        "type": "set",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "set_add"
+  },
+  "set_to_list": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "set",
+        "name": "s"
+      },
+      {
+        "connection_type": "output",
+        "type": "list",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "function",
+    "type": "set_to_list"
+  },
+  "set_size": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "set",
+        "name": "s"
+      },
+      {
+        "connection_type": "output",
+        "type": "int",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "function",
+    "type": "set_size"
+  },
+  "set_remove": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "set",
+        "name": "s"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "item"
+      },
+      {
+        "connection_type": "output",
+        "type": "set",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "set_remove"
+  },
+  "dict_new": {
+    "arguments": [
+      {
+        "connection_type": "output",
+        "type": "dict",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "outputs": [
+      0
+    ],
+    "node_type": "function",
+    "type": "dict_new"
+  },
+  "dict_set": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "dict",
+        "name": "d"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "key"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "value"
+      },
+      {
+        "connection_type": "output",
+        "type": "dict",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1,
+      2
+    ],
+    "outputs": [
+      3
+    ],
+    "node_type": "function",
+    "type": "dict_set"
+  },
+  "dict_get": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "dict",
+        "name": "d"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "key"
+      },
+      {
+        "connection_type": "output",
+        "type": "any",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "dict_get"
+  },
+  "dict_size": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "dict",
+        "name": "d"
+      },
+      {
+        "connection_type": "output",
+        "type": "int",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "function",
+    "type": "dict_size"
+  },
+  "dict_delete": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "dict",
+        "name": "d"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "key"
+      },
+      {
+        "connection_type": "output",
+        "type": "dict",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "dict_delete"
+  },
   "StringProcessor": {
     "arguments": [
       {

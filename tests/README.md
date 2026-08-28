@@ -14,15 +14,29 @@ tests/
 ├── test_core_contract.py       # coral-core Plugin ABC + the "no __future__ annotations" guard (D3)
 ├── test_executor.py            # Core WorkflowExecutor tests
 ├── test_registry.py            # Registry generation tests
+├── test_nodeports.py           # Stage 2: the port table derived from callables
+├── test_graph.py               # Stage 3: graph reading, validation and ordering
+├── test_builtin_nodes.py       # The host's own list/set/dict functions (no plugin, no marker)
 ├── test_plugins.py             # Plugin discovery / function+class map building tests
+├── test_plugin_discovery.py    # The discovery/load contract; the zero-plugin host
 ├── test_integration.py         # End-to-end workflow tests
 ├── test_golden_registry.py     # Registry contract pin: math/string/phiflow byte-identical, all by content
 ├── test_characterization.py    # Pins run results + stdout for a math and a string graph
+├── test_examples.py            # Runs every graph shipped under examples/ (phiflow case marked `slow`)
+├── test_acceptance.py          # Wheel/pip acceptance in a clean venv (marked `slow`)
 ├── golden/                     # Recorded node_types.json snapshots (permanent contract guard)
 └── fixtures/
     ├── valid_workflows/        # Valid workflow test files (lean: nodes keyed by id, identified by type)
     └── valid_nodes/            # Registry fixtures (node-type definitions)
 ```
+
+**Host-owned nodes carry no plugin marker.** The primitives and the builtin collection functions
+(`list_*` / `set_*` / `dict_*`) exist with zero plugins installed, so a test asserting their behaviour
+must **not** be tagged `@pytest.mark.math` / `string` / `phiflow` — `conftest.py` auto-skips tagged tests
+when the plugin is absent, which would skip precisely the tests that prove no plugin is needed. This
+applies to all of `test_builtin_nodes.py`, to `TestHostWithoutPlugins` / `TestBuiltinsAreNotShadowable`
+in `test_plugin_discovery.py`, and to `TestCollectionWorkflows` in `test_integration.py` (whose one
+`math` interop case is the sole tagged member).
 
 ## Running Tests
 
@@ -54,6 +68,31 @@ pytest -m phiflow
 # Skip slow tests
 pytest -m "not slow"
 ```
+
+### Run the Shipped Examples
+
+`test_examples.py` executes the graphs under `examples/` — the ones `README.md` and `CLAUDE.md` tell a
+user to type `coral run` against. The phiflow example runs a real simulation (~30s); the three
+collection examples are sub-second, so the expensive case is tagged `slow` and can be dropped.
+
+```bash
+# All four examples, simulation included (~33s)
+pytest tests/test_examples.py
+
+# Only the fast ones — skips the phiflow simulation (~0.1s)
+pytest tests/test_examples.py -m "not slow"
+
+# One example: the parametrisation id is "<directory>/<filename>"
+pytest "tests/test_examples.py::test_example_executes[collections/list.json]"
+```
+
+`-m "not slow"` works repo-wide too (it also drops `test_acceptance.py`), so the in-a-hurry full run
+is `pytest -m "not slow"`.
+
+Cases are **discovered from disk**, so a new file under an already-registered directory is covered
+with no edit here. A new *directory* needs an `EXAMPLE_SPECS` entry naming the plugins its graphs
+require — `test_every_example_directory_is_registered` fails loud until it gets one, because a
+silently uncovered example is the exact hole this module was written to close.
 
 ### Run Specific Test Class or Function
 ```bash

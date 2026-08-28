@@ -2,11 +2,13 @@ import inspect
 import json
 from typing import Any, Dict, List, Optional
 
-from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
+from coral_app import PRIMITIVES_MAP, TYPE_NAMES, build_class_map, build_function_map, discover
 from coral_app.nodeports import NodePorts, build_port_table, methods_of
 
-# Reverse mapping for type-to-string conversion during registry generation
-_REVERSE_PRIMITIVES_MAP = {v: k for k, v in PRIMITIVES_MAP.items()}
+# Python type -> the name the file format uses for it, for the socket types written on every
+# argument. Built from `TYPE_NAMES`, not from `PRIMITIVES_MAP`: the collections are renderable type
+# names without being node types, so more types can appear on a socket than can be a node.
+_TYPE_NAME_OF = {v: k for k, v in TYPE_NAMES.items()}
 
 
 def _create_input_argument(param_name: str, type_annotation) -> Dict:
@@ -172,14 +174,15 @@ def python_type_to_string(py_type) -> str:
 
     # Handle empty/missing annotations
     if py_type is inspect.Signature.empty or py_type is None:
-        return _REVERSE_PRIMITIVES_MAP[Any]
+        return _TYPE_NAME_OF[Any]
 
-    # Handle basic types using PRIMITIVES_MAP
-    if py_type in _REVERSE_PRIMITIVES_MAP:
-        return _REVERSE_PRIMITIVES_MAP[py_type]
+    # Handle the named types: the primitives plus the collections
+    if py_type in _TYPE_NAME_OF:
+        return _TYPE_NAME_OF[py_type]
 
-    # Default fallback for unknown types
-    return _REVERSE_PRIMITIVES_MAP[Any]
+    # Default fallback for unknown types. A parameterised generic such as `List[int]` lands here
+    # too: only the bare `list` is a name the format knows.
+    return _TYPE_NAME_OF[Any]
 
 
 def save_registry_to_file(filename: str = "registry-py.json", plugins: Optional[List[str]] = None):

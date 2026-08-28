@@ -316,3 +316,154 @@ class TestDeterministicExecution:
             val1, val2 = results1[key], results2[key]
             if isinstance(val1, (int, float)):
                 assert val1 == val2, f"Node {key} produced different results: {val1} vs {val2}"
+
+
+# Node ids in the four `network-collections-*` fixtures, by the name each node plays in its graph.
+#
+# The graphs key their nodes by decimal integer, as the protocol requires (the editor's exporter
+# `parseInt`s every endpoint and the reference C++ backend `std::stoi`s every key), which leaves the
+# ids carrying no meaning. These maps are where the meaning lives, so an assertion below still reads
+# as a sentence about the graph rather than about node "8". Every node is listed, not only the
+# asserted ones, so the map doubles as the graph's legend.
+#
+# Nothing ties a map to its file: renumber a fixture without updating the map here and the
+# assertions move to the wrong nodes. Both are hand-maintained together, deliberately — the
+# alternative was a `"name"` field the protocol has no room for.
+LIST_NODES = {
+    "one": "0",
+    "two": "1",
+    "three": "2",
+    "index_0": "3",
+    "index_1": "4",
+    "empty": "5",
+    "with_one": "6",
+    "with_two": "7",
+    "with_three": "8",
+    "size": "9",
+    "second": "10",
+    "without_first": "11",
+}
+
+SET_NODES = {
+    "five": "0",
+    "seven": "1",
+    "five_again": "2",
+    "index_0": "3",
+    "empty": "4",
+    "with_five": "5",
+    "with_seven": "6",
+    "with_duplicate": "7",
+    "size": "8",
+    "as_list": "9",
+    "smallest": "10",
+}
+
+DICT_NODES = {
+    "key_alpha": "0",
+    "key_beta": "1",
+    "value_alpha": "2",
+    "value_beta": "3",
+    "empty": "4",
+    "with_alpha": "5",
+    "with_both": "6",
+    "beta_value": "7",
+    "without_alpha": "8",
+    "size": "9",
+}
+
+MATH_NODES = {
+    "three": "0",
+    "four": "1",
+    "index_0": "2",
+    "index_1": "3",
+    "empty": "4",
+    "with_three": "5",
+    "with_both": "6",
+    "first": "7",
+    "second": "8",
+    "total": "9",
+}
+
+
+class TestCollectionWorkflows:
+    """End-to-end graphs built from the host's builtin collection nodes.
+
+    Unlike every other class here, the first three assert **result values**, not just that execution
+    finished — a collection graph whose answer is wrong is exactly the failure worth catching.
+
+    They also pass ``plugins=[]``, which is the point: these node types need no plugin. That
+    contract cannot be expressed through the CLI (an empty ``-p`` means *all* installed
+    plugins), so it is asserted here or nowhere. None of them carries a plugin marker; only the
+    interop graph, which reaches into ``math``, does.
+
+    Results are keyed by node id, so each assertion goes through the graph's name map above.
+    """
+
+    @pytest.mark.integration
+    def test_list_workflow_values(self, workflow_files):
+        """GIVEN a graph appending 1, 2, 3 to a new list, then measuring and indexing it
+        WHEN it runs with no plugin at all
+        THEN the size is 3, index 1 holds 2, and removal drops index 0."""
+        results = WorkflowExecutor(str(workflow_files["collections_list"]), plugins=[]).execute()
+
+        assert results[LIST_NODES["empty"]] == []
+        assert results[LIST_NODES["with_three"]] == [1, 2, 3]
+        assert results[LIST_NODES["size"]] == 3
+        assert results[LIST_NODES["second"]] == 2
+        assert results[LIST_NODES["without_first"]] == [2, 3]
+
+    @pytest.mark.integration
+    def test_list_append_leaves_its_input_untouched(self, workflow_files):
+        """GIVEN a chain of list_append nodes, each feeding the next
+        WHEN the graph has run
+        THEN every intermediate list is still its own value in ``results`` — purity holding end to
+        end, not just in the unit tests, which is what lets two consumers read one node."""
+        results = WorkflowExecutor(str(workflow_files["collections_list"]), plugins=[]).execute()
+
+        assert results[LIST_NODES["empty"]] == []
+        assert results[LIST_NODES["with_one"]] == [1]
+        assert results[LIST_NODES["with_two"]] == [1, 2]
+        # `with_three` was fed to list_size, list_get *and* list_remove_at; none of them touched it.
+        assert results[LIST_NODES["with_three"]] == [1, 2, 3]
+
+    @pytest.mark.integration
+    def test_dict_workflow_values(self, workflow_files):
+        """GIVEN a graph setting two keys, reading one, then deleting the other
+        WHEN it runs with no plugin at all
+        THEN the read returns its value, the delete leaves one entry, and the source dict is intact."""
+        results = WorkflowExecutor(str(workflow_files["collections_dict"]), plugins=[]).execute()
+
+        assert results[DICT_NODES["with_both"]] == {"alpha": 1.5, "beta": 2.5}
+        assert results[DICT_NODES["beta_value"]] == 2.5
+        assert results[DICT_NODES["without_alpha"]] == {"beta": 2.5}
+        assert results[DICT_NODES["size"]] == 1
+
+    @pytest.mark.integration
+    def test_set_workflow_deduplicates(self, workflow_files):
+        """GIVEN a graph adding 5, 7 and 5 again to a new set
+        WHEN it runs with no plugin at all
+        THEN the size is 2 rather than 3 — deduplication observed through the graph — and
+        set_to_list yields a sorted list the next node can index."""
+        results = WorkflowExecutor(str(workflow_files["collections_set"]), plugins=[]).execute()
+
+        assert results[SET_NODES["with_duplicate"]] == {5, 7}
+        assert results[SET_NODES["size"]] == 2
+        assert results[SET_NODES["as_list"]] == [5, 7]
+        assert results[SET_NODES["smallest"]] == 5
+
+    @pytest.mark.math
+    @pytest.mark.integration
+    def test_collection_feeds_a_plugin_function(self, workflow_files):
+        """GIVEN two floats stored in a list, read back and summed by the math plugin's ``add``
+        WHEN the graph runs with the math plugin
+        THEN the sum is 7.0.
+
+        This is the interop case decision 2 was taken for: because a builtin returns a real ``list``
+        holding real floats, a plugin function consumes them with no conversion node in between.
+        """
+        results = WorkflowExecutor(
+            str(workflow_files["collections_math"]), plugins=["math"]
+        ).execute()
+
+        assert results[MATH_NODES["with_both"]] == [3.0, 4.0]
+        assert results[MATH_NODES["total"]] == 7.0

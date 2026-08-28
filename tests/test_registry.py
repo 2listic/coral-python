@@ -36,11 +36,23 @@ class TestPythonTypeToString:
         """Test None type conversion."""
         assert python_type_to_string(type(None)) == "none"
 
-    # def test_list_type(self):
-    #     """Test list type conversion."""
-    #     from typing import List
-    #     assert python_type_to_string(list) == "list"
-    #     assert python_type_to_string(List[int]) == "list"
+    def test_collection_types(self):
+        """GIVEN the bare collection types, which are socket type names
+        WHEN they are rendered for the file format
+        THEN each gets its own name rather than collapsing to 'any'."""
+        assert python_type_to_string(list) == "list"
+        assert python_type_to_string(set) == "set"
+        assert python_type_to_string(dict) == "dict"
+
+    def test_parameterised_generic_is_any(self):
+        """GIVEN a parameterised generic such as List[int]
+        WHEN it is rendered
+        THEN it is 'any': only the bare `list` is a name the format knows, and the graph's edge
+        check cannot judge a generic alias either, so claiming 'list' here would promise more than
+        is verified."""
+        from typing import List
+
+        assert python_type_to_string(List[int]) == "any"
 
     def test_unknown_type(self):
         """Test unknown type defaults to 'any'."""
@@ -49,6 +61,95 @@ class TestPythonTypeToString:
             pass
 
         assert python_type_to_string(CustomClass) == "any"
+
+
+class TestBuiltinCollectionEntries:
+    """The builtin collection nodes as the platform sees them.
+
+    These need no plugin, so the registry is generated with ``include=[]`` — which is also the
+    contract being asserted: the entries are there with nothing installed.
+    """
+
+    @pytest.fixture
+    def registry(self):
+        """The registry the host emits on its own."""
+        return generate_registry(build_function_map(include=[]), list(PRIMITIVES_MAP.keys()))
+
+    def test_collection_socket_is_typed_not_any(self, registry):
+        """GIVEN list_append, whose first parameter is annotated ``list``
+        WHEN the registry renders it
+        THEN the socket's type is 'list' — this is the payoff of naming the collection types, since
+        before it would have collapsed to 'any'."""
+        assert registry["list_append"]["arguments"][0] == {
+            "connection_type": "input",
+            "type": "list",
+            "name": "lst",
+        }
+
+    def test_every_collection_socket_carries_its_type(self, registry):
+        """GIVEN the three creators, one per collection
+        WHEN their output sockets are read
+        THEN each names its own collection type."""
+        for node_type, type_name in (
+            ("list_new", "list"),
+            ("set_new", "set"),
+            ("dict_new", "dict"),
+        ):
+            outputs = [
+                arg
+                for arg in registry[node_type]["arguments"]
+                if arg["connection_type"] == "output"
+            ]
+            assert [arg["type"] for arg in outputs] == [type_name]
+
+    def test_a_creator_has_no_inputs_and_one_output(self, registry):
+        """GIVEN list_new, which takes nothing
+        WHEN its entry is read
+        THEN it declares zero inputs and a single output port — a function node with an empty
+        ``inputs``, which is new for the platform (a primitive has no inputs either, but uses
+        ``outputs: [-1]``)."""
+        assert registry["list_new"]["inputs"] == []
+        assert registry["list_new"]["outputs"] == [0]
+        assert registry["list_new"]["node_type"] == "function"
+
+    def test_element_ports_stay_any(self, registry):
+        """GIVEN list_append's item parameter, annotated Any by design
+        WHEN the registry renders it
+        THEN it is 'any': collections carry no element typing, so anything may be appended."""
+        item = registry["list_append"]["arguments"][1]
+        assert item == {"connection_type": "input", "type": "any", "name": "item"}
+
+    def test_extractors_return_any(self, registry):
+        """GIVEN list_get and dict_get, which return an element
+        WHEN their output socket is read
+        THEN it is 'any' — the element type is unknown, which is what makes them wire anywhere."""
+        for node_type in ("list_get", "dict_get"):
+            outputs = [
+                arg
+                for arg in registry[node_type]["arguments"]
+                if arg["connection_type"] == "output"
+            ]
+            assert [arg["type"] for arg in outputs] == ["any"]
+
+    def test_size_returns_int(self, registry):
+        """GIVEN the three inspect operations
+        WHEN their output socket is read
+        THEN it is 'int', so a size can feed a numeric port."""
+        for node_type in ("list_size", "set_size", "dict_size"):
+            outputs = [
+                arg
+                for arg in registry[node_type]["arguments"]
+                if arg["connection_type"] == "output"
+            ]
+            assert [arg["type"] for arg in outputs] == ["int"]
+
+    def test_set_to_list_crosses_collection_types(self, registry):
+        """GIVEN set_to_list, the bridge from a set to an indexable list
+        WHEN its entry is read
+        THEN it takes a 'set' and returns a 'list', both typed."""
+        arguments = registry["set_to_list"]["arguments"]
+        assert arguments[0]["type"] == "set"
+        assert arguments[1] == {"connection_type": "output", "type": "list", "name": ""}
 
 
 class TestRegistryGeneration:

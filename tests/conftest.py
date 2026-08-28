@@ -26,6 +26,12 @@ def workflow_files(project_root: Path) -> Dict[str, Path]:
         "classes": fixtures_dir / "network-from-fe-classes.json",
         "functions": fixtures_dir / "network-from-fe-functions.json",
         "default": fixtures_dir / "network-from-fe.json",
+        # Collection graphs. The first three need no plugin at all — the node types they use are the
+        # host's own builtins — which is what `TestCollectionWorkflows` asserts by passing plugins=[].
+        "collections_list": fixtures_dir / "network-collections-list.json",
+        "collections_dict": fixtures_dir / "network-collections-dict.json",
+        "collections_set": fixtures_dir / "network-collections-set.json",
+        "collections_math": fixtures_dir / "network-collections-math.json",
     }
 
 

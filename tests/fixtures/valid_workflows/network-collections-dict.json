@@ -1,0 +1,29 @@
+{
+  "workflow": {
+    "nodes": {
+      "0": { "type": "str", "value": "alpha" },
+      "1": { "type": "str", "value": "beta" },
+      "2": { "type": "float", "value": "1.5" },
+      "3": { "type": "float", "value": "2.5" },
+      "4": { "type": "dict_new" },
+      "5": { "type": "dict_set" },
+      "6": { "type": "dict_set" },
+      "7": { "type": "dict_get" },
+      "8": { "type": "dict_delete" },
+      "9": { "type": "dict_size" }
+    },
+    "edges": {
+      "0": { "source": 4, "target": 5, "source_output": 0, "target_input": 0 },
+      "1": { "source": 0, "target": 5, "source_output": 0, "target_input": 1 },
+      "2": { "source": 2, "target": 5, "source_output": 0, "target_input": 2 },
+      "3": { "source": 5, "target": 6, "source_output": 0, "target_input": 0 },
+      "4": { "source": 1, "target": 6, "source_output": 0, "target_input": 1 },
+      "5": { "source": 3, "target": 6, "source_output": 0, "target_input": 2 },
+      "6": { "source": 6, "target": 7, "source_output": 0, "target_input": 0 },
+      "7": { "source": 1, "target": 7, "source_output": 0, "target_input": 1 },
+      "8": { "source": 6, "target": 8, "source_output": 0, "target_input": 0 },
+      "9": { "source": 0, "target": 8, "source_output": 0, "target_input": 1 },
+      "10": { "source": 8, "target": 9, "source_output": 0, "target_input": 0 }
+    }
+  }
+}

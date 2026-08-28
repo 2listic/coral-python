@@ -1,0 +1,28 @@
+{
+  "workflow": {
+    "nodes": {
+      "0": { "type": "float", "value": "3.0" },
+      "1": { "type": "float", "value": "4.0" },
+      "2": { "type": "int", "value": "0" },
+      "3": { "type": "int", "value": "1" },
+      "4": { "type": "list_new" },
+      "5": { "type": "list_append" },
+      "6": { "type": "list_append" },
+      "7": { "type": "list_get" },
+      "8": { "type": "list_get" },
+      "9": { "type": "add" }
+    },
+    "edges": {
+      "0": { "source": 4, "target": 5, "source_output": 0, "target_input": 0 },
+      "1": { "source": 0, "target": 5, "source_output": 0, "target_input": 1 },
+      "2": { "source": 5, "target": 6, "source_output": 0, "target_input": 0 },
+      "3": { "source": 1, "target": 6, "source_output": 0, "target_input": 1 },
+      "4": { "source": 6, "target": 7, "source_output": 0, "target_input": 0 },
+      "5": { "source": 2, "target": 7, "source_output": 0, "target_input": 1 },
+      "6": { "source": 6, "target": 8, "source_output": 0, "target_input": 0 },
+      "7": { "source": 3, "target": 8, "source_output": 0, "target_input": 1 },
+      "8": { "source": 7, "target": 9, "source_output": 0, "target_input": 0 },
+      "9": { "source": 8, "target": 9, "source_output": 0, "target_input": 1 }
+    }
+  }
+}
