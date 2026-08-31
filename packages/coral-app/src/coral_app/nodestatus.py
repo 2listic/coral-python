@@ -1,0 +1,159 @@
+"""Per-node execution status markers, and the filenames they are written under.
+
+The platform watches a directory while a graph runs and reads the timeline off it: one empty file
+per node per state, listed with ``ls -tr``, so file mtime order *is* the order the nodes ran. This
+module owns both halves of that convention — which name a node's files get, and when each file
+appears — because both are the file format of one external consumer, and the executor should no more
+know them than it knows the registry's JSON layout.
+
+It is deliberately ignorant of graphs and of execution: :func:`qualified_ids` takes a plain mapping,
+:class:`NodeStatusDir` takes a path, and neither imports anything from :mod:`coral_app.graph` or
+:mod:`coral_app.executor`.
+
+Written to match the C++ reference backend (``coral_network_implementation.h``), which is the
+producer the platform's consumer was written against: the same three suffixes, the same
+``<node_id>_auto_<counter>`` fallback for a node that declares no ``qualified_id``, the same
+cleanup at startup, and the same asymmetry between a setup failure (fatal) and a failed touch
+mid-run (silent there, warned once here).
+"""
+
+import os
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Dict, Iterator, Mapping, Union
+
+__all__ = ["FAILED", "RUNNING", "STATUS_SUFFIXES", "SUCCEEDED", "NodeStatusDir", "qualified_ids"]
+
+RUNNING = ".running"
+SUCCEEDED = ".succeeded"
+FAILED = ".failed"
+
+#: The three suffixes this module writes — and therefore the only files it removes when cleaning a
+#: directory it did not create.
+STATUS_SUFFIXES = (RUNNING, SUCCEEDED, FAILED)
+
+
+def qualified_ids(nodes: Mapping[str, dict]) -> Dict[str, str]:
+    """Map each node id to the qualified id its status files are named after.
+
+    A node may carry a ``qualified_id`` of its own — on the platform that is the path of a node
+    through nested subgraphs, which is why it exists at all — and then it is used verbatim. A node
+    without one gets ``<node_id>_auto_<counter>``, from a single counter shared across the whole
+    graph, advanced past any candidate that collides with an id already assigned. That is the C++
+    loader's scheme, noise though it is for a flat graph whose ids are already unique: the name
+    reaches the platform, so it is observable behaviour rather than an internal detail.
+
+    Nodes are visited in declaration order, so the mapping is deterministic for a given file.
+
+    Args:
+        nodes: Node id -> node definition, in graph-JSON order.
+
+    Returns:
+        Node id -> qualified id, one entry per node.
+
+    Raises:
+        ValueError: if two nodes declare the same ``qualified_id``. Two nodes sharing a filename
+            would corrupt the very timeline these files exist to show, and silently.
+    """
+    assigned: Dict[str, str] = {}
+    seen = set()
+    counter = 0
+
+    for node_id, node in nodes.items():
+        declared = node.get("qualified_id")
+
+        if declared is not None:
+            if declared in seen:
+                raise ValueError(
+                    f"Node {node_id!r} repeats qualified_id {declared!r}, which another node "
+                    f"already declares; qualified ids must be unique"
+                )
+            qualified_id = declared
+        else:
+            # C++ advances the counter on every candidate, accepted or not — keep that, so the same
+            # graph yields the same names under both backends.
+            qualified_id = f"{node_id}_auto_{counter}"
+            counter += 1
+            while qualified_id in seen:
+                qualified_id = f"{node_id}_auto_{counter}"
+                counter += 1
+
+        seen.add(qualified_id)
+        assigned[node_id] = qualified_id
+
+    return assigned
+
+
+class NodeStatusDir:
+    """The directory the status markers are written into, and the writing of them.
+
+    Constructing one prepares the directory: it is created if missing, and otherwise emptied of the
+    files this module writes — nothing else in it is touched, since the platform points us at a job
+    directory it owns and a coral run in a checkout points us at the cwd. A stale timeline from an
+    earlier job would be read as this job's, so the cleanup is not optional.
+
+    The two failure modes are deliberately asymmetric (and the C++ backend agrees):
+
+    - preparing the directory raises. A bad ``--touch-dir`` is a configuration error, and it costs
+      nothing to fail on it before the first node runs.
+    - a touch that fails once nodes are running warns — once — and is otherwise ignored. By then the
+      graph's result is worth more than its telemetry.
+    """
+
+    def __init__(self, directory: Union[str, os.PathLike]):
+        """Create the directory if needed, else remove the status files already in it.
+
+        Args:
+            directory: Where the markers go. Parents are created as needed.
+
+        Raises:
+            OSError: if the directory cannot be created, listed, or cleaned.
+        """
+        self.directory = Path(directory)
+        self.directory.mkdir(parents=True, exist_ok=True)
+        self._warned = False
+
+        for entry in self.directory.iterdir():
+            if entry.is_file() and entry.name.endswith(STATUS_SUFFIXES):
+                entry.unlink()
+
+    @contextmanager
+    def node(self, qualified_id: str) -> Iterator[None]:
+        """Bracket one node's execution with its status markers.
+
+        Entering writes ``<qualified_id>.running``; leaving normally writes ``.succeeded``; an
+        exception escaping the block writes ``.failed`` and then propagates untouched — the type and
+        the message a caller sees must not depend on whether a touch directory was configured.
+
+        As in C++, a failed node keeps its ``.running`` file: the pair is what tells the platform
+        which node was in flight when the run died.
+
+        Args:
+            qualified_id: The name the three files are built from.
+        """
+        self._touch(qualified_id, RUNNING)
+        try:
+            yield
+        except BaseException:
+            self._touch(qualified_id, FAILED)
+            raise
+        self._touch(qualified_id, SUCCEEDED)
+
+    # ── Private helpers ──
+
+    def _touch(self, qualified_id: str, suffix: str) -> None:
+        """Create one empty marker file, warning at most once if the filesystem refuses.
+
+        No name is ever written twice in a run — the three suffixes differ and the directory was
+        cleaned at startup — so ``touch()`` always creates the file, and its mtime is the moment the
+        node reached that state. That is what the consumer's ``ls -tr`` ordering rests on.
+        """
+        try:
+            (self.directory / f"{qualified_id}{suffix}").touch()
+        except OSError as error:
+            if not self._warned:
+                self._warned = True
+                print(
+                    f"Warning: cannot write execution status files in {self.directory}: {error}. "
+                    f"Execution continues; the status timeline will be incomplete."
+                )
