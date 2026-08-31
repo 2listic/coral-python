@@ -6,6 +6,7 @@ from typing import Any, Tuple
 
 import pytest
 from coral_app.executor import WorkflowExecutor
+from coral_app.nodestatus import FAILED, RUNNING, STATUS_SUFFIXES, SUCCEEDED
 
 
 class TestWorkflowExecutorInitialization:
@@ -591,3 +592,161 @@ class TestOutputArity:
         )
 
         assert executor.execute()["n2"] == (10, 20)
+
+
+class TestNodeStatusMarkers:
+    """The executor's side of issue #30: every node bracketed, and the walk stopped where it broke.
+
+    These graphs use only the host's builtin collection nodes, so they run with ``plugins=[]`` —
+    what is under test is the walk, not any plugin.
+    """
+
+    SUCCEEDING = {
+        "nodes": {
+            "0": {"type": "list_new"},
+            "1": {"type": "int", "value": 7},
+            "2": {"type": "list_append"},
+            "3": {"type": "list_size"},
+        },
+        "edges": {
+            "e0": {"source": "0", "target": "2", "source_output": 0, "target_input": 0},
+            "e1": {"source": "1", "target": "2", "source_output": 0, "target_input": 1},
+            "e2": {"source": "2", "target": "3", "source_output": 0, "target_input": 0},
+        },
+    }
+
+    # `list_get` on an empty list raises IndexError at node 2, so node 3 never runs.
+    FAILING = {
+        "nodes": {
+            "0": {"type": "list_new"},
+            "1": {"type": "int", "value": 5},
+            "2": {"type": "list_get"},
+            "3": {"type": "list_size"},
+        },
+        "edges": {
+            "e0": {"source": "0", "target": "2", "source_output": 0, "target_input": 0},
+            "e1": {"source": "1", "target": "2", "source_output": 0, "target_input": 1},
+            "e2": {"source": "2", "target": "3", "source_output": 0, "target_input": 0},
+        },
+    }
+
+    def _executor(self, temp_workflow_file, workflow, status_dir):
+        return WorkflowExecutor(
+            str(temp_workflow_file({"workflow": workflow})),
+            plugins=[],
+            touch_dir=str(status_dir) if status_dir else None,
+        )
+
+    def _markers(self, status_dir, executor, node_id):
+        """The suffixes written for one node, by its qualified id."""
+        qualified_id = executor.qualified_ids[node_id]
+        return {
+            path.name[len(qualified_id) :]
+            for path in status_dir.iterdir()
+            if path.name.startswith(qualified_id)
+        }
+
+    def test_every_node_that_ran_is_marked_succeeded(self, temp_workflow_file, tmp_path):
+        """GIVEN a graph of four nodes, one of them a primitive, run with a touch directory
+        WHEN it completes
+        THEN each node has both its markers — primitives included, since the C++ backend makes
+        every node a task and a graph whose primitives never appear would read as "half the nodes
+        never started"."""
+        status_dir = tmp_path / "status"
+        executor = self._executor(temp_workflow_file, self.SUCCEEDING, status_dir)
+
+        executor.execute()
+
+        for node_id in ("0", "1", "2", "3"):
+            assert self._markers(status_dir, executor, node_id) == {RUNNING, SUCCEEDED}
+
+    def test_a_failing_node_is_marked_and_the_walk_stops_there(self, temp_workflow_file, tmp_path):
+        """GIVEN a graph whose third node raises
+        WHEN it is executed
+        THEN the culprit carries ``.running`` and ``.failed`` and no ``.succeeded``, the nodes
+        before it are marked succeeded, and the node after it left nothing at all — the directory
+        alone says how far the run got and which node stopped it."""
+        status_dir = tmp_path / "status"
+        executor = self._executor(temp_workflow_file, self.FAILING, status_dir)
+
+        with pytest.raises(IndexError):
+            executor.execute()
+
+        assert self._markers(status_dir, executor, "0") == {RUNNING, SUCCEEDED}
+        assert self._markers(status_dir, executor, "1") == {RUNNING, SUCCEEDED}
+        assert self._markers(status_dir, executor, "2") == {RUNNING, FAILED}
+        assert self._markers(status_dir, executor, "3") == set()
+
+    def test_no_touch_dir_writes_nothing(self, temp_workflow_file, tmp_path):
+        """GIVEN the same graph run with ``touch_dir=None``
+        WHEN it completes
+        THEN not one marker exists anywhere below the working directory.
+
+        ``WorkflowExecutor`` is a library object: the C++-faithful default of the cwd belongs to the
+        CLI, which is where the platform's contract lives."""
+        executor = self._executor(temp_workflow_file, self.SUCCEEDING, None)
+
+        executor.execute()
+
+        assert executor.status is None
+        assert not [path for path in tmp_path.rglob("*") if path.name.endswith(STATUS_SUFFIXES)]
+
+    def test_a_graph_that_fails_validation_leaves_an_empty_directory(
+        self, temp_workflow_file, tmp_path
+    ):
+        """GIVEN a status directory holding markers from an earlier job, and an invalid graph
+        WHEN the executor is constructed and raises
+        THEN the directory exists and is empty: the platform sees "nothing has run yet" rather than
+        the stale timeline of the previous job. This is why the directory is prepared on the first
+        line of ``__init__``, before validation."""
+        status_dir = tmp_path / "status"
+        status_dir.mkdir()
+        (status_dir / f"old{SUCCEEDED}").touch()
+        invalid = {"nodes": {"0": {"type": "no_such_node_type"}}, "edges": {}}
+
+        with pytest.raises(ValueError):
+            self._executor(temp_workflow_file, invalid, status_dir)
+
+        assert status_dir.is_dir()
+        assert list(status_dir.iterdir()) == []
+
+    def test_a_duplicate_qualified_id_is_rejected_without_a_touch_dir(
+        self, temp_workflow_file, tmp_path
+    ):
+        """GIVEN two nodes declaring the same qualified_id, and no touch directory
+        WHEN the executor is constructed
+        THEN ValueError names the id — a graph must not become valid or invalid depending on
+        whether markers happen to be written."""
+        workflow = {
+            "nodes": {
+                "0": {"type": "int", "value": 1, "qualified_id": "same"},
+                "1": {"type": "int", "value": 2, "qualified_id": "same"},
+            },
+            "edges": {},
+        }
+
+        with pytest.raises(ValueError, match="'same'"):
+            self._executor(temp_workflow_file, workflow, None)
+
+    def test_declared_qualified_ids_name_the_files(self, temp_workflow_file, tmp_path):
+        """GIVEN nodes that declare their own qualified_id
+        WHEN the graph runs with a touch directory
+        THEN the markers are named after those ids, not after the node ids."""
+        status_dir = tmp_path / "status"
+        workflow = {
+            "nodes": {
+                "0": {"type": "int", "value": 1, "qualified_id": "top/first"},
+                "1": {"type": "int", "value": 2, "qualified_id": "top/second"},
+            },
+            "edges": {},
+        }
+        (status_dir / "top").mkdir(parents=True)
+
+        self._executor(temp_workflow_file, workflow, status_dir).execute()
+
+        assert sorted(path.name for path in (status_dir / "top").iterdir()) == [
+            f"first{RUNNING}",
+            f"first{SUCCEEDED}",
+            f"second{RUNNING}",
+            f"second{SUCCEEDED}",
+        ]
