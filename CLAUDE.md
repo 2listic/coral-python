@@ -93,6 +93,9 @@ coral run path/to/workflow.json
 coral -p "math" run path/to/workflow.json
 coral -p "math,string,phiflow" run examples/phiflow/network-from-fe.json
 
+# Send the per-node status markers somewhere other than the cwd
+coral run path/to/workflow.json --touch-dir /run/job-42
+
 # Generate the node registry (writes node_types.json into the cwd)
 coral register
 coral -p "math" register
@@ -173,6 +176,7 @@ packages/
 │       ├── graph.py               # read, validate and order a workflow graph
 │       ├── registry.py            # node_types.json generation (renders the port table)
 │       ├── executor.py            # graph execution: walk the order, call each node
+│       ├── nodestatus.py          # the per-node status markers: qualified ids + the marker files
 │       └── cli.py                 # register / run subcommands; console script `coral`
 ├── coral-plugin-math/             # entry point `math`  -> coral_plugin_math:MathPlugin
 ├── coral-plugin-string/           # entry point `string`-> coral_plugin_string:StringPlugin
@@ -238,14 +242,21 @@ it finds them at runtime via entry-point discovery.
      file format, `python_type_to_string()`, `save_registry_to_file(filename, plugins=...)`. Every
      decision about the *format* lives here — argument dicts, index numbering, the `[-1]`
      convention; the arity and annotations come from the port table.
-   - **`executor.py`** (stage 4): `WorkflowExecutor(workflow_file, plugins=...)` — see
-     [Data flow](#data-flow). Validation happens during construction, so `execute()` only walks,
-     calls and stores. No `json`, no `graphlib`, no edge list.
+   - **`executor.py`** (stage 4): `WorkflowExecutor(workflow_file, plugins=..., touch_dir=...)` —
+     see [Data flow](#data-flow). Validation happens during construction, so `execute()` only walks,
+     calls and stores. No `json`, no `graphlib`, no edge list — and no `pathlib`/`os` either: the
+     status markers are written by `nodestatus.py`.
+   - **`nodestatus.py`**: the per-node status markers — `qualified_ids(nodes)` (a pure function
+     naming the files) and `NodeStatusDir` (the context manager writing them). One external
+     consumer's file format, kept out of `graph.py` and `executor.py` the way `registry.py` keeps
+     the registry's format out of them. Imports neither. See
+     [Per-node execution status](#per-node-execution-status).
 
 4. **`coral-app/cli.py`** — Coral-compatible CLI entry point (argparse):
    - Global `-p/--plugin` names the plugins to load (comma-separated; empty = all installed).
    - `register` subcommand → `save_registry_to_file()` (writes `node_types.json` into the cwd).
-   - `run` subcommand → `WorkflowExecutor(...).execute()`.
+   - `run` subcommand → `WorkflowExecutor(...).execute()`, forwarding `--touch-dir` (default
+     `"./"`, the cwd — see [Per-node execution status](#per-node-execution-status)).
    - Empty `-p` resolves to `discover()` (all installed), passed explicitly.
    - Exposed as the `coral` console script; wrapped by `coral-py` for the platform.
 
@@ -291,7 +302,7 @@ Edge format:
 | 1 | load plugins, add the host's builtins | plugin names | `function_map`, `class_map` | `coral_app/__init__.py` |
 | 2 | describe each node type | the maps | port table | `coral_app/nodeports.py` |
 | 3 | read, validate, order the graph | graph JSON + port table | `Graph` | `coral_app/graph.py` |
-| 4 | execute | `Graph` + the maps | `results` | `coral_app/executor.py` |
+| 4 | execute | `Graph` + the maps | `results`, plus the status markers if a touch dir was given | `coral_app/executor.py`, `coral_app/nodestatus.py` |
 | 5 | write the registry | port table | `node_types.json` | `coral_app/registry.py` |
 
 1. **Discover/Load**: the host lists installed plugins (no import) and loads only the requested names.
@@ -374,6 +385,59 @@ Only n > 1 is checkable. At n == 1 a returned tuple is legitimate — that is th
 there is nothing to compare; at n == 0 the value is unreachable anyway, since check 5 rejects every
 outgoing edge of a node with no outputs. Nothing here checks the *types* of a tuple's elements; check
 6 reasons about the declaration only.
+
+### Per-node execution status
+
+While a graph runs, the executor drops one **empty file per node per state** into a directory the
+platform watches — this is how the editor lights each node up live (issue #30). The convention is
+the C++ reference backend's, because the platform's consumer was written against that producer:
+
+| moment | file | note |
+| --- | --- | --- |
+| before a node runs | `<qualified_id>.running` | empty |
+| the node returned | `<qualified_id>.succeeded` | empty |
+| the node raised | `<qualified_id>.failed` | empty; `.running` is **left in place**, as in C++ |
+
+The consumer lists the directory with `ls -tr` and splits each name on `.`, so **file mtime order is
+the timeline** and a `.` inside a qualified id mis-keys it. Nothing is ever written twice in a run —
+the three suffixes differ and the directory is cleaned at startup — so the mtimes are exactly the
+call order. (Caveat inherited from the kernel's coarse file-timestamp clock, ~1 ms: nodes that run
+faster than that share an mtime and cannot be ordered. C++ writes through the same clock.)
+
+**All nodes get markers, primitives included** — C++ makes every node a task with no exemption, and a
+graph whose primitives never appear would read as "half the nodes never started".
+
+**The filename comes from the node's `qualified_id`**, a field the platform uses for a node's path
+through nested subgraphs. It is optional, and a node without one gets `<node_id>_auto_<counter>`
+(one counter for the whole graph, advanced past collisions) — C++'s scheme, noise though it is for
+the flat graphs this repo ships, because the name is observable by the platform. Two nodes declaring
+the same `qualified_id` raise `ValueError`, and **the mapping is built whether or not markers are
+written**: a graph must not become valid or invalid depending on an unrelated flag. C++ warns per
+node about a missing id; `executor.py` prints one line for the whole graph instead.
+
+**Where they go**: `--touch-dir`, and its default is `"./"` — the cwd. C++ has no "write nothing"
+mode (it defaults the same way and touches unconditionally), and the CLI is the platform's contract,
+so fidelity holds there: `coral run graph.json` in a checkout *will* drop markers in that directory
+and clean the matching files already in it. The library object is the other way round:
+`WorkflowExecutor(..., touch_dir=None)` writes nothing, which is what keeps the test suite from
+having to hand every executor a `tmp_path`. The directory is prepared on the **first line** of
+`__init__`, before plugin loading and before validation, so a bad path fails before phiflow is
+imported and a graph that fails validation shows the platform an *empty* directory rather than the
+stale timeline of an earlier job.
+
+**Two asymmetries, both deliberate** (and both C++'s):
+
+| failure | behaviour | why |
+| --- | --- | --- |
+| the directory cannot be created or cleaned | raises, at t=0 | a bad `--touch-dir` is a configuration error, and failing costs nothing yet |
+| a marker cannot be written mid-run | warns **once**, keeps executing | once nodes are running, the graph's result is worth more than its telemetry |
+
+**The exception a failing node raises is propagated untouched** — type and message both. C++ re-throws
+a `runtime_error` wrapping the node id; we do not, because the `try/except` only exists when a touch
+directory was configured, so wrapping would make a diagnostic's *shape* depend on `--touch-dir`. The
+node id reaches the log the other way, unconditionally: `execute()` prints
+`Start running node N [qid] (type = T)` before each node and `Node N [qid] (type = T) run` after it,
+mirroring C++'s `slog_info` pair, so a traceback is always bracketed by lines naming the node.
 
 ### Graph validation
 

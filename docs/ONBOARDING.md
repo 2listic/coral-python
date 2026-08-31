@@ -122,6 +122,11 @@ empty to `discover()`). This is the *only* semantic difference the platform has 
 a string it already passes through opaquely. The `coral-py` launcher script wraps the console script so the
 platform can point its `coralBinaryPath` setting straight at it (see `README.md` for the exact invocation).
 
+`--touch-dir` is the directory `run` drops its per-node status markers into, and — as in the C++ binary —
+it defaults to `"./"`, the cwd: there is no "write nothing" mode at the CLI. See
+[Per-node execution status](../CLAUDE.md#per-node-execution-status) in `CLAUDE.md` for the three
+markers and the `qualified_id` naming.
+
 **2. The JSON contract.** Two JSON shapes:
 
 - **Registry** (`node_types.json`, produced by `register`) — a dict keyed by each node's `type`
@@ -500,9 +505,15 @@ assumptions — if you touch this boundary, update both and re-run the full suit
   `-p`: `discover()` enumerates names without importing, and `load(name)` imports just that one. An
   unselected `phiflow` never triggers the PhiFlow/JAX import chain. (This was a weakness of the old
   `definitions/` layer, now resolved by the plugin architecture.)
-- **Per-node execution status.** The CLI accepts `--touch-dir` for compatibility with the platform's
-  live per-node status feature, but doesn't yet write anything there — `executor.py` would need to
-  emit a status file per node as it executes.
+- **Per-node execution status (done).** `--touch-dir` now emits one empty
+  `<qualified_id>.running` / `.succeeded` / `.failed` per node as the graph runs, which is what
+  drives the platform's live node highlighting (issue #30). The convention is `coral_app/nodestatus.py`'s
+  — the executor gained one `with` statement and no filesystem import. The C++ backend was read
+  rather than guessed at, and it settled four things worth knowing before touching this: the flag
+  defaults to the cwd, every node is a task (primitives included), `qualified_id` is optional with a
+  `<node_id>_auto_<counter>` fallback, and a failed touch mid-run is not fatal. Details and the one
+  deliberate divergence — we do not wrap the failing node's exception — are in
+  [Per-node execution status](../CLAUDE.md#per-node-execution-status).
 *(Two entries that used to sit here — "enforcing the registry/executor convention" and "linear-time
 execution" — were resolved by issue #23. The port table is now the single source of a node type's kind and
 arity, which both `registry.py` and `executor.py` read and neither re-derives, and `tests/test_core_contract.py`
@@ -633,6 +644,5 @@ Not part of the current local MVP; tracked for later:
 
 - Remote execution (SSH + Slurm), matching the platform's remote backend mode.
 - Pipeline stages (coral-python as one stage in a multi-stage DAG).
-- Per-node execution status via `--touch-dir` (see [Extending internals](#concrete-extension-points)).
 - Promoting coral-python from a workspace folder to a git submodule of the platform repo, once it's
   containerized to simulate a cluster.
