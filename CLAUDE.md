@@ -326,8 +326,13 @@ which passes through unconverted and `none` which is `None`.
 **Every other node** runs the same four steps, written once:
 
 1. **Collect input values** — `graph.inputs_of(node_id)` hands over the incoming edges already sorted
-   by `target_input`, i.e. in parameter order. Each is read from `results`, unwrapping the element the
-   edge's `source_output` names when the value is a tuple.
+   by `target_input`, i.e. in parameter order. Each is read from `results`. Whether that result is a
+   *bundle* of outputs to index into is decided by the **port table**, never by the value:
+   `len(graph.ports_of(edge.source).outputs) > 1`. A single-output node therefore passes its value on
+   whole whatever `source_output` says, and a multi-output node always indexes. Deciding it from the
+   value instead (`isinstance(value, tuple)`) was issue #31: a runtime type cannot tell "three
+   outputs, bundled" from "one output that happens to be a tuple". `graph.py:_output_annotation` asks
+   the same question the same way.
 2. **Resolve the callable** — the only three-way distinction left, and it cannot be removed, because
    a method's callable is produced by one of its own inputs and is known only at run time:
 
@@ -337,13 +342,38 @@ which passes through unconverted and `none` which is `None`.
    | constructor | `class_map[type]` | all the values |
    | method | `getattr(values[0], method_name)` | `values[1:]` |
 
-3. **Bind and call** — `inspect.signature(target).parameters` zipped against the values. A bound
-   method's signature has already dropped `self`, so the same zip works for all three kinds.
+3. **Call** — a plain positional call, `target(*arguments)`. The values already arrive in port order,
+   which *is* parameter order, so nothing here looks at the callable's signature; `executor.py` does
+   not import `inspect` at all. A bound method has already dropped `self`, so the same call works for
+   all three kinds.
 4. **Store** the result under the node id.
 
-Method nodes keep one run-time check: input port 0 must really hold an instance of the named class
-(`isinstance(instance, class_map[class_name])`). It survives in the executor because it is the only
-check about a *value* rather than about wiring — everything else was verified before execution began.
+Two run-time checks survive in the executor, and both are there for the same reason: they are about
+a *value*, not about wiring, so validation cannot have settled them in advance. Everything else was
+verified before execution began.
+
+| check | when | what |
+| --- | --- | --- |
+| **instance** | resolving a method's callable | input port 0 must really hold an instance of the named class (`isinstance(instance, class_map[class_name])`) |
+| **output arity** | right after a node returns | a node declaring n > 1 outputs must have returned a tuple of exactly n |
+
+The **output arity** check exists because the port table's arity comes from a return annotation,
+which is a *claim* by the function's author. Everything downstream trusts it: the registry emits that
+many sockets, checks 5 and 6 bound and type an edge by it, and step 1 above indexes with it. This is
+the one place the claim meets what the function actually returned, and it is placed at the *producing*
+node rather than at a consumer's edge so that it fires whether or not the offending port is wired —
+an under-declared node cannot slip through by nobody reading its last output. The error names the
+function whose annotation is wrong, not the graph that believed it:
+
+```
+Node 3 (phiflow_iterate) declares 3 outputs but returned a tuple of 2
+Node 3 (phiflow_iterate) declares 3 outputs but returned int
+```
+
+Only n > 1 is checkable. At n == 1 a returned tuple is legitimate — that is the `-> tuple` case — so
+there is nothing to compare; at n == 0 the value is unreachable anyway, since check 5 rejects every
+outgoing edge of a node with no outputs. Nothing here checks the *types* of a tuple's elements; check
+6 reasons about the declaration only.
 
 ### Graph validation
 
@@ -377,6 +407,12 @@ both are accepted there:
 | 1 | `0`, `-1`, or the key omitted |
 | n > 1 | `0 … n-1` |
 | 0 (returns `None`) | none — the node has nothing to pass on, so any outgoing edge is an error |
+
+The three spellings for a single output are synonyms **in fact**, not only on paper: the executor
+takes the output count from the port table, so it never reads `source_output` on a single-output node
+and all three deliver the same value (issue #31 — they used to deliver three different ones). On such
+a node `source_output` is genuinely ignorable. This is also why the executor does not re-check the
+index: check 5 already bounds it, and duplicating that would put the same rule in two places.
 
 **Edge type compatibility (check 6)** is deliberately narrow: it skips whenever the answer is not
 certain, because wrongly refusing a good graph is worse than not checking one.
@@ -607,4 +643,13 @@ The registry system requires explicit type hints:
 - Use `Any` from `typing` for flexible types (note: has issues with `function-schema` library)
 - Return type `None` indicates no output
 - Missing type hints default to `"any"` in registry
+- A **tuple return must declare its elements**: `Tuple[float, str]` is two output ports. Bare `Tuple`,
+  `Tuple[()]` and `Tuple[Any, ...]` are rejected by `build_port_table` with a `ValueError` naming the
+  function — the first two would yield *zero* ports, and the variadic form has no static arity and
+  would yield a port annotated `Ellipsis`. Plain lowercase `tuple` is legal and different: **one**
+  output port whose value happens to be a tuple, passed on whole. The rejection fires while the port
+  table is built, i.e. at `coral register` and at every `WorkflowExecutor` construction, so one badly
+  annotated function fails the host rather than yielding a wrong registry
+- A function must return what its annotation declares: a node declaring n > 1 outputs returning
+  anything but a tuple of exactly n raises at run time (see [Node Execution Model](#node-execution-model))
 - Do **not** use `from __future__ import annotations` (see Key Constraints above)

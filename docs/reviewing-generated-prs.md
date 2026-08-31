@@ -41,6 +41,12 @@ argues Y" does not.
 6. **Write the findings as you go**, in a document separate from any earlier round the author is
    already working from. A review the author is reading should not move under them.
 
+This ordering is a default, not a checklist to run in full every time. For a small, self-contained PR
+— one file's worth of behaviour, one bug — a step can be skipped or reordered on the reviewer's
+judgement in the moment: the debugger step is the one most often worth deferring, since a real-consumer
+run or a mutation pass frequently exercises the same execution path already. Say what was skipped and
+why, the same as [Returning a review unread](#returning-a-review-unread) asks.
+
 ## Specific to generated work
 
 - **The plan and the notes are part of the artifact, not evidence about it.** Checkboxes are claims.
