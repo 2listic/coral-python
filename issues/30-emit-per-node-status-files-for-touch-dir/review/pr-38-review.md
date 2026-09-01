@@ -8,32 +8,24 @@ Read at `01adf27`. Reference repos: `coral` at `653f890`, `dealiiX-platform` at 
 ## Verdict
 
 **No blocking findings; nothing here needs the PR returned.** The feature works, the suite is green,
-and `ec4c986` + `01adf27` already fixed most of what an earlier read of this branch turned up. Two
-items are worth settling before merge, plus a third that costs one test.
+and `ec4c986` + `01adf27` already fixed most of what an earlier read of this branch turned up. One
+item is worth a decision, and one costs a single test.
 
 | # | item | kind |
 | --- | --- | --- |
-| 1 | `qualified_id` validation sits outside `Graph`, and `ec4c986` removed the premise decision 6a rested on. Six new rejection paths are absent from the documented "every check" list | design + false invariant |
-| 2 | `plan.md` still documents the removed `_auto_` scheme; no deviation notes | stale document |
-| 3 | `except BaseException` is unpinned — the mutation to `except Exception` passes 65 tests. Costs nothing observable today (the platform has no cancel path), but the choice is deliberate and undefended | missing test, latent |
+| 1 | `qualified_id` validation sits outside `Graph`, while the branch moved two sibling id-rules in. Six new rejection paths are absent from the documented "every check" list | design + false invariant |
+| 2 | `except BaseException` is unpinned — the mutation to `except Exception` passes 65 tests. Costs nothing observable today (the platform has no cancel path), but the choice is deliberate and undefended | missing test, latent |
 
-Then a nit, two things recorded as not-defects, and one pre-existing diagnostic bug that is not this
-PR's code. Coverage: full suite, a round trip through the editor, the validation path reproduced, one
-mutation — detailed under [What was run](#what-was-run).
+Then a nit, two behaviours recorded as not-defects, a pre-existing diagnostic bug that is not this
+PR's code, and a note that `plan.md` has drifted from the code. Coverage: full suite, a round trip
+through the editor, the validation path reproduced, one mutation — detailed under
+[What was run](#what-was-run).
 
-## Finding 1 (worth fixing here) — `qualified_id` validation sits outside `Graph`, and decision 6a's premise is gone
+## Finding 1 (worth fixing here) — `qualified_id` validation sits outside `Graph`
 
 `qualified_ids()` is still in `nodestatus.py`, still called from `WorkflowExecutor.__init__`
-(`executor.py:69`). Two things in the last two commits argue against leaving it there.
-
-**The stated reason no longer exists.** Decision 6a placed it in `nodestatus.py` because
-
-> the `_auto_` scheme is the file-naming convention of one external consumer — exactly the kind of
-> thing `registry.py` exists to keep out of `graph.py`
-
-`ec4c986` deleted the `_auto_` scheme. What the function does now is validate that every node
-declares a unique, filename-safe `qualified_id` — it assigns nothing. The premise was removed and the
-conclusion kept.
+(`executor.py:69`). Since `ec4c986` it assigns nothing — it only validates that every node declares a
+unique, filename-safe `qualified_id`, which makes it a graph check living outside the graph.
 
 **The branch itself puts sibling rules in `Graph`.** `01adf27` moved two id-correctness rules in,
 both correctly:
@@ -63,10 +55,14 @@ There is a real seam if the split is wanted: *declared and unique* is graph iden
 (`.`, `/`, empty, non-string) is genuinely the writer's concern. Splitting literally still leaves
 `"a.b"` constructing a valid `Graph` and failing later, so it does not by itself close the gap.
 
-*Supporting, not load-bearing:* C++ also owns this in the graph object — `Network` validates
-uniqueness in `from_json` (`coral_network_implementation.h:586-588`), stores the id on the node
-(L350), exposes `get_node_qualified_id` (`coral_network.h:152`). Weighted low deliberately: this
-branch has already shown, correctly, that C++ is worth diverging from where it is wrong.
+*Supporting, not load-bearing.* Two weaker arguments point the same way. The reason the function sits
+in `nodestatus.py` was decision 6a — "the `_auto_` scheme is the file-naming convention of one
+external consumer" — and `ec4c986` deleted that scheme, so the premise went while the conclusion
+stayed. And C++ owns this in the graph object: `Network` validates uniqueness in `from_json`
+(`coral_network_implementation.h:586-588`), stores the id on the node (L350), and exposes
+`get_node_qualified_id` (`coral_network.h:152`). Both are weighted low on purpose — the first argues
+from a planning document, and this branch has already shown, correctly, that C++ is worth diverging
+from where it is wrong.
 
 **Considered and not recommended:** storing the id *on the node* rather than in a
 `node_id -> qualified_id` dict, as C++ does. The argument was that the key is only locally unique
@@ -76,17 +72,7 @@ now rejects exactly that shape, which makes the side table safe by construction 
 purely forward-looking. Worth revisiting only alongside subgraph support; the copy-on-write question
 it raised is moot while nothing mutates the node dicts.
 
-## Finding 2 (worth fixing here) — `plan.md` documents a scheme the code no longer has
-
-`ec4c986` removed the `_auto_` fallback and made a missing `qualified_id` an error. `plan.md` still
-describes the old behaviour in decisions 6, 6a and 6c, in Steps 1, 2 and 4, and in *Out of scope*
-("The `_auto_` fallback is implemented for coherence"). There are no deviation notes in the PR.
-
-By this repo's own guide a document claim is worth checking only when someone would re-derive a
-decision from it — and decision 6a is exactly that, as finding 1 shows. A note recording what changed
-and why (the reasoning in `nodestatus.py`'s module docstring is already the right text) is enough.
-
-## Finding 3 (cheap, and latent) — the `BaseException` choice is unpinned
+## Finding 2 (cheap, and latent) — the `BaseException` choice is unpinned
 
 `nodestatus.py:171` catches `BaseException`, not `Exception`. That is the correct choice and the
 non-idiomatic one; nothing in the suite holds it in place.
@@ -168,13 +154,25 @@ likely way to reach any graph error at all.
 `nodestatus.py:155` annotates the context manager `-> Iterator[None]`, which resolves to the
 `@deprecated` overload of `contextlib.contextmanager` in typeshed (a PEP 702 marker, hence the IDE
 strikethrough). `-> Generator[None, None, None]` clears it.
+## Also worth mentioning — `plan.md` no longer matches the code
+
+Not a finding, and only worth acting on if the plan is meant to outlive the PR. `ec4c986` removed the
+`_auto_` fallback, but `plan.md` still describes it in decisions 6, 6a and 6c, in Steps 1, 2 and 4,
+and in *Out of scope* ("The `_auto_` fallback is implemented for coherence"). There are no deviation
+notes.
+
+It matters only where someone would re-derive a decision from it — decision 6a is the one case, since
+it is the recorded reason `qualified_ids()` sits where finding 1 argues it should not. The reasoning
+already written in `nodestatus.py`'s module docstring is the right replacement text if a note is
+wanted.
+
 ## What was run
 
 | | result |
 | --- | --- |
 | full suite, `uv run --no-sync pytest -q` | **412 passed** in 93s |
 | every graph under `examples/` + `tests/fixtures/` parsed and checked | 14 files, 206 nodes, **all** carry `qualified_id` equal to the node id — `CLAUDE.md:618`'s claim holds |
-| mutation: `except BaseException` → `except Exception` | **survived** — finding 3 |
+| mutation: `except BaseException` → `except Exception` | **survived** — finding 2 |
 | `examples/phiflow/network-from-fe.json` run from the editor | markers appear per node; the status table populates |
 | node 21 (`int` primitive) given a non-numeric value, run from the editor | table shows **21 failed** |
 | the `21 -> 51` edge deleted, run against a directory holding `stale.succeeded` + `keep.txt` | rejected in `Graph.__init__`; stale marker gone, `keep.txt` kept, **no marker written** |
