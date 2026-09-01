@@ -42,8 +42,8 @@ class WorkflowExecutor:
 
         Raises:
             OSError: if ``touch_dir`` cannot be created or cleaned.
-            ValueError: if the graph does not agree with the loaded plugins' node types, or two of
-                its nodes declare the same ``qualified_id``.
+            ValueError: if the graph does not agree with the loaded plugins' node types, or one of
+                its nodes declares no ``qualified_id`` or repeats another's.
         """
         self.status = NodeStatusDir(touch_dir) if touch_dir else None
 
@@ -63,10 +63,10 @@ class WorkflowExecutor:
         self.port_table = build_port_table(self.function_map, self.class_map, self.primitives_map)
         self.graph = Graph.from_file(workflow_file, self.port_table)
 
-        # Built whether or not markers are written: a duplicate `qualified_id` is a defect in the
-        # graph, and a graph must not become invalid only once someone passes --touch-dir.
+        # Built whether or not markers are written: a missing or duplicated `qualified_id` is a
+        # defect in the graph, and a graph must not become invalid only once someone passes
+        # --touch-dir.
         self.qualified_ids = qualified_ids(self.graph.nodes)
-        self._warn_auto_qualified_ids()
 
         self.results = {}
 
@@ -115,24 +115,6 @@ class WorkflowExecutor:
 
         print("All nodes executed successfully!")
         return self.results
-
-    def _warn_auto_qualified_ids(self) -> None:
-        """Report, in one line, the nodes whose status filenames had to be invented.
-
-        The C++ loader warns once per node; no graph this repo ships carries a ``qualified_id``, so
-        that would be a wall of text before execution starts. Same information, no noise.
-        """
-        auto = [
-            node_id
-            for node_id, node in self.graph.nodes.items()
-            if node.get("qualified_id") is None
-        ]
-        if auto:
-            print(
-                f"Warning: {len(auto)} of {len(self.graph.nodes)} nodes declare no qualified_id; "
-                f"status filenames auto-generated (e.g. node {auto[0]} -> "
-                f"{self.qualified_ids[auto[0]]!r})"
-            )
 
     @staticmethod
     def _check_output_arity(node_id: str, node_type: str, ports, result) -> None:

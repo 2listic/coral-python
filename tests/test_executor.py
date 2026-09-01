@@ -40,7 +40,14 @@ class TestPrimitiveNodeExecution:
         """Test integer primitive node execution."""
         workflow = {
             "workflow": {
-                "nodes": {"n1": {"node_type": "primitive", "type": "int", "value": 42}},
+                "nodes": {
+                    "n1": {
+                        "qualified_id": "0",
+                        "node_type": "primitive",
+                        "type": "int",
+                        "value": 42,
+                    }
+                },
                 "edges": {},
             }
         }
@@ -56,7 +63,14 @@ class TestPrimitiveNodeExecution:
         """Test float primitive node execution."""
         workflow = {
             "workflow": {
-                "nodes": {"n1": {"node_type": "primitive", "type": "float", "value": 3.14}},
+                "nodes": {
+                    "n1": {
+                        "qualified_id": "0",
+                        "node_type": "primitive",
+                        "type": "float",
+                        "value": 3.14,
+                    }
+                },
                 "edges": {},
             }
         }
@@ -72,7 +86,14 @@ class TestPrimitiveNodeExecution:
         """Test string primitive node execution."""
         workflow = {
             "workflow": {
-                "nodes": {"n1": {"node_type": "primitive", "type": "str", "value": "hello"}},
+                "nodes": {
+                    "n1": {
+                        "qualified_id": "0",
+                        "node_type": "primitive",
+                        "type": "str",
+                        "value": "hello",
+                    }
+                },
                 "edges": {},
             }
         }
@@ -88,7 +109,14 @@ class TestPrimitiveNodeExecution:
         """Test boolean primitive node execution."""
         workflow = {
             "workflow": {
-                "nodes": {"n1": {"node_type": "primitive", "type": "bool", "value": True}},
+                "nodes": {
+                    "n1": {
+                        "qualified_id": "0",
+                        "node_type": "primitive",
+                        "type": "bool",
+                        "value": True,
+                    }
+                },
                 "edges": {},
             }
         }
@@ -111,9 +139,19 @@ class TestFunctionNodeExecution:
         workflow = {
             "workflow": {
                 "nodes": {
-                    "n1": {"node_type": "primitive", "type": "float", "value": 5.0},
-                    "n2": {"node_type": "primitive", "type": "float", "value": 3.0},
-                    "n3": {"type": "add"},
+                    "n1": {
+                        "qualified_id": "0",
+                        "node_type": "primitive",
+                        "type": "float",
+                        "value": 5.0,
+                    },
+                    "n2": {
+                        "qualified_id": "1",
+                        "node_type": "primitive",
+                        "type": "float",
+                        "value": 3.0,
+                    },
+                    "n3": {"qualified_id": "2", "type": "add"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},
@@ -133,9 +171,19 @@ class TestFunctionNodeExecution:
         workflow = {
             "workflow": {
                 "nodes": {
-                    "n1": {"node_type": "primitive", "type": "float", "value": 4.0},
-                    "n2": {"node_type": "primitive", "type": "float", "value": 2.5},
-                    "n3": {"type": "multiply"},
+                    "n1": {
+                        "qualified_id": "0",
+                        "node_type": "primitive",
+                        "type": "float",
+                        "value": 4.0,
+                    },
+                    "n2": {
+                        "qualified_id": "1",
+                        "node_type": "primitive",
+                        "type": "float",
+                        "value": 2.5,
+                    },
+                    "n3": {"qualified_id": "2", "type": "multiply"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},
@@ -155,11 +203,26 @@ class TestFunctionNodeExecution:
         workflow = {
             "workflow": {
                 "nodes": {
-                    "n1": {"node_type": "primitive", "type": "float", "value": 2.0},
-                    "n2": {"node_type": "primitive", "type": "float", "value": 3.0},
-                    "n3": {"type": "add"},
-                    "n4": {"node_type": "primitive", "type": "float", "value": 2.0},
-                    "n5": {"type": "multiply"},
+                    "n1": {
+                        "qualified_id": "0",
+                        "node_type": "primitive",
+                        "type": "float",
+                        "value": 2.0,
+                    },
+                    "n2": {
+                        "qualified_id": "1",
+                        "node_type": "primitive",
+                        "type": "float",
+                        "value": 3.0,
+                    },
+                    "n3": {"qualified_id": "2", "type": "add"},
+                    "n4": {
+                        "qualified_id": "3",
+                        "node_type": "primitive",
+                        "type": "float",
+                        "value": 2.0,
+                    },
+                    "n5": {"qualified_id": "4", "type": "multiply"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},
@@ -189,8 +252,13 @@ class TestConstructorNodeExecution:
         workflow = {
             "workflow": {
                 "nodes": {
-                    "n1": {"node_type": "primitive", "type": "float", "value": 10.0},
-                    "n2": {"node_type": "constructor", "type": "Calculator"},
+                    "n1": {
+                        "qualified_id": "0",
+                        "node_type": "primitive",
+                        "type": "float",
+                        "value": 10.0,
+                    },
+                    "n2": {"qualified_id": "1", "node_type": "constructor", "type": "Calculator"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n2", "source_output": 0, "target_input": 0}
@@ -217,10 +285,20 @@ class TestMethodNodeExecution:
         workflow = {
             "workflow": {
                 "nodes": {
-                    "n1": {"node_type": "primitive", "type": "float", "value": 10.0},
-                    "n2": {"node_type": "constructor", "type": "Calculator"},
-                    "n3": {"node_type": "primitive", "type": "float", "value": 5.0},
-                    "n4": {"type": "Calculator.add_to_value"},
+                    "n1": {
+                        "qualified_id": "0",
+                        "node_type": "primitive",
+                        "type": "float",
+                        "value": 10.0,
+                    },
+                    "n2": {"qualified_id": "1", "node_type": "constructor", "type": "Calculator"},
+                    "n3": {
+                        "qualified_id": "2",
+                        "node_type": "primitive",
+                        "type": "float",
+                        "value": 5.0,
+                    },
+                    "n4": {"qualified_id": "3", "type": "Calculator.add_to_value"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n2", "source_output": 0, "target_input": 0},
@@ -247,9 +325,19 @@ class TestTopologicalSorting:
         workflow = {
             "workflow": {
                 "nodes": {
-                    "n1": {"node_type": "primitive", "type": "int", "value": 1},
-                    "n2": {"node_type": "primitive", "type": "int", "value": 2},
-                    "n3": {"type": "add"},
+                    "n1": {
+                        "qualified_id": "0",
+                        "node_type": "primitive",
+                        "type": "int",
+                        "value": 1,
+                    },
+                    "n2": {
+                        "qualified_id": "1",
+                        "node_type": "primitive",
+                        "type": "int",
+                        "value": 2,
+                    },
+                    "n3": {"qualified_id": "2", "type": "add"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},
@@ -276,8 +364,8 @@ class TestTopologicalSorting:
         workflow = {
             "workflow": {
                 "nodes": {
-                    "n1": {"type": "float", "value": 4.0},
-                    "n2": {"type": "add"},
+                    "n1": {"qualified_id": "0", "type": "float", "value": 4.0},
+                    "n2": {"qualified_id": "1", "type": "add"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n2", "source_output": 0, "target_input": 0},
@@ -300,10 +388,10 @@ class TestTopologicalSorting:
         workflow = {
             "workflow": {
                 "nodes": {
-                    "src": {"type": "float", "value": 9.0},
-                    "left": {"type": "math.sqrt"},
-                    "right": {"type": "math.sin"},
-                    "sink": {"type": "add"},
+                    "src": {"qualified_id": "0", "type": "float", "value": 9.0},
+                    "left": {"qualified_id": "1", "type": "math.sqrt"},
+                    "right": {"qualified_id": "2", "type": "math.sin"},
+                    "sink": {"qualified_id": "3", "type": "add"},
                 },
                 "edges": {
                     "e1": {
@@ -348,9 +436,9 @@ class TestTopologicalSorting:
         workflow = {
             "workflow": {
                 "nodes": {
-                    "n1": {"type": "float", "value": 16.0},
-                    "n2": {"type": "math.sqrt"},
-                    "lonely": {"type": "str", "value": "unconnected"},
+                    "n1": {"qualified_id": "0", "type": "float", "value": 16.0},
+                    "n2": {"qualified_id": "1", "type": "math.sqrt"},
+                    "lonely": {"qualified_id": "2", "type": "str", "value": "unconnected"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n2", "source_output": 0, "target_input": 0},
@@ -397,9 +485,19 @@ class TestEdgeOrdering:
         workflow = {
             "workflow": {
                 "nodes": {
-                    "n1": {"node_type": "primitive", "type": "float", "value": 2.0},
-                    "n2": {"node_type": "primitive", "type": "float", "value": 3.0},
-                    "n3": {"type": "math.pow"},
+                    "n1": {
+                        "qualified_id": "0",
+                        "node_type": "primitive",
+                        "type": "float",
+                        "value": 2.0,
+                    },
+                    "n2": {
+                        "qualified_id": "1",
+                        "node_type": "primitive",
+                        "type": "float",
+                        "value": 3.0,
+                    },
+                    "n3": {"qualified_id": "2", "type": "math.pow"},
                 },
                 "edges": {
                     "e1": {"source": "n1", "target": "n3", "source_output": 0, "target_input": 0},
@@ -474,7 +572,10 @@ class TestOutputPortResolution:
         """What ``sink`` is handed, over a graph the ``Graph`` accepted as valid."""
         executor = executor_over(
             self.FUNCTIONS,
-            {"n1": {"type": source}, "n2": {"type": "sink"}},
+            {
+                "n1": {"qualified_id": "0", "type": source},
+                "n2": {"qualified_id": "1", "type": "sink"},
+            },
             {"e1": {"source": "n1", "target": "n2", "target_input": 0, **edge_extras}},
         )
         return executor.execute()["n2"]
@@ -516,7 +617,10 @@ class TestOutputArity:
     def _run(self, executor_over, source, edges):
         executor = executor_over(
             self.FUNCTIONS,
-            {"n1": {"type": source}, "n2": {"type": "sink"}},
+            {
+                "n1": {"qualified_id": "0", "type": source},
+                "n2": {"qualified_id": "1", "type": "sink"},
+            },
             edges,
         )
         return executor.execute()
@@ -540,7 +644,9 @@ class TestOutputArity:
         WHEN the workflow runs
         THEN it still raises — the check sits at the producer, so a mismatch cannot hide behind an
         unread port."""
-        executor = executor_over(self.FUNCTIONS, {"n1": {"type": "short_triple"}}, {})
+        executor = executor_over(
+            self.FUNCTIONS, {"n1": {"qualified_id": "0", "type": "short_triple"}}, {}
+        )
 
         with pytest.raises(ValueError, match="declares 3 outputs but returned a tuple of 2"):
             executor.execute()
@@ -574,7 +680,10 @@ class TestOutputArity:
         new restriction on well-annotated nodes."""
         executor = executor_over(
             {"triple": triple, "sink": sink},
-            {"n1": {"type": "triple"}, "n2": {"type": "sink"}},
+            {
+                "n1": {"qualified_id": "0", "type": "triple"},
+                "n2": {"qualified_id": "1", "type": "sink"},
+            },
             self._wire(1),
         )
 
@@ -587,7 +696,10 @@ class TestOutputArity:
         compare it against."""
         executor = executor_over(
             {"pair": pair, "sink": sink},
-            {"n1": {"type": "pair"}, "n2": {"type": "sink"}},
+            {
+                "n1": {"qualified_id": "0", "type": "pair"},
+                "n2": {"qualified_id": "1", "type": "sink"},
+            },
             {"e1": {"source": "n1", "target": "n2", "source_output": 0, "target_input": 0}},
         )
 
@@ -603,10 +715,10 @@ class TestNodeStatusMarkers:
 
     SUCCEEDING = {
         "nodes": {
-            "0": {"type": "list_new"},
-            "1": {"type": "int", "value": 7},
-            "2": {"type": "list_append"},
-            "3": {"type": "list_size"},
+            "0": {"qualified_id": "0", "type": "list_new"},
+            "1": {"qualified_id": "1", "type": "int", "value": 7},
+            "2": {"qualified_id": "2", "type": "list_append"},
+            "3": {"qualified_id": "3", "type": "list_size"},
         },
         "edges": {
             "e0": {"source": "0", "target": "2", "source_output": 0, "target_input": 0},
@@ -618,10 +730,10 @@ class TestNodeStatusMarkers:
     # `list_get` on an empty list raises IndexError at node 2, so node 3 never runs.
     FAILING = {
         "nodes": {
-            "0": {"type": "list_new"},
-            "1": {"type": "int", "value": 5},
-            "2": {"type": "list_get"},
-            "3": {"type": "list_size"},
+            "0": {"qualified_id": "0", "type": "list_new"},
+            "1": {"qualified_id": "1", "type": "int", "value": 5},
+            "2": {"qualified_id": "2", "type": "list_get"},
+            "3": {"qualified_id": "3", "type": "list_size"},
         },
         "edges": {
             "e0": {"source": "0", "target": "2", "source_output": 0, "target_input": 0},
@@ -702,7 +814,7 @@ class TestNodeStatusMarkers:
         status_dir = tmp_path / "status"
         status_dir.mkdir()
         (status_dir / f"old{SUCCEEDED}").touch()
-        invalid = {"nodes": {"0": {"type": "no_such_node_type"}}, "edges": {}}
+        invalid = {"nodes": {"0": {"qualified_id": "0", "type": "no_such_node_type"}}, "edges": {}}
 
         with pytest.raises(ValueError):
             self._executor(temp_workflow_file, invalid, status_dir)
@@ -728,25 +840,43 @@ class TestNodeStatusMarkers:
         with pytest.raises(ValueError, match="'same'"):
             self._executor(temp_workflow_file, workflow, None)
 
-    def test_declared_qualified_ids_name_the_files(self, temp_workflow_file, tmp_path):
-        """GIVEN nodes that declare their own qualified_id
-        WHEN the graph runs with a touch directory
-        THEN the markers are named after those ids, not after the node ids."""
-        status_dir = tmp_path / "status"
+    def test_a_missing_qualified_id_is_rejected_without_a_touch_dir(
+        self, temp_workflow_file, tmp_path
+    ):
+        """GIVEN a node declaring no qualified_id, and no touch directory
+        WHEN the executor is constructed
+        THEN ValueError names the node — for the same reason as the duplicate above: the mapping is
+        built whether or not markers are written."""
         workflow = {
             "nodes": {
-                "0": {"type": "int", "value": 1, "qualified_id": "top/first"},
-                "1": {"type": "int", "value": 2, "qualified_id": "top/second"},
+                "0": {"type": "int", "value": 1, "qualified_id": "0"},
+                "1": {"type": "int", "value": 2},
             },
             "edges": {},
         }
-        (status_dir / "top").mkdir(parents=True)
+
+        with pytest.raises(ValueError, match="'1' declares no qualified_id"):
+            self._executor(temp_workflow_file, workflow, None)
+
+    def test_declared_qualified_ids_name_the_files(self, temp_workflow_file, tmp_path):
+        """GIVEN nodes whose qualified ids are not their node ids
+        WHEN the graph runs with a touch directory
+        THEN the markers are named after the qualified ids — on the platform that string is the
+        node's path through nested subgraphs, and node ids are unique only within one graph."""
+        status_dir = tmp_path / "status"
+        workflow = {
+            "nodes": {
+                "0": {"type": "int", "value": 1, "qualified_id": "7_1"},
+                "1": {"type": "int", "value": 2, "qualified_id": "7_2"},
+            },
+            "edges": {},
+        }
 
         self._executor(temp_workflow_file, workflow, status_dir).execute()
 
-        assert sorted(path.name for path in (status_dir / "top").iterdir()) == [
-            f"first{RUNNING}",
-            f"first{SUCCEEDED}",
-            f"second{RUNNING}",
-            f"second{SUCCEEDED}",
+        assert sorted(path.name for path in status_dir.iterdir()) == [
+            f"7_1{RUNNING}",
+            f"7_1{SUCCEEDED}",
+            f"7_2{RUNNING}",
+            f"7_2{SUCCEEDED}",
         ]

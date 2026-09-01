@@ -218,7 +218,9 @@ class TestWorkflowExecutorPluginLoading:
         """Test executor with no plugins (only primitives)."""
         workflow = {
             "workflow": {
-                "nodes": {"1": {"node_type": "primitive", "type": "int", "value": 42}},
+                "nodes": {
+                    "1": {"qualified_id": "0", "node_type": "primitive", "type": "int", "value": 42}
+                },
                 "edges": {},
             }
         }

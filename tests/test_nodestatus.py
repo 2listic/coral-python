@@ -23,49 +23,43 @@ from coral_app.nodestatus import (
 
 
 class TestQualifiedIds:
-    """Which name a node's status files are built from."""
+    """Which name a node's status files are built from — and that every node must supply one."""
 
     def test_declared_ids_are_used_verbatim(self):
         """GIVEN nodes that each declare a qualified_id
         WHEN the mapping is built
         THEN every id is passed through unchanged — the platform owns that string."""
         nodes = {
-            "0": {"type": "int", "qualified_id": "sub/1/int"},
-            "1": {"type": "add", "qualified_id": "top.add"},
+            "0": {"type": "int", "qualified_id": "0"},
+            "1": {"type": "add", "qualified_id": "1"},
         }
 
-        assert qualified_ids(nodes) == {"0": "sub/1/int", "1": "top.add"}
+        assert qualified_ids(nodes) == {"0": "0", "1": "1"}
 
-    def test_missing_ids_are_auto_generated_from_one_shared_counter(self):
-        """GIVEN nodes that declare no qualified_id
+    def test_a_qualified_id_need_not_be_the_node_id(self):
+        """GIVEN a node whose qualified_id has nothing to do with its node id
         WHEN the mapping is built
-        THEN each gets ``<node_id>_auto_<counter>``, the counter advancing once per node across the
-        whole graph rather than restarting — this is the C++ loader's scheme."""
-        nodes = {"0": {"type": "int"}, "7": {"type": "int"}, "3": {"type": "add"}}
+        THEN it is accepted as it stands.
 
-        assert qualified_ids(nodes) == {"0": "0_auto_0", "7": "7_auto_1", "3": "3_auto_2"}
+        The two name different things: a node id is unique only within one graph, while the
+        qualified id is the node's path through nested subgraphs and is the globally unique one. So
+        nothing here derives one from the other."""
+        nodes = {"0": {"type": "int", "qualified_id": "4_12"}}
 
-    def test_declared_and_missing_ids_mix(self):
-        """GIVEN a graph where only some nodes declare a qualified_id
+        assert qualified_ids(nodes) == {"0": "4_12"}
+
+    def test_a_missing_id_raises_naming_the_node(self):
+        """GIVEN a node that declares no qualified_id
         WHEN the mapping is built
-        THEN the declared ones are verbatim and only the others consume the counter."""
-        nodes = {
-            "0": {"type": "int"},
-            "1": {"type": "int", "qualified_id": "given"},
-            "2": {"type": "add"},
-        }
+        THEN ValueError names it.
 
-        assert qualified_ids(nodes) == {"0": "0_auto_0", "1": "given", "2": "2_auto_1"}
+        C++ invents ``<node_id>_auto_<counter>`` here and warns instead. An invented name is not the
+        node's identity, so a graph that omits the field would hand the platform a timeline it
+        cannot key back to its nodes — better to say so before anything runs."""
+        nodes = {"0": {"type": "int", "qualified_id": "0"}, "1": {"type": "add"}}
 
-    def test_the_mapping_follows_declaration_order(self):
-        """GIVEN two graphs with the same nodes declared in a different order
-        WHEN both mappings are built
-        THEN the counter follows the file's order, so a given file always yields the same names."""
-        first = qualified_ids({"a": {"type": "int"}, "b": {"type": "int"}})
-        second = qualified_ids({"b": {"type": "int"}, "a": {"type": "int"}})
-
-        assert first == {"a": "a_auto_0", "b": "b_auto_1"}
-        assert second == {"b": "b_auto_0", "a": "a_auto_1"}
+        with pytest.raises(ValueError, match="'1' declares no qualified_id"):
+            qualified_ids(nodes)
 
     def test_a_duplicate_declared_id_raises_naming_it(self):
         """GIVEN two nodes declaring the same qualified_id
@@ -81,14 +75,6 @@ class TestQualifiedIds:
 
         with pytest.raises(ValueError, match="'shared'"):
             qualified_ids(nodes)
-
-    def test_an_auto_candidate_colliding_with_a_declared_id_advances_the_counter(self):
-        """GIVEN a node declaring exactly the id the counter would next invent for another node
-        WHEN the mapping is built
-        THEN the counter advances past the collision, so the two names stay distinct."""
-        nodes = {"0": {"type": "int", "qualified_id": "1_auto_0"}, "1": {"type": "int"}}
-
-        assert qualified_ids(nodes) == {"0": "1_auto_0", "1": "1_auto_1"}
 
     def test_an_empty_graph_yields_an_empty_mapping(self):
         """GIVEN no nodes
@@ -202,12 +188,12 @@ class TestNodeStatusDirMarkers:
         THEN the files are named after the qualified id."""
         status = NodeStatusDir(tmp_path)
 
-        with status.node("3_auto_0"):
+        with status.node("4_12"):
             pass
 
         assert {path.name for path in tmp_path.iterdir()} == {
-            f"3_auto_0{RUNNING}",
-            f"3_auto_0{SUCCEEDED}",
+            f"4_12{RUNNING}",
+            f"4_12{SUCCEEDED}",
         }
 
     def test_a_failure_leaves_running_and_failed_and_no_succeeded(self, tmp_path):
@@ -280,13 +266,13 @@ class TestNodeStatusDirMarkers:
         THEN there are two markers per node, keyed by qualified id."""
         status = NodeStatusDir(tmp_path)
 
-        for qualified_id in ("0_auto_0", "1_auto_1"):
+        for qualified_id in ("0", "1"):
             with status.node(qualified_id):
                 pass
 
         assert sorted(path.name for path in tmp_path.iterdir()) == [
-            f"0_auto_0{RUNNING}",
-            f"0_auto_0{SUCCEEDED}",
-            f"1_auto_1{RUNNING}",
-            f"1_auto_1{SUCCEEDED}",
+            f"0{RUNNING}",
+            f"0{SUCCEEDED}",
+            f"1{RUNNING}",
+            f"1{SUCCEEDED}",
         ]

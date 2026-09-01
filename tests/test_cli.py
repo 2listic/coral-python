@@ -16,9 +16,9 @@ from coral_app.nodestatus import RUNNING, STATUS_SUFFIXES, SUCCEEDED
 GRAPH = {
     "workflow": {
         "nodes": {
-            "0": {"type": "list_new"},
-            "1": {"type": "int", "value": 7},
-            "2": {"type": "list_append"},
+            "0": {"qualified_id": "0", "type": "list_new"},
+            "1": {"qualified_id": "1", "type": "int", "value": 7},
+            "2": {"qualified_id": "2", "type": "list_append"},
         },
         "edges": {
             "e0": {"source": "0", "target": "2", "source_output": 0, "target_input": 0},
@@ -62,12 +62,12 @@ class TestRunTouchDir:
             path.name for path in tmp_path.iterdir() if path.name.endswith(STATUS_SUFFIXES)
         )
         assert markers == [
-            f"0_auto_0{RUNNING}",
-            f"0_auto_0{SUCCEEDED}",
-            f"1_auto_1{RUNNING}",
-            f"1_auto_1{SUCCEEDED}",
-            f"2_auto_2{RUNNING}",
-            f"2_auto_2{SUCCEEDED}",
+            f"0{RUNNING}",
+            f"0{SUCCEEDED}",
+            f"1{RUNNING}",
+            f"1{SUCCEEDED}",
+            f"2{RUNNING}",
+            f"2{SUCCEEDED}",
         ]
         assert graph_file.exists()
 

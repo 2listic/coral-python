@@ -2,6 +2,7 @@
   "workflow": {
     "nodes": {
       "1": {
+        "qualified_id": "0",
         "type": "Calculator",
         "position": {
           "x": 727.0088567094674,
@@ -9,6 +10,7 @@
         }
       },
       "2": {
+        "qualified_id": "1",
         "type": "float",
         "value": "2",
         "position": {
@@ -17,6 +19,7 @@
         }
       },
       "3": {
+        "qualified_id": "2",
         "type": "print_result",
         "position": {
           "x": 1166.9096267853934,
@@ -24,6 +27,7 @@
         }
       },
       "4": {
+        "qualified_id": "3",
         "type": "Calculator.multiply_value",
         "position": {
           "x": 828.2176929443744,
@@ -31,6 +35,7 @@
         }
       },
       "5": {
+        "qualified_id": "4",
         "type": "Calculator.add_to_value",
         "position": {
           "x": 909.3658422869764,

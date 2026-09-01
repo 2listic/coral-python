@@ -1,16 +1,16 @@
 {
   "workflow": {
     "nodes": {
-      "0": { "type": "str", "value": "alpha" },
-      "1": { "type": "str", "value": "beta" },
-      "2": { "type": "float", "value": "1.5" },
-      "3": { "type": "float", "value": "2.5" },
-      "4": { "type": "dict_new" },
-      "5": { "type": "dict_set" },
-      "6": { "type": "dict_set" },
-      "7": { "type": "dict_get" },
-      "8": { "type": "dict_delete" },
-      "9": { "type": "dict_size" }
+      "0": { "qualified_id": "0", "type": "str", "value": "alpha" },
+      "1": { "qualified_id": "1", "type": "str", "value": "beta" },
+      "2": { "qualified_id": "2", "type": "float", "value": "1.5" },
+      "3": { "qualified_id": "3", "type": "float", "value": "2.5" },
+      "4": { "qualified_id": "4", "type": "dict_new" },
+      "5": { "qualified_id": "5", "type": "dict_set" },
+      "6": { "qualified_id": "6", "type": "dict_set" },
+      "7": { "qualified_id": "7", "type": "dict_get" },
+      "8": { "qualified_id": "8", "type": "dict_delete" },
+      "9": { "qualified_id": "9", "type": "dict_size" }
     },
     "edges": {
       "0": { "source": 4, "target": 5, "source_output": 0, "target_input": 0 },

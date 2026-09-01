@@ -82,9 +82,9 @@ def simple_workflow_dict() -> Dict[str, Any]:
     return {
         "workflow": {
             "nodes": {
-                "node1": {"type": "int", "value": 5},
-                "node2": {"type": "int", "value": 3},
-                "node3": {"type": "add"},
+                "node1": {"qualified_id": "0", "type": "int", "value": 5},
+                "node2": {"qualified_id": "1", "type": "int", "value": 3},
+                "node3": {"qualified_id": "2", "type": "add"},
             },
             "edges": {
                 "edge1": {
@@ -115,10 +115,10 @@ def circular_workflow_dict() -> Dict[str, Any]:
     return {
         "workflow": {
             "nodes": {
-                "node1": {"type": "add"},
-                "node2": {"type": "multiply"},
-                "p1": {"type": "float", "value": 1.0},
-                "p2": {"type": "float", "value": 2.0},
+                "node1": {"qualified_id": "0", "type": "add"},
+                "node2": {"qualified_id": "1", "type": "multiply"},
+                "p1": {"qualified_id": "2", "type": "float", "value": 1.0},
+                "p2": {"qualified_id": "3", "type": "float", "value": 2.0},
             },
             "edges": {
                 "edge1": {

@@ -11,10 +11,15 @@ It is deliberately ignorant of graphs and of execution: :func:`qualified_ids` ta
 :mod:`coral_app.executor`.
 
 Written to match the C++ reference backend (``coral_network_implementation.h``), which is the
-producer the platform's consumer was written against: the same three suffixes, the same
-``<node_id>_auto_<counter>`` fallback for a node that declares no ``qualified_id``, the same
-cleanup at startup, and the same asymmetry between a setup failure (fatal) and a failed touch
-mid-run (silent there, warned once here).
+producer the platform's consumer was written against: the same three suffixes, the same cleanup at
+startup, and the same asymmetry between a setup failure (fatal) and a failed touch mid-run (silent
+there, warned once here).
+
+It diverges from C++ on one point, deliberately: C++ invents a ``<node_id>_auto_<counter>`` name for
+a node that declares no ``qualified_id`` and warns; here a missing ``qualified_id`` is a
+:exc:`ValueError`. An invented name is not the node's identity — the platform's, through nested
+subgraphs, is — so a graph that omits it gets a timeline the platform cannot key back to its nodes.
+Failing at t=0 says so; auto-naming hides it until someone reads the marker files.
 """
 
 import os
@@ -36,14 +41,10 @@ STATUS_SUFFIXES = (RUNNING, SUCCEEDED, FAILED)
 def qualified_ids(nodes: Mapping[str, dict]) -> Dict[str, str]:
     """Map each node id to the qualified id its status files are named after.
 
-    A node may carry a ``qualified_id`` of its own — on the platform that is the path of a node
-    through nested subgraphs, which is why it exists at all — and then it is used verbatim. A node
-    without one gets ``<node_id>_auto_<counter>``, from a single counter shared across the whole
-    graph, advanced past any candidate that collides with an id already assigned. That is the C++
-    loader's scheme, noise though it is for a flat graph whose ids are already unique: the name
-    reaches the platform, so it is observable behaviour rather than an internal detail.
-
-    Nodes are visited in declaration order, so the mapping is deterministic for a given file.
+    Every node must declare a ``qualified_id``, and it is used verbatim: on the platform that string
+    is the node's path through nested subgraphs, which is why the field exists at all. Node ids are
+    unique only within one graph, so nothing here derives a qualified id from one — the two name
+    different things, and only the qualified id is required to be globally unique.
 
     Args:
         nodes: Node id -> node definition, in graph-JSON order.
@@ -52,34 +53,30 @@ def qualified_ids(nodes: Mapping[str, dict]) -> Dict[str, str]:
         Node id -> qualified id, one entry per node.
 
     Raises:
-        ValueError: if two nodes declare the same ``qualified_id``. Two nodes sharing a filename
-            would corrupt the very timeline these files exist to show, and silently.
+        ValueError: if a node declares no ``qualified_id``, or if two of them declare the same one.
+            Two nodes sharing a filename would corrupt the very timeline these files exist to show,
+            and silently.
     """
     assigned: Dict[str, str] = {}
     seen = set()
-    counter = 0
 
     for node_id, node in nodes.items():
         declared = node.get("qualified_id")
 
-        if declared is not None:
-            if declared in seen:
-                raise ValueError(
-                    f"Node {node_id!r} repeats qualified_id {declared!r}, which another node "
-                    f"already declares; qualified ids must be unique"
-                )
-            qualified_id = declared
-        else:
-            # C++ advances the counter on every candidate, accepted or not — keep that, so the same
-            # graph yields the same names under both backends.
-            qualified_id = f"{node_id}_auto_{counter}"
-            counter += 1
-            while qualified_id in seen:
-                qualified_id = f"{node_id}_auto_{counter}"
-                counter += 1
+        if declared is None:
+            raise ValueError(
+                f"Node {node_id!r} declares no qualified_id; every node must declare one, since "
+                f"it is the name its execution status files are written under"
+            )
 
-        seen.add(qualified_id)
-        assigned[node_id] = qualified_id
+        if declared in seen:
+            raise ValueError(
+                f"Node {node_id!r} repeats qualified_id {declared!r}, which another node "
+                f"already declares; qualified ids must be unique"
+            )
+
+        seen.add(declared)
+        assigned[node_id] = declared
 
     return assigned
 

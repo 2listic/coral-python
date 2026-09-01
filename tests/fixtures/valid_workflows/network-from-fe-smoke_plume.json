@@ -2,6 +2,7 @@
   "workflow": {
     "nodes": {
       "5": {
+        "qualified_id": "0",
         "type": "PhiFlowBox",
         "position": {
           "x": 483.4727174716225,
@@ -9,6 +10,7 @@
         }
       },
       "6": {
+        "qualified_id": "1",
         "type": "PhiFlowSphere",
         "position": {
           "x": 458.98402571738666,
@@ -16,6 +18,7 @@
         }
       },
       "7": {
+        "qualified_id": "2",
         "type": "float",
         "value": "100",
         "position": {
@@ -24,6 +27,7 @@
         }
       },
       "8": {
+        "qualified_id": "3",
         "type": "PhiFlowBox.get_box",
         "position": {
           "x": 801.0935675991999,
@@ -31,6 +35,7 @@
         }
       },
       "9": {
+        "qualified_id": "4",
         "type": "PhiFlowSphere.get_sphere",
         "position": {
           "x": 832.4179762522326,
@@ -38,6 +43,7 @@
         }
       },
       "10": {
+        "qualified_id": "5",
         "type": "PhiFlowStaggeredGrid",
         "position": {
           "x": 1151.5482661346518,
@@ -45,6 +51,7 @@
         }
       },
       "11": {
+        "qualified_id": "6",
         "type": "PhiFlowCenteredGrid.get_grid",
         "position": {
           "x": 1507.3103341913477,
@@ -52,6 +59,7 @@
         }
       },
       "12": {
+        "qualified_id": "7",
         "type": "PhiFlowCenteredGrid",
         "position": {
           "x": 1131.9667948110864,
@@ -59,6 +67,7 @@
         }
       },
       "13": {
+        "qualified_id": "8",
         "type": "float",
         "value": "50",
         "position": {
@@ -67,6 +76,7 @@
         }
       },
       "14": {
+        "qualified_id": "9",
         "type": "float",
         "value": "5",
         "position": {
@@ -75,6 +85,7 @@
         }
       },
       "15": {
+        "qualified_id": "10",
         "type": "float",
         "value": "9.5",
         "position": {
@@ -83,6 +94,7 @@
         }
       },
       "17": {
+        "qualified_id": "11",
         "type": "int",
         "value": "200",
         "position": {
@@ -91,6 +103,7 @@
         }
       },
       "18": {
+        "qualified_id": "12",
         "type": "PhiFlowStaggeredGrid.get_grid",
         "position": {
           "x": 1531.110090079808,
@@ -98,6 +111,7 @@
         }
       },
       "19": {
+        "qualified_id": "13",
         "type": "int",
         "value": "64",
         "position": {
@@ -106,6 +120,7 @@
         }
       },
       "21": {
+        "qualified_id": "14",
         "type": "int",
         "value": "10",
         "position": {
@@ -114,6 +129,7 @@
         }
       },
       "22": {
+        "qualified_id": "15",
         "type": "float",
         "value": "0.5",
         "position": {
@@ -122,6 +138,7 @@
         }
       },
       "23": {
+        "qualified_id": "16",
         "type": "int",
         "value": "3",
         "position": {
@@ -130,6 +147,7 @@
         }
       },
       "26": {
+        "qualified_id": "17",
         "type": "str",
         "value": "simulation.mp4",
         "position": {
@@ -138,6 +156,7 @@
         }
       },
       "27": {
+        "qualified_id": "18",
         "type": "int",
         "value": "15",
         "position": {
@@ -146,6 +165,7 @@
         }
       },
       "28": {
+        "qualified_id": "19",
         "type": "int",
         "value": "150",
         "position": {
@@ -154,6 +174,7 @@
         }
       },
       "29": {
+        "qualified_id": "20",
         "type": "int",
         "value": "80",
         "position": {
@@ -162,6 +183,7 @@
         }
       },
       "30": {
+        "qualified_id": "21",
         "type": "phiflow_iterate",
         "position": {
           "x": 2235.697848994144,
@@ -169,6 +191,7 @@
         }
       },
       "31": {
+        "qualified_id": "22",
         "type": "none",
         "value": null,
         "position": {
@@ -177,6 +200,7 @@
         }
       },
       "32": {
+        "qualified_id": "23",
         "type": "phiflow_plot_and_save",
         "position": {
           "x": 2697.8713479683825,

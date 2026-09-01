@@ -265,8 +265,10 @@ it finds them at runtime via entry-point discovery.
 **Network Files** (e.g., `network-from-fe.json`):
 Located at: `workflow.nodes` and `workflow.edges`
 
-Nodes are **lean**: each carries only its `type` (plus `value` for primitives); the executor infers
-the kind from `type`, so `node_type`/`method_name` are not part of the graph.
+Nodes are **lean**: each carries its `type` and its `qualified_id` (plus `value` for primitives);
+the executor infers the kind from `type`, so `node_type`/`method_name` are not part of the graph.
+The `qualified_id` is required — see [Per-node execution status](#per-node-execution-status) — and is
+omitted from the shapes below, which show only what decides a node's kind:
 - Primitive: `{"type": "<type>", "value": <val>}`
 - Function: `{"type": "<func_name>"}`
 - Constructor: `{"type": "<ClassName>"}`
@@ -408,12 +410,19 @@ faster than that share an mtime and cannot be ordered. C++ writes through the sa
 graph whose primitives never appear would read as "half the nodes never started".
 
 **The filename comes from the node's `qualified_id`**, a field the platform uses for a node's path
-through nested subgraphs. It is optional, and a node without one gets `<node_id>_auto_<counter>`
-(one counter for the whole graph, advanced past collisions) — C++'s scheme, noise though it is for
-the flat graphs this repo ships, because the name is observable by the platform. Two nodes declaring
-the same `qualified_id` raise `ValueError`, and **the mapping is built whether or not markers are
-written**: a graph must not become valid or invalid depending on an unrelated flag. C++ warns per
-node about a missing id; `executor.py` prints one line for the whole graph instead.
+through nested subgraphs, and **every node must declare one**: a node without it, or two nodes
+sharing one, raise `ValueError`. This is the one place the C++ backend is not followed — it invents
+`<node_id>_auto_<counter>` and warns. An invented name is not the node's identity, so a graph that
+omits the field would hand the platform a timeline it cannot key back to its nodes; and note that
+node ids and qualified ids are not the same thing (a node id is unique only within one graph), so
+nothing derives one from the other. Every graph under `examples/` and `tests/fixtures/` therefore
+carries a `qualified_id` per node, numbered progressively in declaration order.
+
+**The mapping is built whether or not markers are written**: a graph must not become valid or
+invalid depending on an unrelated flag.
+
+Consequence for the platform: a graph its editor exports without `qualified_id` runs under the C++
+backend and is rejected here.
 
 **Where they go**: `--touch-dir`, and its default is `"./"` — the cwd. C++ has no "write nothing"
 mode (it defaults the same way and touches unconditionally), and the CLI is the platform's contract,
