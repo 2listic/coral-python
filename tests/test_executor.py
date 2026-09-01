@@ -707,8 +707,8 @@ class TestOutputArity:
 
 
 class TestNodeStatusMarkers:
-    """The executor's side of the status markers: every node bracketed, and the walk stopped where it
-    broke.
+    """The executor's side of the status markers: every node bracketed, the walk stopped where
+    it broke.
 
     These graphs use only the host's builtin collection nodes, so they run with ``plugins=[]`` —
     what is under test is the walk, not any plugin.

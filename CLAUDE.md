@@ -635,6 +635,12 @@ passes `plugins=[]` — the CLI cannot express it, since an empty `-p` means *al
 - **No `from __future__ import annotations`** (project-wide): it stringizes annotations, which would make
   `registry.py:python_type_to_string` see `"float"` instead of `float` and collapse every socket to `"any"`. A
   guard test (`tests/test_core_contract.py`) enforces this across `packages/*/src`.
+- **No issue, PR, plan-step or decision numbers in code**: docstrings and comments in
+  `packages/*/src` and `tests/` document the code as it stands, never how it got there. Never write
+  `issue #31`, `PR #12`, `Step 3.4`, `decision 2`, or `see the plan` — `git blame` and the commit
+  message carry that link, and they stay correct when an issue is closed or renumbered. Keep the
+  reasoning, drop the citation: reword the sentence so it stands on its own. `issues/` is the
+  historical record and is exempt.
 - **Naming conventions**:
   - Functions: Use simple names in the function map (e.g., `"add"`, `"math.sqrt"`)
   - Methods: Use fully qualified names (e.g., `"Calculator.add_to_value"`)

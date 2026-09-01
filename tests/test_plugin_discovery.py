@@ -1,6 +1,6 @@
 """Acceptance tests for the plugin discovery/load contract.
 
-These pin the runtime guarantees the whole modularization rests on. They are written to be
+These pin the runtime guarantees the plugin architecture rests on. They are written to be
 **plugin-set-agnostic**: nothing here asserts a fixed catalog like ``["math", "phiflow", "string"]``,
 because that would break the moment someone installs a subset — or an extra third-party plugin. The
 mechanics are derived from ``discover()`` and entry-point metadata, so they hold for whatever set is

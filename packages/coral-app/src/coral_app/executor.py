@@ -131,9 +131,8 @@ class WorkflowExecutor:
         names the function whose annotation is wrong rather than the graph that believed it.
 
         Only ``n > 1`` is checkable. At ``n == 1`` a returned tuple is legitimate — that is exactly
-        the ``-> tuple`` case — so there is nothing to compare. At ``n == 0`` the
-        value is unreachable anyway: graph check 5 rejects every outgoing edge of a node with no
-        outputs.
+        the ``-> tuple`` case — so there is nothing to compare. At ``n == 0`` the value is
+        unreachable anyway: graph check 5 rejects every outgoing edge of a node with no outputs.
 
         Raises:
             ValueError: if the result is not a tuple, or is a tuple of the wrong length.

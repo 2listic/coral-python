@@ -52,8 +52,8 @@ def _as_id(value):
     """The id ``value`` denotes, or ``None`` if the protocol cannot read one out of it.
 
     Accepts an ``int`` (what the editor writes for edge endpoints) and a string of digits (what a
-    JSON object key can be). Rejects a sign, whitespace and a leading zero: ``std::stoi`` and
-    ``parseInt`` both read ``"01"`` as ``1``, so allowing it would let two distinct keys name one
+    JSON object key can be). Rejects a sign, whitespace and a leading zero: the reference backend
+    and the editor both read ``"01"`` as ``1``, so allowing it would let two distinct keys name one
     node.
     """
     if isinstance(value, bool):

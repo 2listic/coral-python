@@ -2,10 +2,9 @@
 
 Pin the *behaviour* of ``run`` — the executor's returned ``results`` dict and the key stdout lines —
 for one small math graph and one small string graph. Together with the golden-registry tests, these
-prove the plugin-modularization move preserves execution results, not just the registry schema.
+pin execution results, not just the registry schema.
 
-They exercise ``WorkflowExecutor`` directly, so they hold across the atomic move; only the import is
-repointed to ``coral_app`` when the flat modules are deleted.
+They exercise ``WorkflowExecutor`` directly.
 """
 
 import math

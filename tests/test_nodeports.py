@@ -244,7 +244,7 @@ class TestMethodEnumeration:
         THEN it registers as a method node with an instance at port 0.
 
         Not a design choice: ``getattr(cls, name)`` on a staticmethod yields the plain function, so
-        the ``inspect.isfunction`` filter admits it. This pins the pre-refactor behaviour, which no
+        the ``inspect.isfunction`` filter admits it. Pinned as long-standing behaviour, which no
         installed plugin exercises (none has a staticmethod)."""
         table = build_port_table(class_map={"Widget": Widget})
 
