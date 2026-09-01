@@ -1,11 +1,11 @@
-"""Tests for per-node execution status: the filenames, and the markers themselves (issue #30).
+"""Tests for per-node execution status: the filenames, and the markers themselves.
 
 Both halves of the platform's convention live in ``coral_app.nodestatus``, and both are tested here
 without a graph or an executor in sight — which is the point of the module being a collaborator
 rather than a few lines inside ``execute()``: "``.failed`` is written before the exception escapes"
 is a property of one object, so it can be asserted directly.
 
-The expected behaviour is the C++ reference backend's, since that is the producer the platform's
+The expected behaviour is the reference backend's, since that is the producer the platform's
 consumer was written against.
 """
 
@@ -53,7 +53,8 @@ class TestQualifiedIds:
         WHEN the mapping is built
         THEN ValueError names it.
 
-        C++ invents ``<node_id>_auto_<counter>`` here and warns instead. An invented name is not the
+        The reference backend invents ``<node_id>_auto_<counter>`` here and warns instead. An
+        invented name is not the
         node's identity, so a graph that omits the field would hand the platform a timeline it
         cannot key back to its nodes — better to say so before anything runs."""
         nodes = {"0": {"type": "int", "qualified_id": "0"}, "1": {"type": "add"}}
@@ -67,8 +68,8 @@ class TestQualifiedIds:
         THEN ValueError names the node.
 
         ``12`` and ``"12"`` are distinct dict values that name one file, so a graph declaring both
-        would drop a node from the timeline and bump the other's mtime. C++ cannot express it:
-        ``get<std::string>()`` throws on a number."""
+        would drop a node from the timeline and bump the other's mtime. The reference backend
+        cannot express it: its JSON accessor throws on a number."""
         nodes = {"0": {"type": "int", "qualified_id": 12}}
 
         with pytest.raises(ValueError, match="must be a string"):
@@ -216,7 +217,7 @@ class TestNodeStatusDirMarkers:
     def test_markers_are_empty_files(self, tmp_path):
         """GIVEN a node that ran
         WHEN its markers are read
-        THEN both are empty: the filename is the whole message, as in C++."""
+        THEN both are empty: the filename is the whole message."""
         status = NodeStatusDir(tmp_path)
 
         with status.node("3"):
@@ -259,7 +260,8 @@ class TestNodeStatusDirMarkers:
         WHEN it leaves the block
         THEN both its type and its message are exactly what was raised.
 
-        Deliberate, and the one place C++ is not followed: it re-throws a ``runtime_error`` wrapping
+        Deliberate, and the one place the reference backend is not followed: it re-throws an error
+        wrapping
         the node id. Here the try/except only exists when a touch directory is configured, so
         wrapping would make the exception's type and message depend on an unrelated flag. The node
         id reaches the log the other way, from the pair of lines ``execute()`` prints."""
@@ -277,8 +279,8 @@ class TestNodeStatusDirMarkers:
         WHEN two nodes run through it
         THEN neither raises and exactly one warning is printed.
 
-        Once nodes are running, the graph's result is worth more than its telemetry — C++ ignores a
-        failed touch entirely (an unchecked ``ofstream``); we warn, but only once, since the same
+        Once nodes are running, the graph's result is worth more than its telemetry — the reference
+        backend ignores a failed touch entirely; we warn, but only once, since the same
         failure would otherwise repeat for every marker of every node."""
         status = NodeStatusDir(tmp_path / "status")
         shutil.rmtree(tmp_path / "status")

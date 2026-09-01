@@ -1,4 +1,4 @@
-"""Wheel/pip acceptance for the plugin modularization (issue #16, Step 3.4).
+"""Wheel/pip acceptance for the plugin modularization.
 
 The faithful end-user path, exercised end to end: build every workspace package into a wheel, then in
 a **clean** venv install them incrementally and prove the modularization's runtime promises hold when

@@ -313,7 +313,7 @@ def returns_variadic_Tuple(x: float) -> Tuple[Any, ...]:
 
 
 class TestTupleReturnAnnotations:
-    """A tuple return must declare its elements (issue #31, decision 3).
+    """A tuple return must declare its elements.
 
     The port table's output arity is the claim every consumer trusts — the registry's ports, graph
     checks 5 and 6, and the executor's indexing. A tuple spelling that cannot state an arity is
@@ -333,7 +333,7 @@ class TestTupleReturnAnnotations:
         WHEN the table is built
         THEN it has exactly one output port, annotated ``tuple``.
 
-        This is the case the whole of issue #31 hinges on: one output that happens to carry a
+        This is the case output-port resolution hinges on: one output that happens to carry a
         tuple, which the executor must pass on whole instead of indexing into."""
         table = build_port_table(function_map={"pair": returns_bare_tuple})
 

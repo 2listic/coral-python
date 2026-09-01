@@ -1,4 +1,4 @@
-"""Characterization tests (issue #16, plan Step 0.3).
+"""Characterization tests.
 
 Pin the *behaviour* of ``run`` — the executor's returned ``results`` dict and the key stdout lines —
 for one small math graph and one small string graph. Together with the golden-registry tests, these

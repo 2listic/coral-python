@@ -65,13 +65,13 @@ class TestPluginContract:
 
 
 class TestStageSeparation:
-    """Issue #23: one job per module, enforced structurally rather than by convention.
+    """One job per module, enforced structurally rather than by convention.
 
     The refactor split the old executor into stages — describe node types (``nodeports``), validate
     and order a graph (``graph``), execute it (``executor``). These guards pin the boundaries that
     make each stage independently testable: ``graph.py`` compares plain data, so it never
     introspects a callable or reaches for a plugin; ``executor.py`` receives an already-validated
-    graph, so it never parses JSON, sorts, or walks the edge list; and issue #30 adds one more —
+    graph, so it never parses JSON, sorts, or walks the edge list; and
     ``nodestatus.py`` owns every byte written to the status directory, so ``executor.py`` needs no
     filesystem at all.
 

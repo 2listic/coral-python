@@ -1,7 +1,8 @@
-"""Tests for the CLI's own contract with the platform (issue #30).
+"""Tests for the CLI's own contract with the platform.
 
 The platform drives this backend through the ``coral`` console script, so what the *CLI* defaults to
-is part of the contract — and the C++ backend has no "write nothing" mode: it defaults ``--touch-dir``
+is part of the contract — and the reference backend has no "write nothing" mode: it defaults
+``--touch-dir``
 to ``"./"`` and touches unconditionally. That default is the one thing only a CLI-level test can
 pin, since ``WorkflowExecutor(touch_dir=None)`` deliberately writes nothing.
 """
@@ -42,7 +43,8 @@ class TestRunTouchDir:
     def test_the_default_is_the_cwd(self):
         """GIVEN the CLI module
         WHEN its touch-dir default is read
-        THEN it is ``"./"``, as in the C++ backend — the flag being omitted does not mean silence."""
+        THEN it is ``"./"``, as in the reference backend — the flag being omitted does not mean
+        silence."""
         assert DEFAULT_TOUCH_DIR == "./"
 
     @pytest.mark.math
@@ -52,7 +54,7 @@ class TestRunTouchDir:
         """GIVEN ``coral run <graph>`` with no ``--touch-dir``
         WHEN it executes
         THEN the markers land in the current directory, two per node, and the graph file is left
-        alone. This is the C++-faithful default, and the platform relies on it: it runs the backend
+        alone. This is the reference default, and the platform relies on it: it runs the backend
         inside the job directory it then watches."""
         monkeypatch.setattr("sys.argv", ["coral", "-p", "math", "run", str(graph_file)])
 

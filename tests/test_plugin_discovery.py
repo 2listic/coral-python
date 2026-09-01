@@ -1,4 +1,4 @@
-"""Acceptance tests for the plugin discovery/load contract (issue #16, Step 3).
+"""Acceptance tests for the plugin discovery/load contract.
 
 These pin the runtime guarantees the whole modularization rests on. They are written to be
 **plugin-set-agnostic**: nothing here asserts a fixed catalog like ``["math", "phiflow", "string"]``,

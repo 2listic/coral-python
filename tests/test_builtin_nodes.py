@@ -1,4 +1,4 @@
-"""Tests for the host's own function surface (step 2) — ``coral_app.builtin_nodes``.
+"""Tests for the host's own function surface — ``coral_app.builtin_nodes``.
 
 Unit level: no graph, no executor, no registry. Each function is called directly, because what these
 tests pin is the *contract* the graph layer then relies on — purity, fail-loud, determinism.

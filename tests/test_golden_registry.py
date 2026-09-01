@@ -1,4 +1,4 @@
-"""Golden-file contract tests (issue #16, decision D2).
+"""Golden-file contract tests.
 
 Pin the ``register`` output (``node_types.json``) byte-for-byte for each plugin set. The golden files
 under ``tests/golden/`` are a lasting regression guard: they were snapshotted from the pre-refactor
@@ -9,7 +9,7 @@ regenerating the affected golden (a reviewable diff), which is the point.
 These tests exercise the real ``save_registry_to_file`` code path, so they hold across the atomic
 move — their imports are repointed to ``coral_app`` now that the flat modules are deleted.
 
-Parity granularity (issue #16): the single-plugin goldens (``math``/``string``/``phiflow``) are
+Parity granularity: the single-plugin goldens (``math``/``string``/``phiflow``) are
 asserted **byte-for-byte** — order within one plugin is stable. The ``all`` golden is asserted by
 **content** (parsed dicts, order-insensitive): with entry-point discovery the "all" default is now
 ``sorted(discover())``, which reorders only the cross-plugin class entries (``StringProcessor``

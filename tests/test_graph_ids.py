@@ -1,9 +1,8 @@
 """
 Every graph file the repo ships keys its nodes and edges by decimal integer.
 
-The protocol keys nodes by integer, and only the reference C++ backend enforces it
-(``coral_network_implementation.h``: ``int id = std::stoi(key)``, with ``Network::nodes`` keyed by
-``unsigned int``). Three platform mechanisms rest on the same invariant: the editor's exporter
+The protocol keys nodes by integer, and only the reference backend enforces it. Three platform
+mechanisms rest on the same invariant: the editor's exporter
 ``parseInt``s every edge endpoint, the editor's id counter ``parseInt``s every node id to find the
 next free one, and ``qualified_id`` joins ancestor ids with ``_``. ``coral_app.graph`` takes the
 opposite position on purpose — it coerces endpoints with ``str()`` and treats ids as opaque — so a
@@ -161,7 +160,7 @@ def test_every_qualified_id_is_its_node_id(path):
     """GIVEN a shipped graph file
     WHEN each node's ``qualified_id`` is compared with its node id
     THEN the two are equal — the convention the platform's editor writes (``PoissonSolverCreation``,
-    ``laplace``, ``qualified_id.json`` in the C++ repo's ``test_files`` all do this).
+    ``laplace``, ``qualified_id.json`` in the reference repo's ``test_files`` all do this).
 
     Kept separate from the check above because it is a *convention*, not a requirement: the host
     accepts any unique, filename-safe string, and a nested graph would legitimately use ``12_3``.

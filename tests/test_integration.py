@@ -321,7 +321,7 @@ class TestDeterministicExecution:
 # Node ids in the four `network-collections-*` fixtures, by the name each node plays in its graph.
 #
 # The graphs key their nodes by decimal integer, as the protocol requires (the editor's exporter
-# `parseInt`s every endpoint and the reference C++ backend `std::stoi`s every key), which leaves the
+# `parseInt`s every endpoint and the reference backend parses every key as an integer), which leaves
 # ids carrying no meaning. These maps are where the meaning lives, so an assertion below still reads
 # as a sentence about the graph rather than about node "8". Every node is listed, not only the
 # asserted ones, so the map doubles as the graph's legend.
@@ -458,7 +458,7 @@ class TestCollectionWorkflows:
         WHEN the graph runs with the math plugin
         THEN the sum is 7.0.
 
-        This is the interop case decision 2 was taken for: because a builtin returns a real ``list``
+        This is the interop case that matters: because a builtin returns a real ``list``
         holding real floats, a plugin function consumes them with no conversion node in between.
         """
         results = WorkflowExecutor(
