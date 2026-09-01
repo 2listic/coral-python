@@ -324,6 +324,70 @@ class TestNodeTypes:
             Graph({"n1": {"type": collection}}, {}, port_table)
 
 
+class TestNodeIds:
+    """Node ids are read as strings, whatever the caller keyed them by."""
+
+    def test_integer_node_ids_are_coerced_to_strings(self):
+        """GIVEN an in-memory graph whose nodes are keyed by ``int``
+        WHEN the graph is built and an edge joins them
+        THEN both meet as strings: the edge resolves and the order names string ids.
+
+        The editor writes an edge's endpoints as numbers while a JSON object's keys are always
+        strings, so ``_read_edges`` coerces its endpoints; coercing there and not here is what used
+        to make an int-keyed graph fail as "names no declared node"."""
+        graph = build({0: {"type": "float", "value": 1.0}, 1: {"type": "show"}}, {"e1": edge(0, 1)})
+
+        assert graph.order == ["0", "1"]
+        assert graph.node("0")["value"] == 1.0
+        assert [e.source for e in graph.inputs_of("1")] == ["0"]
+
+    def test_two_ids_denoting_the_same_string_are_rejected(self):
+        """GIVEN a graph declaring both ``0`` and ``"0"``
+        WHEN it is built
+        THEN it raises instead of letting the second declaration overwrite the first.
+
+        Coercion merges the two keys, and silently keeping one of two distinct nodes is exactly the
+        kind of incoherence the coercion is there to avoid. A graph from a file cannot reach this:
+        JSON object keys are strings already."""
+        with pytest.raises(ValueError, match=r"Node id '0' is declared twice"):
+            build({0: {"type": "int", "value": 1}, "0": {"type": "int", "value": 2}}, {})
+
+
+class TestSubgraphNodes:
+    """A node carrying a whole workflow of its own is rejected by name (part of check 2)."""
+
+    def test_a_node_whose_value_holds_a_workflow_is_rejected(self):
+        """GIVEN a subnetwork node, as the platform's editor writes one
+        WHEN the graph is built
+        THEN it raises saying nested subgraphs are unsupported — not "unknown type".
+
+        This is the one shape in which node ids stop being unique: the inner ``nodes`` object
+        numbers from its own zero, and only the ``qualified_id`` (``12_3``) tells the two apart."""
+        nested = {
+            "type": "coral::Network",
+            "value": {"workflow": {"nodes": {"0": {"type": "int", "value": 1}}, "edges": {}}},
+        }
+
+        with pytest.raises(ValueError, match=r"Node '12' carries a nested workflow"):
+            build({"12": nested}, {})
+
+    def test_a_node_typed_network_is_rejected_even_without_a_value(self):
+        """GIVEN a node declaring ``node_type: network`` and nothing nested
+        WHEN the graph is built
+        THEN it is still rejected — the platform's marker for a subnetwork is enough."""
+        with pytest.raises(ValueError, match=r"Node 'n1' carries a nested workflow"):
+            build({"n1": {"type": "coral::Network", "node_type": "network"}}, {})
+
+    def test_a_primitive_whose_value_is_a_dict_is_not_a_subgraph(self):
+        """GIVEN an ``any`` primitive whose value happens to be a dict
+        WHEN the graph is built
+        THEN it is accepted: only a ``workflow`` key makes a value a nested graph, so an ordinary
+        mapping payload is untouched."""
+        graph = build({"n1": {"type": "any", "value": {"nodes": 3}}}, {})
+
+        assert graph.order == ["n1"]
+
+
 class TestInputPorts:
     """Check 3: for n incoming edges the target_input values are exactly 0..n-1."""
 

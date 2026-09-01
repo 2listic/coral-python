@@ -421,6 +421,12 @@ carries a `qualified_id` per node, numbered progressively in declaration order.
 **The mapping is built whether or not markers are written**: a graph must not become valid or
 invalid depending on an unrelated flag.
 
+Because the value becomes a filename, `qualified_ids()` also rejects one that cannot be one — a
+**non-string** (`12` and `"12"` are distinct values naming one file, and C++'s `get<std::string>()`
+throws on a number), the **empty string** (it would write `.running`), a **`.`** (the consumer
+splits on it) and a **path separator** (it would leave the watched directory). Each is a way for two
+nodes to write the same markers, or for the consumer to key one to the wrong node.
+
 Consequence for the platform: a graph its editor exports without `qualified_id` runs under the C++
 backend and is rejected here.
 
@@ -459,7 +465,11 @@ In order:
 
 1. every edge `source` and `target` names a declared node — **first**, because
    `TopologicalSorter` would otherwise silently materialise an unknown predecessor as a node;
-2. every node `type` has a port-table entry;
+2. every node `type` has a port-table entry — and a node carrying a **nested workflow** (a
+   subnetwork: `"node_type": "network"`, or a `workflow` inside its `value`) is rejected by name
+   just before that, so it does not surface as "unknown type `coral::Network`". That shape is the
+   one in which node ids stop being unique: the inner `nodes` object numbers from its own zero, and
+   only the `qualified_id` (`12_3` — node 3 of the subnetwork at node 12) separates the two;
 3. per target node, the `target_input` values are exactly `{0 … n-1}` for n incoming edges — catches
    two edges on one port and a port index out of range;
 4. the incoming edge count equals the type's input count — catches missing and extra connections;
@@ -597,10 +607,17 @@ passes `plugins=[]` — the CLI cannot express it, since an empty `-p` means *al
   the reference C++ backend reads each key with `std::stoi` into an `unsigned int`, and the platform's
   exporter `parseInt`s every edge endpoint — a word id becomes `NaN`, which `JSON.stringify` writes as
   `null`, so the graph comes back with its wiring gone. `graph.py` itself takes the opposite position on
-  purpose: it coerces endpoints with `str()` and treats ids as opaque, which keeps readable ids
-  (`"a"`, `"b"`) available to the in-memory graphs `tests/test_graph.py` builds. The rule is therefore
+  purpose: it coerces **both** node keys and edge endpoints with `str()` and treats ids as opaque,
+  which keeps readable ids (`"a"`, `"b"`) available to the in-memory graphs `tests/test_graph.py`
+  builds. Coercing one side only was incoherent — an int-keyed in-memory graph was accepted while
+  every edge into it failed as "names no declared node" — and because coercion can *merge* two keys
+  (`0` and `"0"`), two ids denoting the same string now raise instead of the later node silently
+  overwriting the earlier. A graph from a file cannot reach that: JSON object keys are strings. The rule is therefore
   enforced on *files*, not in the loader — `tests/test_graph_ids.py` checks every graph under
-  `examples/` and `tests/fixtures/`, node ids, edge keys and both endpoints of every edge. Leading
+  `examples/` and `tests/fixtures/`: node ids, edge keys, both endpoints of every edge, and that
+  every node declares a filename-safe `qualified_id` **equal to its node id**, which is what the
+  editor writes at the top level (a nested `12_3` only occurs one level down, and this host rejects
+  nested graphs). Leading
   zeros and negative ids are rejected too (`std::stoi("01")` is `1`, so `"01"` and `"1"` would name one
   node). Consequence for test data: a fixture's node names live in a `*_NODES` map in
   `tests/test_integration.py`, not in the JSON, which has no field for them

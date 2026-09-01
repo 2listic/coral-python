@@ -42,9 +42,24 @@ def qualified_ids(nodes: Mapping[str, dict]) -> Dict[str, str]:
     """Map each node id to the qualified id its status files are named after.
 
     Every node must declare a ``qualified_id``, and it is used verbatim: on the platform that string
-    is the node's path through nested subgraphs, which is why the field exists at all. Node ids are
-    unique only within one graph, so nothing here derives a qualified id from one — the two name
-    different things, and only the qualified id is required to be globally unique.
+    is the node's path through nested subgraphs (``12_3`` is node 3 of the subnetwork at node 12),
+    which is why the field exists at all. Node ids are unique only within one ``nodes`` object, so
+    nothing here derives a qualified id from one — the two name different things, and only the
+    qualified id is unique across nesting levels.
+
+    Because the value becomes a *filename*, it must be a string that can be one. Four rejections,
+    each of them a way for two nodes to end up writing the same markers, or for the consumer to
+    read the wrong node's:
+
+    - **not a string.** ``12`` and ``"12"`` are distinct as dict values but name one file, so a
+      graph declaring both would lose a node from the timeline and bump the other's mtime. C++
+      cannot express this — ``node_data["qualified_id"].get<std::string>()`` throws on a number.
+    - **empty.** It would write ``.running``, a dotfile with no node name in it. (C++ falls back to
+      the node id here; we do not, for the same reason we reject a missing field.)
+    - **contains a ``.``** — the consumer splits each filename on ``.`` to recover the node, so a
+      dot inside the name mis-keys it.
+    - **contains a path separator.** ``top/first`` writes into a subdirectory the platform is not
+      watching, or fails outright.
 
     Args:
         nodes: Node id -> node definition, in graph-JSON order.
@@ -53,9 +68,9 @@ def qualified_ids(nodes: Mapping[str, dict]) -> Dict[str, str]:
         Node id -> qualified id, one entry per node.
 
     Raises:
-        ValueError: if a node declares no ``qualified_id``, or if two of them declare the same one.
-            Two nodes sharing a filename would corrupt the very timeline these files exist to show,
-            and silently.
+        ValueError: if a node declares no ``qualified_id``, declares one that cannot be a filename,
+            or repeats another's. Two nodes sharing a filename would corrupt the very timeline these
+            files exist to show, and silently.
     """
     assigned: Dict[str, str] = {}
     seen = set()
@@ -67,6 +82,28 @@ def qualified_ids(nodes: Mapping[str, dict]) -> Dict[str, str]:
             raise ValueError(
                 f"Node {node_id!r} declares no qualified_id; every node must declare one, since "
                 f"it is the name its execution status files are written under"
+            )
+
+        if not isinstance(declared, str):
+            raise ValueError(
+                f"Node {node_id!r} declares qualified_id {declared!r} of type "
+                f"{type(declared).__name__}; it must be a string, since it names a file — "
+                f"{declared!r} and {str(declared)!r} would write the same one"
+            )
+
+        if not declared:
+            raise ValueError(
+                f"Node {node_id!r} declares an empty qualified_id; it names this node's status "
+                f"files, so it must be something the platform can read a node out of"
+            )
+
+        forbidden = [character for character in (".", "/", "\\") if character in declared]
+        if forbidden:
+            raise ValueError(
+                f"Node {node_id!r} declares qualified_id {declared!r}, which contains "
+                f"{', '.join(repr(character) for character in forbidden)}; a status filename is "
+                f"split on '.' by the consumer and a path separator would leave the watched "
+                f"directory"
             )
 
         if declared in seen:

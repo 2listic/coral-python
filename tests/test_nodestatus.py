@@ -61,6 +61,49 @@ class TestQualifiedIds:
         with pytest.raises(ValueError, match="'1' declares no qualified_id"):
             qualified_ids(nodes)
 
+    def test_a_numeric_id_raises_naming_the_node(self):
+        """GIVEN a node whose qualified_id is a number rather than a string
+        WHEN the mapping is built
+        THEN ValueError names the node.
+
+        ``12`` and ``"12"`` are distinct dict values that name one file, so a graph declaring both
+        would drop a node from the timeline and bump the other's mtime. C++ cannot express it:
+        ``get<std::string>()`` throws on a number."""
+        nodes = {"0": {"type": "int", "qualified_id": 12}}
+
+        with pytest.raises(ValueError, match="must be a string"):
+            qualified_ids(nodes)
+
+    def test_an_empty_id_raises(self):
+        """GIVEN a node whose qualified_id is the empty string
+        WHEN the mapping is built
+        THEN ValueError names the node — the markers would be ``.running``, a dotfile naming no
+        node at all."""
+        nodes = {"0": {"type": "int", "qualified_id": ""}}
+
+        with pytest.raises(ValueError, match="empty qualified_id"):
+            qualified_ids(nodes)
+
+    def test_an_id_containing_a_dot_raises(self):
+        """GIVEN a qualified_id with a ``.`` in it
+        WHEN the mapping is built
+        THEN it is rejected: the consumer splits each marker filename on ``.`` to recover the node,
+        so a dot inside the name mis-keys it."""
+        nodes = {"0": {"type": "int", "qualified_id": "top.add"}}
+
+        with pytest.raises(ValueError, match=r"contains '\.'"):
+            qualified_ids(nodes)
+
+    @pytest.mark.parametrize("separator", ["/", "\\"], ids=["slash", "backslash"])
+    def test_an_id_containing_a_path_separator_raises(self, separator):
+        """GIVEN a qualified_id spelled as a path
+        WHEN the mapping is built
+        THEN it is rejected: it would write outside the directory the platform watches, or fail."""
+        nodes = {"0": {"type": "int", "qualified_id": f"top{separator}first"}}
+
+        with pytest.raises(ValueError, match="path separator"):
+            qualified_ids(nodes)
+
     def test_a_duplicate_declared_id_raises_naming_it(self):
         """GIVEN two nodes declaring the same qualified_id
         WHEN the mapping is built

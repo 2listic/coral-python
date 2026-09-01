@@ -120,11 +120,12 @@ class Graph:
             ValueError: on any structural, wiring, typing or ordering defect. The message names the
                 offending node or edge.
         """
-        self.nodes: Dict[str, dict] = dict(nodes)
+        self.nodes: Dict[str, dict] = _read_nodes(nodes)
         self.edges: List[Edge] = _read_edges(edges)
         self.port_table = port_table
 
         self._check_edges_reference_declared_nodes()
+        self._check_no_node_is_a_subgraph()
         self._check_node_types_are_known()
 
         # Built once, here, so the executor never re-filters the edge list per node.
@@ -185,6 +186,29 @@ class Graph:
                         f"Edge {edge.id!r} names {role} node {node_id!r}, which the graph "
                         f"does not declare"
                     )
+
+    def _check_no_node_is_a_subgraph(self) -> None:
+        """No node may carry a nested workflow of its own.
+
+        The platform's editor can put a whole graph inside a node — ``"node_type": "network"``,
+        ``"type": "coral::Network"``, with a ``{"workflow": {...}}`` in its ``value``. That is the
+        one shape in which **node ids stop being unique**: the inner ``nodes`` object numbers its
+        nodes from its own zero, so the same id can name a node at each level, and only the
+        ``qualified_id`` (``12_3`` — node 3 inside the subnetwork at node 12) tells them apart.
+
+        This host has no subgraph support, so such a graph is rejected either way — but it would
+        otherwise be rejected as "unknown type ``coral::Network``", which sends the reader after a
+        missing plugin. Naming the real reason costs three lines and runs before the type check.
+        """
+        for node_id, node in self.nodes.items():
+            value = node.get("value")
+            nested = isinstance(value, Mapping) and "workflow" in value
+            if nested or node.get("node_type") == "network":
+                raise ValueError(
+                    f"Node {node_id!r} carries a nested workflow (a subnetwork node); nested "
+                    f"subgraphs are not supported. Node ids repeat across nesting levels, so such "
+                    f"a graph cannot be read as one flat set of nodes"
+                )
 
     def _check_node_types_are_known(self) -> None:
         """Every node's ``type`` must have a port-table entry."""
@@ -315,6 +339,34 @@ class Graph:
                 order.append(node_id)
                 sorter.done(node_id)
         return order
+
+
+def _read_nodes(nodes: Mapping[str, dict]) -> Dict[str, dict]:
+    """The graph's nodes, keyed by node id as a string.
+
+    Ids are coerced with ``str()`` for the same reason :func:`_read_edges` coerces its endpoints: the
+    editor writes an edge's endpoints as numbers while a JSON object's keys are always strings, and
+    the two have to meet. Coercing in one place and not the other is how an in-memory graph keyed by
+    ``int`` came to be accepted while every edge into it failed as "names no declared node".
+
+    Coercion can merge two keys — ``0`` and ``"0"`` are distinct in a Python dict and name one node
+    here — so a collision raises rather than letting the later declaration overwrite the earlier
+    one. It cannot happen to a graph loaded from a file: JSON object keys are strings already, and
+    the format has no way to spell a duplicate.
+
+    Raises:
+        ValueError: if two node ids denote the same string.
+    """
+    read: Dict[str, dict] = {}
+    for node_id, node in nodes.items():
+        key = str(node_id)
+        if key in read:
+            raise ValueError(
+                f"Node id {key!r} is declared twice: {node_id!r} and one of the ids before it "
+                f"denote the same node"
+            )
+        read[key] = node
+    return read
 
 
 def _read_edges(edges: Union[Mapping[str, dict], Sequence[dict]]) -> List[Edge]:
