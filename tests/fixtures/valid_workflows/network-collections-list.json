@@ -1,18 +1,18 @@
 {
   "workflow": {
     "nodes": {
-      "0": { "type": "int", "value": "1" },
-      "1": { "type": "int", "value": "2" },
-      "2": { "type": "int", "value": "3" },
-      "3": { "type": "int", "value": "0" },
-      "4": { "type": "int", "value": "1" },
-      "5": { "type": "list_new" },
-      "6": { "type": "list_append" },
-      "7": { "type": "list_append" },
-      "8": { "type": "list_append" },
-      "9": { "type": "list_size" },
-      "10": { "type": "list_get" },
-      "11": { "type": "list_remove_at" }
+      "0": { "qualified_id": "0", "type": "int", "value": "1" },
+      "1": { "qualified_id": "1", "type": "int", "value": "2" },
+      "2": { "qualified_id": "2", "type": "int", "value": "3" },
+      "3": { "qualified_id": "3", "type": "int", "value": "0" },
+      "4": { "qualified_id": "4", "type": "int", "value": "1" },
+      "5": { "qualified_id": "5", "type": "list_new" },
+      "6": { "qualified_id": "6", "type": "list_append" },
+      "7": { "qualified_id": "7", "type": "list_append" },
+      "8": { "qualified_id": "8", "type": "list_append" },
+      "9": { "qualified_id": "9", "type": "list_size" },
+      "10": { "qualified_id": "10", "type": "list_get" },
+      "11": { "qualified_id": "11", "type": "list_remove_at" }
     },
     "edges": {
       "0": { "source": 5, "target": 6, "source_output": 0, "target_input": 0 },

@@ -93,6 +93,9 @@ coral run path/to/workflow.json
 coral -p "math" run path/to/workflow.json
 coral -p "math,string,phiflow" run examples/phiflow/network-from-fe.json
 
+# Send the per-node status markers somewhere other than the cwd
+coral run path/to/workflow.json --touch-dir /run/job-42
+
 # Generate the node registry (writes node_types.json into the cwd)
 coral register
 coral -p "math" register
@@ -173,6 +176,7 @@ packages/
 │       ├── graph.py               # read, validate and order a workflow graph
 │       ├── registry.py            # node_types.json generation (renders the port table)
 │       ├── executor.py            # graph execution: walk the order, call each node
+│       ├── nodestatus.py          # the per-node status markers: qualified ids + the marker files
 │       └── cli.py                 # register / run subcommands; console script `coral`
 ├── coral-plugin-math/             # entry point `math`  -> coral_plugin_math:MathPlugin
 ├── coral-plugin-string/           # entry point `string`-> coral_plugin_string:StringPlugin
@@ -230,22 +234,31 @@ it finds them at runtime via entry-point discovery.
      `methods_of(port_table, class_name)` lists a class's `Class.method` entries.
    - **`graph.py`** (stage 3): `Graph(nodes, edges, port_table)` and
      `Graph.from_file(path, port_table)`. **Constructing one validates it** — see
-     [Graph validation](#graph-validation). Exposes `.order`, `.node(id)`, `.ports_of(id)` and
-     `.inputs_of(id)` (incoming edges sorted by `target_input`, built once). Takes the port table as
-     plain data, so it imports neither `inspect` nor any plugin machinery, and its tests need no
-     plugin installed.
+     [Graph validation](#graph-validation). Exposes `.order`, `.node(id)`, `.ports_of(id)`,
+     `.inputs_of(id)` (incoming edges sorted by `target_input`, built once) and `.qualified_ids`
+     (node id -> qualified id, validated as check 3). Takes the port table as plain data, so it
+     imports neither `inspect` nor any plugin machinery, and its tests need no plugin installed;
+     the one host module it imports is `nodestatus`, for check 3's rules.
    - **`registry.py`** (stage 5): `generate_registry()` renders the port table into the platform's
      file format, `python_type_to_string()`, `save_registry_to_file(filename, plugins=...)`. Every
      decision about the *format* lives here — argument dicts, index numbering, the `[-1]`
      convention; the arity and annotations come from the port table.
-   - **`executor.py`** (stage 4): `WorkflowExecutor(workflow_file, plugins=...)` — see
-     [Data flow](#data-flow). Validation happens during construction, so `execute()` only walks,
-     calls and stores. No `json`, no `graphlib`, no edge list.
+   - **`executor.py`** (stage 4): `WorkflowExecutor(workflow_file, plugins=..., touch_dir=...)` —
+     see [Data flow](#data-flow). Validation happens during construction, so `execute()` only walks,
+     calls and stores. No `json`, no `graphlib`, no edge list — and no `pathlib`/`os` either: the
+     status markers are written by `nodestatus.py`.
+   - **`nodestatus.py`**: the per-node status markers — `qualified_ids(nodes)` (a pure function
+     naming the files, which also owns the rules for what can *be* one of those names — `Graph`
+     calls it as check 3) and `NodeStatusDir` (the context manager writing them). One external
+     consumer's file format, held in one module the way `registry.py` holds the registry's: it is
+     handed a plain mapping and a path, and imports neither `graph` nor `executor`. See
+     [Per-node execution status](#per-node-execution-status).
 
 4. **`coral-app/cli.py`** — Coral-compatible CLI entry point (argparse):
    - Global `-p/--plugin` names the plugins to load (comma-separated; empty = all installed).
    - `register` subcommand → `save_registry_to_file()` (writes `node_types.json` into the cwd).
-   - `run` subcommand → `WorkflowExecutor(...).execute()`.
+   - `run` subcommand → `WorkflowExecutor(...).execute()`, forwarding `--touch-dir` (default
+     `"./"`, the cwd — see [Per-node execution status](#per-node-execution-status)).
    - Empty `-p` resolves to `discover()` (all installed), passed explicitly.
    - Exposed as the `coral` console script; wrapped by `coral-py` for the platform.
 
@@ -254,8 +267,10 @@ it finds them at runtime via entry-point discovery.
 **Network Files** (e.g., `network-from-fe.json`):
 Located at: `workflow.nodes` and `workflow.edges`
 
-Nodes are **lean**: each carries only its `type` (plus `value` for primitives); the executor infers
-the kind from `type`, so `node_type`/`method_name` are not part of the graph.
+Nodes are **lean**: each carries its `type` and its `qualified_id` (plus `value` for primitives);
+the executor infers the kind from `type`, so `node_type`/`method_name` are not part of the graph.
+The `qualified_id` is required — see [Per-node execution status](#per-node-execution-status) — and is
+omitted from the shapes below, which show only what decides a node's kind:
 - Primitive: `{"type": "<type>", "value": <val>}`
 - Function: `{"type": "<func_name>"}`
 - Constructor: `{"type": "<ClassName>"}`
@@ -290,8 +305,8 @@ Edge format:
 | --- | --- | --- | --- | --- |
 | 1 | load plugins, add the host's builtins | plugin names | `function_map`, `class_map` | `coral_app/__init__.py` |
 | 2 | describe each node type | the maps | port table | `coral_app/nodeports.py` |
-| 3 | read, validate, order the graph | graph JSON + port table | `Graph` | `coral_app/graph.py` |
-| 4 | execute | `Graph` + the maps | `results` | `coral_app/executor.py` |
+| 3 | read, validate, order the graph | graph JSON + port table | `Graph` | `coral_app/graph.py`, `coral_app/nodestatus.py` (check 3) |
+| 4 | execute | `Graph` + the maps | `results`, plus the status markers if a touch dir was given | `coral_app/executor.py`, `coral_app/nodestatus.py` |
 | 5 | write the registry | port table | `node_types.json` | `coral_app/registry.py` |
 
 1. **Discover/Load**: the host lists installed plugins (no import) and loads only the requested names.
@@ -359,7 +374,7 @@ verified before execution began.
 
 The **output arity** check exists because the port table's arity comes from a return annotation,
 which is a *claim* by the function's author. Everything downstream trusts it: the registry emits that
-many sockets, checks 5 and 6 bound and type an edge by it, and step 1 above indexes with it. This is
+many sockets, checks 7 and 8 bound and type an edge by it, and step 1 above indexes with it. This is
 the one place the claim meets what the function actually returned, and it is placed at the *producing*
 node rather than at a consumer's edge so that it fires whether or not the offending port is wired —
 an under-declared node cannot slip through by nobody reading its last output. The error names the
@@ -371,35 +386,114 @@ Node 3 (phiflow_iterate) declares 3 outputs but returned int
 ```
 
 Only n > 1 is checkable. At n == 1 a returned tuple is legitimate — that is the `-> tuple` case — so
-there is nothing to compare; at n == 0 the value is unreachable anyway, since check 5 rejects every
+there is nothing to compare; at n == 0 the value is unreachable anyway, since check 7 rejects every
 outgoing edge of a node with no outputs. Nothing here checks the *types* of a tuple's elements; check
 6 reasons about the declaration only.
+
+### Per-node execution status
+
+While a graph runs, the executor drops one **empty file per node per state** into a directory the
+platform watches — this is how the editor lights each node up live (issue #30). The convention is
+the C++ reference backend's, because the platform's consumer was written against that producer:
+
+| moment | file | note |
+| --- | --- | --- |
+| before a node runs | `<qualified_id>.running` | empty |
+| the node returned | `<qualified_id>.succeeded` | empty |
+| the node raised | `<qualified_id>.failed` | empty; `.running` is **left in place**, as in C++ |
+
+The consumer lists the directory with `ls -tr` and splits each name on `.`, so **file mtime order is
+the timeline** and a `.` inside a qualified id mis-keys it. Nothing is ever written twice in a run —
+the three suffixes differ and the directory is cleaned at startup — so the mtimes are exactly the
+call order. (Caveat inherited from the kernel's coarse file-timestamp clock, ~1 ms: nodes that run
+faster than that share an mtime and cannot be ordered. C++ writes through the same clock.)
+
+**All nodes get markers, primitives included** — C++ makes every node a task with no exemption, and a
+graph whose primitives never appear would read as "half the nodes never started".
+
+**The filename comes from the node's `qualified_id`**, a field the platform uses for a node's path
+through nested subgraphs, and **every node must declare one**: a node without it, or two nodes
+sharing one, raise `ValueError` while the `Graph` is being constructed (check 3: the rules live in
+`nodestatus.py`, which owns the filename convention, and `Graph` is what applies them). This is the
+one place the C++ backend is not followed — it invents
+`<node_id>_auto_<counter>` and warns. An invented name is not the node's identity, so a graph that
+omits the field would hand the platform a timeline it cannot key back to its nodes; and note that
+node ids and qualified ids are not the same thing (a node id is unique only within one graph), so
+nothing derives one from the other. Every graph under `examples/` and `tests/fixtures/` therefore
+carries a `qualified_id` per node, numbered progressively in declaration order.
+
+**The mapping is built by `Graph`, whether or not markers are written**: a graph must not become
+valid or invalid depending on an unrelated flag, and "every node declares a unique, filename-safe
+`qualified_id`" is a rule about node *identity*, which belongs with the other checks rather than in
+the executor. `WorkflowExecutor` reads `graph.qualified_ids` and computes nothing of its own.
+
+Because the value becomes a filename, `qualified_ids()` also rejects one that cannot be one — a
+**non-string** (`12` and `"12"` are distinct values naming one file, and C++'s `get<std::string>()`
+throws on a number), the **empty string** (it would write `.running`), a **`.`** (the consumer
+splits on it) and a **path separator** (it would leave the watched directory). Each is a way for two
+nodes to write the same markers, or for the consumer to key one to the wrong node.
+
+Consequence for the platform: a graph its editor exports without `qualified_id` runs under the C++
+backend and is rejected here.
+
+**Where they go**: `--touch-dir`, and its default is `"./"` — the cwd. C++ has no "write nothing"
+mode (it defaults the same way and touches unconditionally), and the CLI is the platform's contract,
+so fidelity holds there: `coral run graph.json` in a checkout *will* drop markers in that directory
+and clean the matching files already in it. The library object is the other way round:
+`WorkflowExecutor(..., touch_dir=None)` writes nothing, which is what keeps the test suite from
+having to hand every executor a `tmp_path`. The directory is prepared on the **first line** of
+`__init__`, before plugin loading and before validation, so a bad path fails before phiflow is
+imported and a graph that fails validation shows the platform an *empty* directory rather than the
+stale timeline of an earlier job.
+
+**Two asymmetries, both deliberate** (and both C++'s):
+
+| failure | behaviour | why |
+| --- | --- | --- |
+| the directory cannot be created or cleaned | raises, at t=0 | a bad `--touch-dir` is a configuration error, and failing costs nothing yet |
+| a marker cannot be written mid-run | warns **once**, keeps executing | once nodes are running, the graph's result is worth more than its telemetry |
+
+**The exception a failing node raises is propagated untouched** — type and message both. C++ re-throws
+a `runtime_error` wrapping the node id; we do not, because the `try/except` only exists when a touch
+directory was configured, so wrapping would make a diagnostic's *shape* depend on `--touch-dir`. The
+node id reaches the log the other way, unconditionally: `execute()` prints
+`Start running node N [qid] (type = T)` before each node and `Node N [qid] (type = T) run` after it,
+mirroring C++'s `slog_info` pair, so a traceback is always bracketed by lines naming the node.
 
 ### Graph validation
 
 **The graph is fully validated before execution starts.** Constructing a `Graph` runs every check
 below; a graph that constructs is a graph that can be executed. Because `WorkflowExecutor.__init__`
-builds one, a wiring error surfaces there — never after a long PhiFlow run has already started. Each
+builds one, a defect surfaces there — never after a long PhiFlow run has already started. Each
 failure raises `ValueError` naming the offending node or edge (edges by their key in the graph JSON).
 
-In order:
+In order — one item per check, as `Graph.__init__` runs them:
 
 1. every edge `source` and `target` names a declared node — **first**, because
    `TopologicalSorter` would otherwise silently materialise an unknown predecessor as a node;
-2. every node `type` has a port-table entry;
-3. per target node, the `target_input` values are exactly `{0 … n-1}` for n incoming edges — catches
+2. no node carries a **nested workflow** (a subnetwork: `"node_type": "network"`, or a `workflow`
+   inside its `value`). It runs before the type check so such a node is rejected by name rather
+   than as "unknown type `coral::Network`". That shape is the one in which node ids stop being
+   unique: the inner `nodes` object numbers from its own zero, and only the `qualified_id` (`12_3`
+   — node 3 of the subnetwork at node 12) separates the two;
+3. every node declares a `qualified_id` that is unique and can be a filename — the only check whose
+   rules live in another module: `nodestatus.qualified_ids()` owns them, because it owns the
+   filename convention they come from; `Graph` applies them and keeps the resulting mapping on
+   `.qualified_ids`. See [Per-node execution status](#per-node-execution-status);
+4. every node `type` has a port-table entry;
+5. per target node, the `target_input` values are exactly `{0 … n-1}` for n incoming edges — catches
    two edges on one port and a port index out of range;
-4. the incoming edge count equals the type's input count — catches missing and extra connections;
-5. every `source_output` names an output the source type has;
-6. every edge's source annotation is compatible with its target annotation;
-7. no cycles — the message names the cycle path.
+6. the incoming edge count equals the type's input count — catches missing and extra connections;
+7. every `source_output` names an output the source type has;
+8. every edge's source annotation is compatible with its target annotation;
+9. no cycles — the message names the cycle path.
 
-**Every argument must be connected** (check 4). A default value in plugin code is *not* a way to
+**Every argument must be connected** (check 6). A default value in plugin code is *not* a way to
 leave a port unwired, so the defaults in `phiflow_union`, `phiflow_iterate`,
 `phiflow_plot_and_save`, `Calculator` and `StringProcessor` are unreachable from a graph. This is
 long-standing behaviour, moved earlier.
 
-**`source_output` (check 5)** — both `0` and `-1` appear on the wire for a single-output node, so
+**`source_output` (check 7)** — both `0` and `-1` appear on the wire for a single-output node, so
 both are accepted there:
 
 | output count | accepted `source_output` |
@@ -412,9 +506,9 @@ The three spellings for a single output are synonyms **in fact**, not only on pa
 takes the output count from the port table, so it never reads `source_output` on a single-output node
 and all three deliver the same value (issue #31 — they used to deliver three different ones). On such
 a node `source_output` is genuinely ignorable. This is also why the executor does not re-check the
-index: check 5 already bounds it, and duplicating that would put the same rule in two places.
+index: check 7 already bounds it, and duplicating that would put the same rule in two places.
 
-**Edge type compatibility (check 6)** is deliberately narrow: it skips whenever the answer is not
+**Edge type compatibility (check 8)** is deliberately narrow: it skips whenever the answer is not
 certain, because wrongly refusing a good graph is worse than not checking one.
 
 | source | target | verdict |
@@ -484,10 +578,10 @@ Three properties hold for all 15, and graphs depend on each:
   read by every downstream consumer in an order the topological sort chooses, so in-place mutation would
   make the graph's outcome depend on that choice.
 - **Fail loud.** A missing index or key raises (`IndexError` / `KeyError`); `set_remove` uses `remove`,
-  not `discard`. No `None` fallbacks and no default arguments — graph check 4 requires every port to be
+  not `discard`. No `None` fallbacks and no default arguments — graph check 6 requires every port to be
   wired, so a default would be unreachable.
 - **No element typing.** Annotations are the bare `list` / `set` / `dict`, elements are `Any`. A generic
-  alias would make graph check 6 skip the container edge as well (see the note under
+  alias would make graph check 8 skip the container edge as well (see the note under
   [Graph validation](#graph-validation)).
 
 Two details worth knowing before touching them:
@@ -517,26 +611,34 @@ passes `plugins=[]` — the CLI cannot express it, since an empty `-p` means *al
   — a node carrying a literal in its `value` field, cast by the declared type; `COLLECTION_TYPES` holds
   `list` / `set` / `dict`, which a socket can be typed with but which **no node creates**. A collection
   is built by `list_new()` / `set_new()` / `dict_new()`, so `{"type": "list"}` in a graph is an unknown
-  node type and graph check 2 rejects it. `TYPE_NAMES` is their union and is what `registry.py` renders
+  node type and graph check 4 rejects it. `TYPE_NAMES` is their union and is what `registry.py` renders
   from. Consequence to know: `"list"` is the first socket type string with no matching `registry[...]`
   key — see [Built-in collection nodes](#built-in-collection-nodes)
 - **Node ids are decimal integers** in any graph the repo ships. The protocol keys nodes by integer:
   the reference C++ backend reads each key with `std::stoi` into an `unsigned int`, and the platform's
   exporter `parseInt`s every edge endpoint — a word id becomes `NaN`, which `JSON.stringify` writes as
   `null`, so the graph comes back with its wiring gone. `graph.py` itself takes the opposite position on
-  purpose: it coerces endpoints with `str()` and treats ids as opaque, which keeps readable ids
-  (`"a"`, `"b"`) available to the in-memory graphs `tests/test_graph.py` builds. The rule is therefore
+  purpose: it coerces **both** node keys and edge endpoints with `str()` and treats ids as opaque,
+  which keeps readable ids (`"a"`, `"b"`) available to the in-memory graphs `tests/test_graph.py`
+  builds. Coercing one side only was incoherent — an int-keyed in-memory graph was accepted while
+  every edge into it failed as "names no declared node" — and because coercion can *merge* two keys
+  (`0` and `"0"`), two ids denoting the same string now raise instead of the later node silently
+  overwriting the earlier. A graph from a file cannot reach that: JSON object keys are strings. The rule is therefore
   enforced on *files*, not in the loader — `tests/test_graph_ids.py` checks every graph under
-  `examples/` and `tests/fixtures/`, node ids, edge keys and both endpoints of every edge. Leading
+  `examples/` and `tests/fixtures/`: node ids, edge keys, both endpoints of every edge, and that
+  every node declares a filename-safe `qualified_id` **equal to its node id**, which is what the
+  editor writes at the top level (a nested `12_3` only occurs one level down, and this host rejects
+  nested graphs). Leading
   zeros and negative ids are rejected too (`std::stoi("01")` is `1`, so `"01"` and `"1"` would name one
   node). Consequence for test data: a fixture's node names live in a `*_NODES` map in
   `tests/test_integration.py`, not in the JSON, which has no field for them
 - **No cycles**: Workflow graphs must be acyclic (DAG) — `graph.py` raises `ValueError` naming the
   cycle path, using `graphlib.TopologicalSorter` (stdlib, `{node: predecessors}`)
-- **Validate before executing**: every wiring error raises while the `Graph` is being constructed, so
+- **Validate before executing**: every defect — identity, wiring, typing, ordering — raises while the `Graph` is being constructed, so
   `WorkflowExecutor(...)` fails before the first node runs — see [Graph validation](#graph-validation)
 - **One job per module**: `nodeports` knows callables but not graphs; `graph` knows graphs but not
-  callables (it never imports `inspect` or a plugin); `executor` receives an already-validated graph
+  callables (it never imports `inspect` or a plugin; its one host import is `nodestatus`, for
+  check 3's filename rules); `executor` receives an already-validated graph
   (no `json`, no `graphlib`, no edge list). `tests/test_core_contract.py` enforces these boundaries
 - **Lazy discovery**: `discover()` never imports a plugin; `load(name)` imports only that one. An unselected
   `phiflow` is never imported, so its heavy deps aren't paid for.

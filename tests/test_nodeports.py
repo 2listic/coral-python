@@ -316,7 +316,7 @@ class TestTupleReturnAnnotations:
     """A tuple return must declare its elements (issue #31, decision 3).
 
     The port table's output arity is the claim every consumer trusts — the registry's ports, graph
-    checks 5 and 6, and the executor's indexing. A tuple spelling that cannot state an arity is
+    checks 7 and 8, and the executor's indexing. A tuple spelling that cannot state an arity is
     rejected where the claim is made, rather than mis-described and failing somewhere downstream.
     """
 

@@ -1,8 +1,8 @@
 """Stage 3: read a workflow graph, validate it, and put it in execution order.
 
-Construction is where a graph is judged. Every wiring error raises ``ValueError`` here, before the
-first node runs — a long PhiFlow simulation must never be spent on a graph that was already known to
-be broken.
+Construction is where a graph is judged. Every defect raises ``ValueError`` here — a node that
+cannot be identified, a wiring error, an incompatible edge, a cycle — before the first node runs: a
+long PhiFlow simulation must never be spent on a graph that was already known to be broken.
 
 The port table (stage 2) arrives as plain data, so this module introspects nothing and knows nothing
 about plugins: give it a node/edge dict and a table and it will tell you whether the two agree.
@@ -15,6 +15,7 @@ from graphlib import CycleError, TopologicalSorter
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
 from coral_app.nodeports import NodePorts
+from coral_app.nodestatus import qualified_ids
 
 __all__ = ["Edge", "Graph"]
 
@@ -98,8 +99,16 @@ class Graph:
     """A validated, ordered workflow graph.
 
     Constructing one runs every check; a graph that constructs is a graph that can be executed. The
-    executor asks it for the execution order and for a node's incoming edges, and never touches the
-    edge list itself.
+    executor asks it for the execution order, for a node's incoming edges and for the qualified id
+    naming a node's status files, and never touches the edge list itself.
+
+    Attributes:
+        qualified_ids: Node id -> qualified id, validated during construction. It lives here rather
+            than in the executor because "every node declares a unique, filename-safe
+            ``qualified_id``" is a rule about node *identity* — the same family as the id coercion
+            in :func:`_read_nodes` — and a graph whose nodes cannot be told apart is not
+            executable. The rules themselves stay in :mod:`coral_app.nodestatus`, which owns the
+            filename convention they come from.
     """
 
     def __init__(
@@ -117,14 +126,24 @@ class Graph:
                 :func:`~coral_app.nodeports.build_port_table`.
 
         Raises:
-            ValueError: on any structural, wiring, typing or ordering defect. The message names the
-                offending node or edge.
+            ValueError: on any structural, identity, wiring, typing or ordering defect — including
+                a node that declares no ``qualified_id``, one that cannot be a filename, or one
+                another node already declares. The message names the offending node or edge.
         """
-        self.nodes: Dict[str, dict] = dict(nodes)
+        self.nodes: Dict[str, dict] = _read_nodes(nodes)
         self.edges: List[Edge] = _read_edges(edges)
         self.port_table = port_table
 
         self._check_edges_reference_declared_nodes()
+        self._check_no_node_is_a_subgraph()
+
+        # Check 3, and the only one whose rules live in another module: `nodestatus` owns what can
+        # be a status filename, this owns when a graph is judged against it. Running it here keeps
+        # the promise above true — two nodes sharing a qualified id would otherwise give a graph
+        # that constructs and cannot be executed — and it runs whether or not markers are ever
+        # written, since a graph must not become valid or invalid depending on --touch-dir.
+        self.qualified_ids: Dict[str, str] = qualified_ids(self.nodes)
+
         self._check_node_types_are_known()
 
         # Built once, here, so the executor never re-filters the edge list per node.
@@ -170,7 +189,8 @@ class Graph:
         """The node's incoming edges, sorted by ``target_input`` — i.e. in parameter order."""
         return self._incoming[node_id]
 
-    # Validation. Each method is one of the checks, run in the order listed in __init__.
+    # Validation. Each method is one of the checks, run in the order listed in __init__ — where
+    # check 3, the qualified ids, is `nodestatus.qualified_ids` rather than a method here.
 
     def _check_edges_reference_declared_nodes(self) -> None:
         """Both endpoints of every edge must be declared nodes.
@@ -185,6 +205,29 @@ class Graph:
                         f"Edge {edge.id!r} names {role} node {node_id!r}, which the graph "
                         f"does not declare"
                     )
+
+    def _check_no_node_is_a_subgraph(self) -> None:
+        """No node may carry a nested workflow of its own.
+
+        The platform's editor can put a whole graph inside a node — ``"node_type": "network"``,
+        ``"type": "coral::Network"``, with a ``{"workflow": {...}}`` in its ``value``. That is the
+        one shape in which **node ids stop being unique**: the inner ``nodes`` object numbers its
+        nodes from its own zero, so the same id can name a node at each level, and only the
+        ``qualified_id`` (``12_3`` — node 3 inside the subnetwork at node 12) tells them apart.
+
+        This host has no subgraph support, so such a graph is rejected either way — but it would
+        otherwise be rejected as "unknown type ``coral::Network``", which sends the reader after a
+        missing plugin. Naming the real reason costs three lines and runs before the type check.
+        """
+        for node_id, node in self.nodes.items():
+            value = node.get("value")
+            nested = isinstance(value, Mapping) and "workflow" in value
+            if nested or node.get("node_type") == "network":
+                raise ValueError(
+                    f"Node {node_id!r} carries a nested workflow (a subnetwork node); nested "
+                    f"subgraphs are not supported. Node ids repeat across nesting levels, so such "
+                    f"a graph cannot be read as one flat set of nodes"
+                )
 
     def _check_node_types_are_known(self) -> None:
         """Every node's ``type`` must have a port-table entry."""
@@ -271,7 +314,7 @@ class Graph:
         for edge in self.edges:
             source_annotation = self._output_annotation(edge)
             ports = self.ports_of(edge.target)
-            # `target_input` is a safe index here: checks 3 and 4 established that this node's
+            # `target_input` is a safe index here: checks 5 and 6 established that this node's
             # incoming edges occupy exactly ports 0..n-1 for its type's n inputs.
             target_name, target_annotation = ports.inputs[edge.target_input]
 
@@ -315,6 +358,34 @@ class Graph:
                 order.append(node_id)
                 sorter.done(node_id)
         return order
+
+
+def _read_nodes(nodes: Mapping[str, dict]) -> Dict[str, dict]:
+    """The graph's nodes, keyed by node id as a string.
+
+    Ids are coerced with ``str()`` for the same reason :func:`_read_edges` coerces its endpoints: the
+    editor writes an edge's endpoints as numbers while a JSON object's keys are always strings, and
+    the two have to meet. Coercing in one place and not the other is how an in-memory graph keyed by
+    ``int`` came to be accepted while every edge into it failed as "names no declared node".
+
+    Coercion can merge two keys — ``0`` and ``"0"`` are distinct in a Python dict and name one node
+    here — so a collision raises rather than letting the later declaration overwrite the earlier
+    one. It cannot happen to a graph loaded from a file: JSON object keys are strings already, and
+    the format has no way to spell a duplicate.
+
+    Raises:
+        ValueError: if two node ids denote the same string.
+    """
+    read: Dict[str, dict] = {}
+    for node_id, node in nodes.items():
+        key = str(node_id)
+        if key in read:
+            raise ValueError(
+                f"Node id {key!r} is declared twice: {node_id!r} and one of the ids before it "
+                f"denote the same node"
+            )
+        read[key] = node
+    return read
 
 
 def _read_edges(edges: Union[Mapping[str, dict], Sequence[dict]]) -> List[Edge]:

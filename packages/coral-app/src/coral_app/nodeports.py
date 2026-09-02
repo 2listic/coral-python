@@ -73,7 +73,7 @@ def _outputs_from_return(return_annotation, node_type: str) -> List[Any]:
 
     - ``Tuple`` and ``Tuple[()]`` carry no arguments and would yield **zero** ports, reading as "no
       outputs" when the author meant "returns a tuple". Every outgoing edge would then fail graph
-      check 5 with a message about ports, when the fault is the annotation.
+      check 7 with a message about ports, when the fault is the annotation.
     - ``Tuple[Any, ...]`` is variadic: it has no static arity for the port table to record, and
       would yield a second port annotated ``Ellipsis`` — which the registry renders as a socket type
       and the edge type check reasons about.

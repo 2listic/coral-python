@@ -10,6 +10,11 @@ opposite position on purpose — it coerces endpoints with ``str()`` and treats 
 graph with word ids runs here and nowhere else, silently, which is what happened to the collection
 examples before this module existed.
 
+The same reasoning covers ``qualified_id``, which every node must declare (the host raises without
+it) and which the platform's editor writes as the node id at the top level — ``12_3`` only appears
+one level down, inside a subnetwork, which this host rejects outright. A shipped graph missing the
+field would otherwise be caught only if some test happened to execute it.
+
 This is a check on the *files*, not on the loader: readable ids stay available to the unit tests that
 build graphs in memory (``test_graph.py`` uses ``"a"``, ``"b"``, ``"c"`` throughout), while anything
 the repo hands to the platform has to be something the platform can read back.
@@ -116,3 +121,58 @@ def test_edge_endpoints_are_integers(path):
             assert _as_id(value) in declared, (
                 f"{path.name}: edge {edge_id!r} {endpoint} {value!r} names no declared node"
             )
+
+
+@pytest.mark.parametrize("path", GRAPH_CASES)
+def test_every_node_declares_a_usable_qualified_id(path):
+    """GIVEN a shipped graph file
+    WHEN each node's ``qualified_id`` is read
+    THEN every node declares one, and each is a non-empty string that can be a filename.
+
+    The field names the node's execution status markers, so the host rejects a graph without it —
+    but only when that graph is executed. This is what stops a fixture from being added without
+    one. The forbidden characters are the consumer's: it splits each marker filename on ``.``, and a
+    path separator would write outside the directory the platform watches."""
+    nodes = json.loads(path.read_text())["workflow"]["nodes"]
+
+    missing = [key for key, node in nodes.items() if "qualified_id" not in node]
+    assert not missing, f"{path.name}: nodes declare no qualified_id: {missing}"
+
+    for key, node in nodes.items():
+        qualified_id = node["qualified_id"]
+        assert isinstance(qualified_id, str) and qualified_id, (
+            f"{path.name}: node {key!r} declares qualified_id {qualified_id!r}, "
+            f"which is not a non-empty string"
+        )
+        forbidden = [character for character in (".", "/", "\\") if character in qualified_id]
+        assert not forbidden, (
+            f"{path.name}: node {key!r} declares qualified_id {qualified_id!r}, "
+            f"which contains {forbidden}"
+        )
+
+    declared = [node["qualified_id"] for node in nodes.values()]
+    assert len(set(declared)) == len(declared), (
+        f"{path.name}: two nodes declare the same qualified_id: {sorted(declared)}"
+    )
+
+
+@pytest.mark.parametrize("path", GRAPH_CASES)
+def test_every_qualified_id_is_its_node_id(path):
+    """GIVEN a shipped graph file
+    WHEN each node's ``qualified_id`` is compared with its node id
+    THEN the two are equal — the convention the platform's editor writes (``PoissonSolverCreation``,
+    ``laplace``, ``qualified_id.json`` in the C++ repo's ``test_files`` all do this).
+
+    Kept separate from the check above because it is a *convention*, not a requirement: the host
+    accepts any unique, filename-safe string, and a nested graph would legitimately use ``12_3``.
+    Every graph the repo ships is flat, so here the two must agree."""
+    nodes = json.loads(path.read_text())["workflow"]["nodes"]
+
+    # `.get` rather than `[...]`: a missing field is the previous test's failure to report, and a
+    # KeyError here would only bury it.
+    wrong = {
+        key: node.get("qualified_id")
+        for key, node in nodes.items()
+        if node.get("qualified_id") != key
+    }
+    assert not wrong, f"{path.name}: qualified_id differs from the node id: {wrong}"

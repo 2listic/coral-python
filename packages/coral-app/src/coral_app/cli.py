@@ -21,6 +21,9 @@ from coral_app.registry import save_registry_to_file
 # Fixed filename the DealiiX platform probes for after `register`.
 DEFAULT_REGISTRY_FILENAME = "node_types.json"
 
+# Where per-node status markers go when `--touch-dir` is omitted: the cwd, as in the C++ backend.
+DEFAULT_TOUCH_DIR = "./"
+
 
 def main():
     """Parse coral-style CLI arguments and dispatch to the ``register`` or ``run`` subcommand.
@@ -61,10 +64,19 @@ def main():
         "graph",
         help="Path to the workflow JSON graph to execute.",
     )
+    # The C++ backend defaults this to "./" and has no "write nothing" mode, so the platform's
+    # contract — which is this CLI — keeps that: omit the flag and the markers land in the cwd.
+    # `nargs="?"` with the same const mirrors CLI11's `->expected(0, 1)`, which accepts a bare
+    # `--touch-dir`. Writing nothing at all is reachable only from `WorkflowExecutor(touch_dir=None)`.
     run_parser.add_argument(
         "--touch-dir",
-        default=None,
-        help="Directory for per-node status files. Accepted for coral compatibility; not yet emitted.",
+        default=DEFAULT_TOUCH_DIR,
+        nargs="?",
+        const=DEFAULT_TOUCH_DIR,
+        metavar="PATH",
+        help="Output directory for touch files (node status markers): one empty "
+        f"<qualified_id>.running / .succeeded / .failed per node (default: {DEFAULT_TOUCH_DIR}). "
+        "Existing markers in it are removed before the run.",
     )
 
     args = parser.parse_args()
@@ -73,7 +85,7 @@ def main():
     if args.command == "register":
         save_registry_to_file(args.output, plugins=plugins)
     elif args.command == "run":
-        executor = WorkflowExecutor(args.graph, plugins=plugins)
+        executor = WorkflowExecutor(args.graph, plugins=plugins, touch_dir=args.touch_dir)
         results = executor.execute()
         print(f"\nFinal results: {results}")
 

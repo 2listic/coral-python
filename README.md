@@ -142,6 +142,15 @@ coral -p "math,string,phiflow" run workflow.json
 **Default behavior**: When `-p/--plugin` is omitted, all installed plugins are loaded (via entry-point
 discovery). Primitives are always included. An unknown `-p` name fails loud with `LookupError`.
 
+**Per-node status files**: `run` reports progress by writing one empty file per node as it goes —
+`<node>.running`, then `<node>.succeeded` or `<node>.failed` — which is how the DealiiX platform
+highlights nodes live. The directory is `--touch-dir`, and it defaults to the **current directory**,
+matching the C++ `coral` binary; files already there whose names end in those three suffixes are
+removed before the run. So point it elsewhere if you would rather not have them in the cwd:
+```bash
+coral run workflow.json --touch-dir /tmp/coral-status
+```
+
 **Available plugins** (each an installed `coral-plugin-*` package):
 - `phiflow` - PhiFlow physics simulation wrappers
 - `math` - Mathematical operations (`add`, `multiply`, `math.sqrt`, etc.) and `Calculator` class

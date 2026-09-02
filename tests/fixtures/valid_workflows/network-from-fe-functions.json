@@ -2,6 +2,7 @@
   "workflow": {
     "nodes": {
       "0": {
+        "qualified_id": "0",
         "type": "float",
         "value": "3.0",
         "position": {
@@ -10,6 +11,7 @@
         }
       },
       "1": {
+        "qualified_id": "1",
         "type": "print_result",
         "position": {
           "x": 1296.4665983931754,
@@ -17,6 +19,7 @@
         }
       },
       "2": {
+        "qualified_id": "2",
         "type": "float",
         "value": "2",
         "position": {
@@ -25,6 +28,7 @@
         }
       },
       "3": {
+        "qualified_id": "3",
         "type": "add",
         "position": {
           "x": 653.5527639131286,
@@ -32,6 +36,7 @@
         }
       },
       "5": {
+        "qualified_id": "5",
         "type": "float",
         "value": "4",
         "position": {
@@ -40,6 +45,7 @@
         }
       },
       "6": {
+        "qualified_id": "6",
         "type": "multiply",
         "position": {
           "x": 965.7750020324723,

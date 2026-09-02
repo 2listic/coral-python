@@ -54,11 +54,11 @@ def test_string_graph_results_and_stdout(temp_workflow_file, capsys):
     workflow = {
         "workflow": {
             "nodes": {
-                "prefix": {"type": "str", "value": "Hello, "},
-                "text": {"type": "str", "value": "world"},
-                "sp": {"type": "StringProcessor"},
-                "cat": {"type": "StringProcessor.concatenate"},
-                "out": {"type": "print_result"},
+                "prefix": {"qualified_id": "0", "type": "str", "value": "Hello, "},
+                "text": {"qualified_id": "1", "type": "str", "value": "world"},
+                "sp": {"qualified_id": "2", "type": "StringProcessor"},
+                "cat": {"qualified_id": "3", "type": "StringProcessor.concatenate"},
+                "out": {"qualified_id": "4", "type": "print_result"},
             },
             "edges": {
                 # prefix feeds the constructor

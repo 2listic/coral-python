@@ -71,7 +71,9 @@ class TestStageSeparation:
     and order a graph (``graph``), execute it (``executor``). These guards pin the boundaries that
     make each stage independently testable: ``graph.py`` compares plain data, so it never
     introspects a callable or reaches for a plugin; ``executor.py`` receives an already-validated
-    graph, so it never parses JSON, sorts, or walks the edge list.
+    graph, so it never parses JSON, sorts, or walks the edge list; and issue #30 adds one more —
+    ``nodestatus.py`` owns every byte written to the status directory, so ``executor.py`` needs no
+    filesystem at all.
 
     Only each file's *own* imports are inspected. ``graph.py`` importing ``NodePorts`` for a type
     annotation is the intended dependency on stage 2, even though stage 2 uses ``inspect`` itself.
@@ -129,6 +131,28 @@ class TestStageSeparation:
         modules, _ = self._imports("executor")
 
         assert "inspect" not in modules
+
+    def test_executor_does_no_filesystem_io_of_its_own(self):
+        """GIVEN executor.py
+        WHEN its imports are parsed
+        THEN neither `pathlib` nor `os` is there — writing the per-node status markers is
+        nodestatus.py's job, and the executor only decides *when* a node starts and ends."""
+        modules, _ = self._imports("executor")
+
+        assert "pathlib" not in modules
+        assert "os" not in modules
+
+    def test_nodestatus_knows_nothing_of_graphs_or_execution(self):
+        """GIVEN nodestatus.py
+        WHEN its imports are parsed
+        THEN it imports neither `graph` nor `executor`: it is handed a plain mapping and a path, so
+        the file-naming convention of one external consumer stays out of both, exactly as
+        registry.py keeps the registry's JSON format out of graph.py."""
+        modules, _ = self._imports("nodestatus")
+
+        assert "coral_app.graph" not in modules
+        assert "coral_app.executor" not in modules
+        assert not [name for name in modules if name.startswith("coral_plugin")]
 
     def test_executor_never_holds_the_edge_list(self):
         """GIVEN executor.py
