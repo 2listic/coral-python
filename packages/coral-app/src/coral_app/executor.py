@@ -27,13 +27,13 @@ class WorkflowExecutor:
         a long simulation is never spent on a graph already known to be broken.
 
         The status directory is prepared *first*, ahead of plugin loading and validation, for three
-        reasons: it is what the reference backend does; a bad path then fails before phiflow is imported;
-        and a graph that fails validation leaves the platform an **empty** directory rather than the
-        stale timeline of an earlier job.
+        reasons: it is what the reference backend does; a bad path then fails before phiflow is
+        imported; and a graph that fails validation leaves the platform an **empty** directory
+        rather than the stale timeline of an earlier job.
 
         ``touch_dir=None`` means "write nothing": this is a library object, and it should do no
-        filesystem I/O nobody asked for. The reference default of the cwd belongs to the CLI,
-        which is where the platform's contract actually lives.
+        filesystem I/O nobody asked for. The reference default of the cwd belongs to the CLI, which
+        is where the platform's contract actually lives.
 
         Args:
             workflow_file: Path to the workflow JSON file

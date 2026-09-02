@@ -2,9 +2,8 @@
 
 The platform drives this backend through the ``coral`` console script, so what the *CLI* defaults to
 is part of the contract — and the reference backend has no "write nothing" mode: it defaults
-``--touch-dir``
-to ``"./"`` and touches unconditionally. That default is the one thing only a CLI-level test can
-pin, since ``WorkflowExecutor(touch_dir=None)`` deliberately writes nothing.
+``--touch-dir`` to ``"./"`` and touches unconditionally. That default is the one thing only a
+CLI-level test can pin, since ``WorkflowExecutor(touch_dir=None)`` deliberately writes nothing.
 """
 
 import json

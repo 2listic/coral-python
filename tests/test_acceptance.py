@@ -1,9 +1,8 @@
 """Wheel/pip acceptance for the packaged plugin surface.
 
 The faithful end-user path, exercised end to end: build every workspace package into a wheel, then in
-a **clean** venv install them incrementally and prove the runtime promises hold when the packages
-are consumed as *installed distributions* (not the editable workspace the other tests
-use):
+a **clean** venv install them incrementally and prove the runtime promises hold when the packages are
+consumed as *installed distributions* (not the editable workspace the other tests use):
 
 * ``coral-app`` alone is a working host          -> the registry has only the host's own two
                                                     surfaces, the primitives and the builtins;

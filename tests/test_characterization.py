@@ -1,10 +1,9 @@
 """Characterization tests.
 
 Pin the *behaviour* of ``run`` — the executor's returned ``results`` dict and the key stdout lines —
-for one small math graph and one small string graph. Together with the golden-registry tests, these
-pin execution results, not just the registry schema.
-
-They exercise ``WorkflowExecutor`` directly.
+for one small math graph and one small string graph. They exercise ``WorkflowExecutor`` directly, so
+that together with the golden-registry tests they pin execution results, not just the registry
+schema.
 """
 
 import math

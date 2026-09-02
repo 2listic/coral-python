@@ -1,9 +1,10 @@
 """Golden-file contract tests.
 
 Pin the ``register`` output (``node_types.json``) byte-for-byte for each plugin set. The golden files
-under ``tests/golden/`` are a lasting regression guard: asserting equality here proves the registry
-contract the DealiiX platform consumes is unchanged. An *intentional* change to a plugin's surface
-requires regenerating the affected golden (a reviewable diff), which is the point.
+under ``tests/golden/`` were snapshotted from the flat pre-plugin code, so asserting equality here
+proves the registry contract the DealiiX platform consumes has survived every move since. An
+*intentional* change to a plugin's surface requires regenerating the affected golden (a reviewable
+diff), which is the point.
 
 These tests exercise the real ``save_registry_to_file`` code path.
 

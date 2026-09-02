@@ -54,9 +54,9 @@ class TestQualifiedIds:
         THEN ValueError names it.
 
         The reference backend invents ``<node_id>_auto_<counter>`` here and warns instead. An
-        invented name is not the
-        node's identity, so a graph that omits the field would hand the platform a timeline it
-        cannot key back to its nodes — better to say so before anything runs."""
+        invented name is not the node's identity, so a graph that omits the field would hand the
+        platform a timeline it cannot key back to its nodes — better to say so before anything
+        runs."""
         nodes = {"0": {"type": "int", "qualified_id": "0"}, "1": {"type": "add"}}
 
         with pytest.raises(ValueError, match="'1' declares no qualified_id"):
@@ -261,10 +261,9 @@ class TestNodeStatusDirMarkers:
         THEN both its type and its message are exactly what was raised.
 
         Deliberate, and the one place the reference backend is not followed: it re-throws an error
-        wrapping
-        the node id. Here the try/except only exists when a touch directory is configured, so
-        wrapping would make the exception's type and message depend on an unrelated flag. The node
-        id reaches the log the other way, from the pair of lines ``execute()`` prints."""
+        wrapping the node id. Here the try/except only exists when a touch directory is configured,
+        so wrapping would make the exception's type and message depend on an unrelated flag. The
+        node id reaches the log the other way, from the pair of lines ``execute()`` prints."""
         status = NodeStatusDir(tmp_path)
         original = KeyError("missing key")
 
@@ -300,8 +299,8 @@ class TestNodeStatusDirMarkers:
         THEN neither raises and exactly one warning is printed.
 
         Once nodes are running, the graph's result is worth more than its telemetry — the reference
-        backend ignores a failed touch entirely; we warn, but only once, since the same
-        failure would otherwise repeat for every marker of every node."""
+        backend ignores a failed touch entirely; we warn, but only once, since the same failure
+        would otherwise repeat for every marker of every node."""
         status = NodeStatusDir(tmp_path / "status")
         shutil.rmtree(tmp_path / "status")
 
