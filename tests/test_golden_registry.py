@@ -1,16 +1,15 @@
-"""Golden-file contract tests (issue #16, decision D2).
+"""Golden-file contract tests.
 
 Pin the ``register`` output (``node_types.json``) byte-for-byte for each plugin set. The golden files
-under ``tests/golden/`` are a lasting regression guard: they were snapshotted from the pre-refactor
-flat code, and asserting equality here proves the plugin-modularization move preserves the registry
-contract the DealiiX platform consumes. An *intentional* change to a plugin's surface requires
-regenerating the affected golden (a reviewable diff), which is the point.
+under ``tests/golden/`` were snapshotted from the flat pre-plugin code, so asserting equality here
+proves the registry contract the DealiiX platform consumes has survived every move since. An
+*intentional* change to a plugin's surface requires regenerating the affected golden (a reviewable
+diff), which is the point.
 
-These tests exercise the real ``save_registry_to_file`` code path, so they hold across the atomic
-move — their imports are repointed to ``coral_app`` now that the flat modules are deleted.
+These tests exercise the real ``save_registry_to_file`` code path.
 
-Parity granularity (issue #16): the single-plugin goldens (``math``/``string``/``phiflow``) are
-asserted **byte-for-byte** — order within one plugin is stable. The ``all`` golden is asserted by
+Parity granularity: the single-plugin goldens (``math``/``string``/``phiflow``) are asserted
+**byte-for-byte** — order within one plugin is stable. The ``all`` golden is asserted by
 **content** (parsed dicts, order-insensitive): with entry-point discovery the "all" default is now
 ``sorted(discover())``, which reorders only the cross-plugin class entries (``StringProcessor``
 moves after the PhiFlow classes). That reorder is functionally irrelevant — the platform reads the

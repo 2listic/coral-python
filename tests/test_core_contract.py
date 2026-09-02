@@ -2,7 +2,7 @@
 
 The contract must be *enforced*, not duck-typed: a subclass that omits either
 abstract method cannot be instantiated. These tests pin that, plus the
-project-wide ban on ``from __future__ import annotations`` (D3) — which would
+project-wide ban on ``from __future__ import annotations`` — which would
 stringize annotations and silently collapse every registry socket to ``"any"``.
 """
 
@@ -65,15 +65,14 @@ class TestPluginContract:
 
 
 class TestStageSeparation:
-    """Issue #23: one job per module, enforced structurally rather than by convention.
+    """One job per module, enforced structurally rather than by convention.
 
-    The refactor split the old executor into stages — describe node types (``nodeports``), validate
-    and order a graph (``graph``), execute it (``executor``). These guards pin the boundaries that
-    make each stage independently testable: ``graph.py`` compares plain data, so it never
-    introspects a callable or reaches for a plugin; ``executor.py`` receives an already-validated
-    graph, so it never parses JSON, sorts, or walks the edge list; and issue #30 adds one more —
-    ``nodestatus.py`` owns every byte written to the status directory, so ``executor.py`` needs no
-    filesystem at all.
+    The work is split into stages — describe node types (``nodeports``), validate and order a graph
+    (``graph``), execute it (``executor``). These guards pin the boundaries that make each stage
+    independently testable: ``graph.py`` compares plain data, so it never introspects a callable or
+    reaches for a plugin; ``executor.py`` receives an already-validated graph, so it never parses
+    JSON, sorts, or walks the edge list; ``nodestatus.py`` owns every byte written to the status
+    directory, so ``executor.py`` needs no filesystem at all.
 
     Only each file's *own* imports are inspected. ``graph.py`` importing ``NodePorts`` for a type
     annotation is the intended dependency on stage 2, even though stage 2 uses ``inspect`` itself.
@@ -162,7 +161,7 @@ class TestStageSeparation:
 
 
 class TestNoFutureAnnotations:
-    """D3: no package source may `from __future__ import annotations`."""
+    """No package source may `from __future__ import annotations`."""
 
     def _package_sources(self):
         root = Path(__file__).parent.parent

@@ -27,13 +27,13 @@ class WorkflowExecutor:
         a long simulation is never spent on a graph already known to be broken.
 
         The status directory is prepared *first*, ahead of plugin loading and validation, for three
-        reasons: it is what the C++ backend does; a bad path then fails before phiflow is imported;
-        and a graph that fails validation leaves the platform an **empty** directory rather than the
-        stale timeline of an earlier job.
+        reasons: it is what the reference backend does; a bad path then fails before phiflow is
+        imported; and a graph that fails validation leaves the platform an **empty** directory
+        rather than the stale timeline of an earlier job.
 
         ``touch_dir=None`` means "write nothing": this is a library object, and it should do no
-        filesystem I/O nobody asked for. The C++-faithful default of the cwd belongs to the CLI,
-        which is where the platform's contract actually lives.
+        filesystem I/O nobody asked for. The reference default of the cwd belongs to the CLI, which
+        is where the platform's contract actually lives.
 
         Args:
             workflow_file: Path to the workflow JSON file
@@ -85,7 +85,7 @@ class WorkflowExecutor:
 
             # The pair of lines is printed whatever the flag says, which is how a failing node is
             # named: the exception itself is propagated untouched, so its message must not have to
-            # carry the node id (see the plan's "Why not C++'s wrapped exception").
+            # carry the node id.
             print(f"Start running node {node_id} [{qualified_id}] (type = {node['type']})")
 
             status = self.status.node(qualified_id) if self.status else nullcontext()
@@ -127,9 +127,8 @@ class WorkflowExecutor:
         names the function whose annotation is wrong rather than the graph that believed it.
 
         Only ``n > 1`` is checkable. At ``n == 1`` a returned tuple is legitimate — that is exactly
-        the ``-> tuple`` case issue #31 turns on — so there is nothing to compare. At ``n == 0`` the
-        value is unreachable anyway: graph check 7 rejects every outgoing edge of a node with no
-        outputs.
+        the ``-> tuple`` case — so there is nothing to compare. At ``n == 0`` the value is
+        unreachable anyway: graph check 7 rejects every outgoing edge of a node with no outputs.
 
         Raises:
             ValueError: if the result is not a tuple, or is a tuple of the wrong length.
@@ -172,8 +171,8 @@ class WorkflowExecutor:
         Whether that result is a *bundle* of outputs to index into is decided by the **port table**,
         never by the value. How many outputs a node has is a static fact, settled in stage 2 from
         the return annotation; a runtime ``isinstance(value, tuple)`` cannot tell "three outputs,
-        bundled" from "one output that happens to be a tuple", and answering it that way was
-        issue #31. ``graph.py:_output_annotation`` asks the same question the same way.
+        bundled" from "one output that happens to be a tuple", so answering it that way is wrong.
+        ``graph.py:_output_annotation`` asks the same question the same way.
 
         So a single-output node passes its value on whole whatever ``source_output`` says — the
         three spellings graph check 7 accepts for "the only output" (``0``, ``-1``, and the key

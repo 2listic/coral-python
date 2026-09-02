@@ -550,7 +550,7 @@ def executor_over(temp_workflow_file, monkeypatch):
     The node types these tests need are deliberately not in any plugin, so the map is injected by
     monkeypatching the executor's own ``build_function_map``. Everything else is production code:
     ``__init__`` still builds the port table and constructs (hence validates) the ``Graph``, which
-    matters because that is the path issue #31's fixes fail in.
+    matters because that is the path an output-port resolution bug would surface in.
     """
 
     def _build(function_map, nodes, edges):
@@ -564,7 +564,7 @@ def executor_over(temp_workflow_file, monkeypatch):
 
 
 class TestOutputPortResolution:
-    """Which value an edge carries is decided by the port table, not by the value (issue #31)."""
+    """Which value an edge carries is decided by the port table, not by the value."""
 
     FUNCTIONS = {"pair": pair, "triple": triple, "sink": sink}
 
@@ -605,7 +605,7 @@ class TestOutputPortResolution:
 
 
 class TestOutputArity:
-    """A node's declared output count is confronted with what it returned (issue #31)."""
+    """A node's declared output count is confronted with what it returned."""
 
     FUNCTIONS = {
         "short_triple": short_triple,
@@ -707,7 +707,8 @@ class TestOutputArity:
 
 
 class TestNodeStatusMarkers:
-    """The executor's side of issue #30: every node bracketed, and the walk stopped where it broke.
+    """The executor's side of the status markers: every node bracketed, the walk stopped where it
+    broke.
 
     These graphs use only the host's builtin collection nodes, so they run with ``plugins=[]`` —
     what is under test is the walk, not any plugin.
@@ -761,9 +762,9 @@ class TestNodeStatusMarkers:
     def test_every_node_that_ran_is_marked_succeeded(self, temp_workflow_file, tmp_path):
         """GIVEN a graph of four nodes, one of them a primitive, run with a touch directory
         WHEN it completes
-        THEN each node has both its markers — primitives included, since the C++ backend makes
-        every node a task and a graph whose primitives never appear would read as "half the nodes
-        never started"."""
+        THEN each node has both its markers — primitives included, since the reference backend
+        makes every node a task and a graph whose primitives never appear would read as "half the
+        nodes never started"."""
         status_dir = tmp_path / "status"
         executor = self._executor(temp_workflow_file, self.SUCCEEDING, status_dir)
 
@@ -794,7 +795,7 @@ class TestNodeStatusMarkers:
         WHEN it completes
         THEN not one marker exists anywhere below the working directory.
 
-        ``WorkflowExecutor`` is a library object: the C++-faithful default of the cwd belongs to the
+        ``WorkflowExecutor`` is a library object: the reference default of the cwd belongs to the
         CLI, which is where the platform's contract lives."""
         executor = self._executor(temp_workflow_file, self.SUCCEEDING, None)
 

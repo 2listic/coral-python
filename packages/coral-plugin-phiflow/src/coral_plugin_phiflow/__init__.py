@@ -3,8 +3,8 @@
 Subclasses the coral-core ``Plugin`` contract; registered under the
 ``coral.plugins`` entry-point group as ``phiflow``.
 
-Per D5, PhiFlow is a hard dependency of this distribution: the import below is
-unconditional, so a broken install fails loud with ``ImportError`` instead of
+PhiFlow is a hard dependency of this distribution, so the import below is
+unconditional: a broken install fails loud with ``ImportError`` instead of
 silently registering nothing. Lazy discovery guarantees this module is only
 imported when ``phiflow`` is actually selected.
 """

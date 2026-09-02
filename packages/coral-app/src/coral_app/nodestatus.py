@@ -10,15 +10,15 @@ It is deliberately ignorant of graphs and of execution: :func:`qualified_ids` ta
 :class:`NodeStatusDir` takes a path, and neither imports anything from :mod:`coral_app.graph` or
 :mod:`coral_app.executor`.
 
-Written to match the C++ reference backend (``coral_network_implementation.h``), which is the
-producer the platform's consumer was written against: the same three suffixes, the same cleanup at
-startup, and the same asymmetry between a setup failure (fatal) and a failed touch mid-run (silent
-there, warned once here).
+Written to match the reference backend, which is the producer the platform's consumer was written
+against: the same three suffixes, the same cleanup at startup, and the same asymmetry between a setup
+failure (fatal) and a failed touch mid-run (silent there, warned once here).
 
-It diverges from C++ on one point, deliberately: C++ invents a ``<node_id>_auto_<counter>`` name for
-a node that declares no ``qualified_id`` and warns; here a missing ``qualified_id`` is a
-:exc:`ValueError`. An invented name is not the node's identity — the platform's, through nested
-subgraphs, is — so a graph that omits it gets a timeline the platform cannot key back to its nodes.
+It diverges from that backend on one point, deliberately: the reference backend invents a
+``<node_id>_auto_<counter>`` name for a node that declares no ``qualified_id`` and warns; here a
+missing ``qualified_id`` is a :exc:`ValueError`. An invented name is not the node's identity — the
+platform's, through nested subgraphs, is — so a graph that omits it gets a timeline the platform
+cannot key back to its nodes.
 Failing at t=0 says so; auto-naming hides it until someone reads the marker files.
 """
 
@@ -52,10 +52,11 @@ def qualified_ids(nodes: Mapping[str, dict]) -> Dict[str, str]:
     read the wrong node's:
 
     - **not a string.** ``12`` and ``"12"`` are distinct as dict values but name one file, so a
-      graph declaring both would lose a node from the timeline and bump the other's mtime. C++
-      cannot express this — ``node_data["qualified_id"].get<std::string>()`` throws on a number.
-    - **empty.** It would write ``.running``, a dotfile with no node name in it. (C++ falls back to
-      the node id here; we do not, for the same reason we reject a missing field.)
+      graph declaring both would lose a node from the timeline and bump the other's mtime. The
+      reference backend cannot express this — its JSON accessor throws on a number.
+    - **empty.** It would write ``.running``, a dotfile with no node name in it. (The reference
+      backend falls back to the node id here; we do not, for the same reason we reject a missing
+      field.)
     - **contains a ``.``** — the consumer splits each filename on ``.`` to recover the node, so a
       dot inside the name mis-keys it.
     - **contains a path separator.** ``top/first`` writes into a subdirectory the platform is not
@@ -126,7 +127,7 @@ class NodeStatusDir:
     directory it owns and a coral run in a checkout points us at the cwd. A stale timeline from an
     earlier job would be read as this job's, so the cleanup is not optional.
 
-    The two failure modes are deliberately asymmetric (and the C++ backend agrees):
+    The two failure modes are deliberately asymmetric (and the reference backend agrees):
 
     - preparing the directory raises. A bad ``--touch-dir`` is a configuration error, and it costs
       nothing to fail on it before the first node runs.
@@ -159,8 +160,8 @@ class NodeStatusDir:
         exception escaping the block writes ``.failed`` and then propagates untouched — the type and
         the message a caller sees must not depend on whether a touch directory was configured.
 
-        As in C++, a failed node keeps its ``.running`` file: the pair is what tells the platform
-        which node was in flight when the run died.
+        As in the reference backend, a failed node keeps its ``.running`` file: the pair is what
+        tells the platform which node was in flight when the run died.
 
         Args:
             qualified_id: The name the three files are built from.

@@ -1,14 +1,14 @@
-"""Acceptance tests for the plugin discovery/load contract (issue #16, Step 3).
+"""Acceptance tests for the plugin discovery/load contract.
 
-These pin the runtime guarantees the whole modularization rests on. They are written to be
+These pin the runtime guarantees the plugin architecture rests on. They are written to be
 **plugin-set-agnostic**: nothing here asserts a fixed catalog like ``["math", "phiflow", "string"]``,
 because that would break the moment someone installs a subset — or an extra third-party plugin. The
 mechanics are derived from ``discover()`` and entry-point metadata, so they hold for whatever set is
 installed:
 
 * discovery lists installed plugins **without importing** them (laziness);
-* ``load`` imports only the requested plugin, and fails loud on an unknown name (``LookupError``,
-  D4) or a non-``Plugin`` entry point (``TypeError``);
+* ``load`` imports only the requested plugin, and fails loud on an unknown name (``LookupError``) or
+  a non-``Plugin`` entry point (``TypeError``);
 * the host is a complete program with **zero** function/class plugins (it still emits its own two
   surfaces, the primitives and the builtin collection functions), and selecting any installed plugin
   makes exactly its declared nodes appear;
@@ -106,7 +106,7 @@ class TestLoad:
     def test_load_unknown_name_raises_lookup_error(self):
         """GIVEN no plugin registered under "bogus"
         WHEN load("bogus") is called
-        THEN it raises LookupError (D4: fail-loud, no silent skip)."""
+        THEN it raises LookupError — fail loud, never skip silently."""
         with pytest.raises(LookupError):
             load("bogus")
 
@@ -144,7 +144,7 @@ class TestLoad:
 
 
 class TestBuildMapsFailLoud:
-    """build_*_map propagate the fail-loud unknown-name rule (D4)."""
+    """build_*_map propagate the fail-loud unknown-name rule."""
 
     def test_build_function_map_unknown_name_raises(self):
         """GIVEN an unknown plugin name in the include list

@@ -244,7 +244,7 @@ class TestMethodEnumeration:
         THEN it registers as a method node with an instance at port 0.
 
         Not a design choice: ``getattr(cls, name)`` on a staticmethod yields the plain function, so
-        the ``inspect.isfunction`` filter admits it. This pins the pre-refactor behaviour, which no
+        the ``inspect.isfunction`` filter admits it. Pinned here as long-standing behaviour that no
         installed plugin exercises (none has a staticmethod)."""
         table = build_port_table(class_map={"Widget": Widget})
 
@@ -313,7 +313,7 @@ def returns_variadic_Tuple(x: float) -> Tuple[Any, ...]:
 
 
 class TestTupleReturnAnnotations:
-    """A tuple return must declare its elements (issue #31, decision 3).
+    """A tuple return must declare its elements.
 
     The port table's output arity is the claim every consumer trusts — the registry's ports, graph
     checks 7 and 8, and the executor's indexing. A tuple spelling that cannot state an arity is
@@ -333,7 +333,7 @@ class TestTupleReturnAnnotations:
         WHEN the table is built
         THEN it has exactly one output port, annotated ``tuple``.
 
-        This is the case the whole of issue #31 hinges on: one output that happens to carry a
+        This is the case output-port resolution hinges on: one output that happens to carry a
         tuple, which the executor must pass on whole instead of indexing into."""
         table = build_port_table(function_map={"pair": returns_bare_tuple})
 
