@@ -4,7 +4,7 @@ from typing import Any, List, Optional
 from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
 from coral_app.graph import Graph
 from coral_app.nodeports import CONSTRUCTOR, FUNCTION, METHOD, PRIMITIVE, build_port_table
-from coral_app.nodestatus import NodeStatusDir, qualified_ids
+from coral_app.nodestatus import NodeStatusDir
 
 
 class WorkflowExecutor:
@@ -42,8 +42,9 @@ class WorkflowExecutor:
 
         Raises:
             OSError: if ``touch_dir`` cannot be created or cleaned.
-            ValueError: if the graph does not agree with the loaded plugins' node types, or one of
-                its nodes declares no ``qualified_id`` or repeats another's.
+            ValueError: from :class:`~coral_app.graph.Graph`, if the graph does not agree with the
+                loaded plugins' node types, or one of its nodes declares no ``qualified_id`` or
+                repeats another's.
         """
         self.status = NodeStatusDir(touch_dir) if touch_dir else None
 
@@ -63,11 +64,6 @@ class WorkflowExecutor:
         self.port_table = build_port_table(self.function_map, self.class_map, self.primitives_map)
         self.graph = Graph.from_file(workflow_file, self.port_table)
 
-        # Built whether or not markers are written: a missing or duplicated `qualified_id` is a
-        # defect in the graph, and a graph must not become invalid only once someone passes
-        # --touch-dir.
-        self.qualified_ids = qualified_ids(self.graph.nodes)
-
         self.results = {}
 
     def execute(self):
@@ -85,7 +81,7 @@ class WorkflowExecutor:
             node = self.graph.node(node_id)
             ports = self.graph.ports_of(node_id)
             kind = ports.kind
-            qualified_id = self.qualified_ids[node_id]
+            qualified_id = self.graph.qualified_ids[node_id]
 
             # The pair of lines is printed whatever the flag says, which is how a failing node is
             # named: the exception itself is propagated untouched, so its message must not have to
@@ -122,7 +118,7 @@ class WorkflowExecutor:
 
         The port table's output arity comes from a return annotation, which is a *claim* by the
         function's author. Everything downstream trusts it: the registry emits that many sockets,
-        graph checks 5 and 6 bound and type an edge by it, and :meth:`_input_values` indexes with
+        graph checks 7 and 8 bound and type an edge by it, and :meth:`_input_values` indexes with
         it. This is the one place the claim meets what the function actually returned.
 
         Confronting them here — at the node that made the claim, right after the call — rather than
@@ -132,7 +128,7 @@ class WorkflowExecutor:
 
         Only ``n > 1`` is checkable. At ``n == 1`` a returned tuple is legitimate — that is exactly
         the ``-> tuple`` case issue #31 turns on — so there is nothing to compare. At ``n == 0`` the
-        value is unreachable anyway: graph check 5 rejects every outgoing edge of a node with no
+        value is unreachable anyway: graph check 7 rejects every outgoing edge of a node with no
         outputs.
 
         Raises:
@@ -180,9 +176,9 @@ class WorkflowExecutor:
         issue #31. ``graph.py:_output_annotation`` asks the same question the same way.
 
         So a single-output node passes its value on whole whatever ``source_output`` says — the
-        three spellings graph check 5 accepts for "the only output" (``0``, ``-1``, and the key
+        three spellings graph check 7 accepts for "the only output" (``0``, ``-1``, and the key
         omitted) therefore deliver one and the same value. A multi-output node always indexes, and
-        the index is in range because check 5 bounded it by the declared output count and
+        the index is in range because check 7 bounded it by the declared output count and
         :meth:`_check_output_arity` confronted that count with what the node actually returned.
         """
         values = []

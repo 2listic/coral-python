@@ -86,9 +86,16 @@ PORT_TABLE = {
 }
 
 
-def build(nodes, edges):
-    """Build a Graph over the shared port table."""
-    return Graph(nodes, edges, PORT_TABLE)
+def build(nodes, edges, port_table=PORT_TABLE):
+    """Build a Graph over the shared port table, supplying each node's ``qualified_id``.
+
+    A node keeps one it declares; otherwise it gets ``str(node_id)`` — which is what the editor
+    writes for a flat graph, and what ``tests/test_graph_ids.py`` requires of every graph the repo
+    ships. Supplying it here keeps the node literals below about wiring and typing; that ``Graph``
+    *validates* the field (check 3) is pinned by ``TestQualifiedIds``, which bypasses this helper.
+    """
+    nodes = {node_id: {"qualified_id": str(node_id), **node} for node_id, node in nodes.items()}
+    return Graph(nodes, edges, port_table)
 
 
 def edge(source, target, target_input=0, **extra):
@@ -291,7 +298,7 @@ class TestEdgeEndpoints:
 
 
 class TestNodeTypes:
-    """Check 2: every node type has a port-table entry."""
+    """Check 4: every node type has a port-table entry."""
 
     def test_unknown_node_type_is_rejected(self):
         """GIVEN a node whose type is in no plugin's surface
@@ -311,7 +318,7 @@ class TestNodeTypes:
     def test_a_collection_is_not_a_node_type(self, collection):
         """GIVEN a graph naming a collection type as a node
         WHEN the graph is built against the real primitives-only port table
-        THEN check 2 rejects it: a collection is built by ``list_new`` and friends, so there is
+        THEN check 4 rejects it: a collection is built by ``list_new`` and friends, so there is
         exactly one way to make one.
 
         The table here is built rather than hand-written — the point is what the *host* actually
@@ -321,7 +328,7 @@ class TestNodeTypes:
 
         assert collection not in port_table
         with pytest.raises(ValueError, match=rf"Node 'n1' has unknown type '{collection}'"):
-            Graph({"n1": {"type": collection}}, {}, port_table)
+            build({"n1": {"type": collection}}, {}, port_table)
 
 
 class TestNodeIds:
@@ -353,8 +360,60 @@ class TestNodeIds:
             build({0: {"type": "int", "value": 1}, "0": {"type": "int", "value": 2}}, {})
 
 
+class TestQualifiedIds:
+    """Check 3: every node declares a unique, filename-safe ``qualified_id``.
+
+    The rules and their exact messages belong to ``nodestatus.qualified_ids`` and are pinned in
+    ``tests/test_nodestatus.py``. What matters here is that **``Graph``** is what applies them, so
+    that "a graph that constructs is a graph that can be executed" holds — these cases therefore
+    call ``Graph`` directly, bypassing ``build``'s supplied field.
+    """
+
+    def test_the_mapping_is_exposed_on_the_graph(self):
+        """GIVEN two nodes each declaring a qualified id
+        WHEN the graph is built
+        THEN it carries the node id -> qualified id mapping the executor names status files by."""
+        graph = Graph(
+            {
+                "n1": {"type": "float", "value": 1.0, "qualified_id": "n1"},
+                "n2": {"type": "sqrt", "qualified_id": "4_12"},
+            },
+            {"e1": edge("n1", "n2", 0)},
+            PORT_TABLE,
+        )
+
+        assert graph.qualified_ids == {"n1": "n1", "n2": "4_12"}
+
+    def test_a_node_declaring_none_is_rejected(self):
+        """GIVEN a node with no qualified_id at all
+        WHEN the graph is built
+        THEN construction raises — the executor is not where this gets discovered."""
+        with pytest.raises(ValueError, match=r"Node 'n1' declares no qualified_id"):
+            Graph({"n1": {"type": "float", "value": 1.0}}, {}, PORT_TABLE)
+
+    def test_two_nodes_sharing_one_are_rejected(self):
+        """GIVEN two nodes declaring the same qualified_id
+        WHEN the graph is built
+        THEN construction raises: such a graph orders and wires perfectly well, and would corrupt
+        the very timeline its status files exist to show."""
+        nodes = {
+            "n1": {"type": "float", "value": 1.0, "qualified_id": "same"},
+            "n2": {"type": "float", "value": 2.0, "qualified_id": "same"},
+        }
+
+        with pytest.raises(ValueError, match=r"Node 'n2' repeats qualified_id 'same'"):
+            Graph(nodes, {}, PORT_TABLE)
+
+    def test_one_that_cannot_be_a_filename_is_rejected(self):
+        """GIVEN a qualified_id containing a dot
+        WHEN the graph is built
+        THEN construction raises — the whole rule runs here, not only presence and uniqueness."""
+        with pytest.raises(ValueError, match=r"Node 'n1' declares qualified_id 'a\.b'"):
+            Graph({"n1": {"type": "float", "value": 1.0, "qualified_id": "a.b"}}, {}, PORT_TABLE)
+
+
 class TestSubgraphNodes:
-    """A node carrying a whole workflow of its own is rejected by name (part of check 2)."""
+    """A node carrying a whole workflow of its own is rejected by name (check 2)."""
 
     def test_a_node_whose_value_holds_a_workflow_is_rejected(self):
         """GIVEN a subnetwork node, as the platform's editor writes one
@@ -389,7 +448,7 @@ class TestSubgraphNodes:
 
 
 class TestInputPorts:
-    """Check 3: for n incoming edges the target_input values are exactly 0..n-1."""
+    """Check 5: for n incoming edges the target_input values are exactly 0..n-1."""
 
     def test_two_edges_on_one_port_are_rejected(self):
         """GIVEN two edges both landing on input port 0
@@ -429,7 +488,7 @@ class TestInputPorts:
 
 
 class TestArity:
-    """Check 4: the incoming edge count equals the type's input count."""
+    """Check 6: the incoming edge count equals the type's input count."""
 
     def test_missing_connection_is_rejected(self):
         """GIVEN a two-input node with only one edge
@@ -474,7 +533,7 @@ class TestArity:
         WHEN the graph is built
         THEN it raises: 0 input ports against 1 incoming edge.
 
-        The edge uses ``target_input: 0`` deliberately. Any other index would trip check 3 (the
+        The edge uses ``target_input: 0`` deliberately. Any other index would trip check 5 (the
         ``target_input`` values must be exactly ``0..n-1``) first, and the test would pass for the
         wrong reason.
         """
@@ -493,7 +552,7 @@ class TestArity:
 
 
 class TestOutputPorts:
-    """Check 5: source_output names an output the source type actually has."""
+    """Check 7: source_output names an output the source type actually has."""
 
     def test_minus_one_is_accepted_on_a_single_output_type(self):
         """GIVEN an edge reading output -1 of a single-output node
@@ -590,7 +649,7 @@ class TestOutputPorts:
 
 
 class TestEdgeTypes:
-    """Check 6: the source's output annotation against the target's input annotation."""
+    """Check 8: the source's output annotation against the target's input annotation."""
 
     def _wire(self, source_type, target_type):
         """One edge from a primitive/constructor node into port 0 of a target node."""
@@ -637,7 +696,7 @@ class TestEdgeTypes:
         nodes = {"a": {"type": "float", "value": 1.0}, "b": {"type": "count"}}
 
         with pytest.raises(ValueError, match=r"feeds float .* expects int"):
-            Graph(nodes, {"e1": edge("a", "b", 0)}, table)
+            build(nodes, {"e1": edge("a", "b", 0)}, table)
 
     def test_int_into_bool_is_rejected(self):
         """GIVEN an int primitive feeding a bool parameter
@@ -649,7 +708,7 @@ class TestEdgeTypes:
         nodes = {"a": {"type": "int", "value": 5}, "b": {"type": "toggle"}}
 
         with pytest.raises(ValueError, match=r"feeds int .* expects bool"):
-            Graph(nodes, {"e1": edge("a", "b", 0)}, table)
+            build(nodes, {"e1": edge("a", "b", 0)}, table)
 
     def test_bool_into_bool_is_accepted(self):
         """GIVEN a bool primitive feeding a bool parameter
@@ -660,7 +719,7 @@ class TestEdgeTypes:
         )
         nodes = {"a": {"type": "bool", "value": True}, "b": {"type": "toggle"}}
 
-        assert Graph(nodes, {"e1": edge("a", "b", 0)}, table).order == ["a", "b"]
+        assert build(nodes, {"e1": edge("a", "b", 0)}, table).order == ["a", "b"]
 
     def test_any_on_the_source_skips_the_check(self):
         """GIVEN an `any` primitive feeding a float parameter
@@ -754,7 +813,7 @@ class TestEdgeTypes:
 
     # ── collections ──
     #
-    # A bare `list` / `set` / `dict` is a plain class, so check 6 already judges it through
+    # A bare `list` / `set` / `dict` is a plain class, so check 8 already judges it through
     # `issubclass` with no change to `graph.py`. These cases pin that, because the alternative the
     # project rejected — annotating `List[int]` — would make every one of them *skip* instead.
 
@@ -839,10 +898,10 @@ class TestLookups:
     def test_node_returns_the_definition(self):
         """GIVEN a primitive node carrying a value
         WHEN the node is requested
-        THEN its definition comes back."""
+        THEN its definition comes back, including the ``qualified_id`` ``build`` supplied for it."""
         graph = build({"n1": {"type": "int", "value": 7}}, {})
 
-        assert graph.node("n1") == {"type": "int", "value": 7}
+        assert graph.node("n1") == {"qualified_id": "n1", "type": "int", "value": 7}
 
     def test_ports_of_returns_the_table_entry_for_the_node_type(self):
         """GIVEN a function node
@@ -866,7 +925,7 @@ class TestLookups:
         THEN positions serve as edge names and the graph is ordered normally."""
         nodes = {"n1": {"type": "float", "value": 16.0}, "n2": {"type": "sqrt"}}
 
-        graph = Graph(nodes, [edge("n1", "n2", 0)], PORT_TABLE)
+        graph = build(nodes, [edge("n1", "n2", 0)])
 
         assert graph.order == ["n1", "n2"]
         assert graph.edges[0].id == "0"

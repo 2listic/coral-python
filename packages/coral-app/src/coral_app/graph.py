@@ -1,8 +1,8 @@
 """Stage 3: read a workflow graph, validate it, and put it in execution order.
 
-Construction is where a graph is judged. Every wiring error raises ``ValueError`` here, before the
-first node runs — a long PhiFlow simulation must never be spent on a graph that was already known to
-be broken.
+Construction is where a graph is judged. Every defect raises ``ValueError`` here — a node that
+cannot be identified, a wiring error, an incompatible edge, a cycle — before the first node runs: a
+long PhiFlow simulation must never be spent on a graph that was already known to be broken.
 
 The port table (stage 2) arrives as plain data, so this module introspects nothing and knows nothing
 about plugins: give it a node/edge dict and a table and it will tell you whether the two agree.
@@ -15,6 +15,7 @@ from graphlib import CycleError, TopologicalSorter
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
 from coral_app.nodeports import NodePorts
+from coral_app.nodestatus import qualified_ids
 
 __all__ = ["Edge", "Graph"]
 
@@ -98,8 +99,16 @@ class Graph:
     """A validated, ordered workflow graph.
 
     Constructing one runs every check; a graph that constructs is a graph that can be executed. The
-    executor asks it for the execution order and for a node's incoming edges, and never touches the
-    edge list itself.
+    executor asks it for the execution order, for a node's incoming edges and for the qualified id
+    naming a node's status files, and never touches the edge list itself.
+
+    Attributes:
+        qualified_ids: Node id -> qualified id, validated during construction. It lives here rather
+            than in the executor because "every node declares a unique, filename-safe
+            ``qualified_id``" is a rule about node *identity* — the same family as the id coercion
+            in :func:`_read_nodes` — and a graph whose nodes cannot be told apart is not
+            executable. The rules themselves stay in :mod:`coral_app.nodestatus`, which owns the
+            filename convention they come from.
     """
 
     def __init__(
@@ -117,8 +126,9 @@ class Graph:
                 :func:`~coral_app.nodeports.build_port_table`.
 
         Raises:
-            ValueError: on any structural, wiring, typing or ordering defect. The message names the
-                offending node or edge.
+            ValueError: on any structural, identity, wiring, typing or ordering defect — including
+                a node that declares no ``qualified_id``, one that cannot be a filename, or one
+                another node already declares. The message names the offending node or edge.
         """
         self.nodes: Dict[str, dict] = _read_nodes(nodes)
         self.edges: List[Edge] = _read_edges(edges)
@@ -126,6 +136,14 @@ class Graph:
 
         self._check_edges_reference_declared_nodes()
         self._check_no_node_is_a_subgraph()
+
+        # Check 3, and the only one whose rules live in another module: `nodestatus` owns what can
+        # be a status filename, this owns when a graph is judged against it. Running it here keeps
+        # the promise above true — two nodes sharing a qualified id would otherwise give a graph
+        # that constructs and cannot be executed — and it runs whether or not markers are ever
+        # written, since a graph must not become valid or invalid depending on --touch-dir.
+        self.qualified_ids: Dict[str, str] = qualified_ids(self.nodes)
+
         self._check_node_types_are_known()
 
         # Built once, here, so the executor never re-filters the edge list per node.
@@ -171,7 +189,8 @@ class Graph:
         """The node's incoming edges, sorted by ``target_input`` — i.e. in parameter order."""
         return self._incoming[node_id]
 
-    # Validation. Each method is one of the checks, run in the order listed in __init__.
+    # Validation. Each method is one of the checks, run in the order listed in __init__ — where
+    # check 3, the qualified ids, is `nodestatus.qualified_ids` rather than a method here.
 
     def _check_edges_reference_declared_nodes(self) -> None:
         """Both endpoints of every edge must be declared nodes.
@@ -295,7 +314,7 @@ class Graph:
         for edge in self.edges:
             source_annotation = self._output_annotation(edge)
             ports = self.ports_of(edge.target)
-            # `target_input` is a safe index here: checks 3 and 4 established that this node's
+            # `target_input` is a safe index here: checks 5 and 6 established that this node's
             # incoming edges occupy exactly ports 0..n-1 for its type's n inputs.
             target_name, target_annotation = ports.inputs[edge.target_input]
 
