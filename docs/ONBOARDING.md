@@ -596,7 +596,7 @@ nothing is converted — see `tests/fixtures/valid_workflows/network-collections
 
 The cost of that choice is that `list`/`set`/`dict` cannot be registered as *classes* even if we wanted
 to: `inspect.signature(list)` is `(iterable=(), /)`, one mandatory port, so an empty-list constructor node
-would fail graph check 4; `list.append` mutates and returns `None`, so it would have no output port; and
+would fail graph check 6; `list.append` mutates and returns `None`, so it would have no output port; and
 being C extension types they expose no introspectable methods at all. Free functions are not a stylistic
 preference here, they are the only thing that works.
 

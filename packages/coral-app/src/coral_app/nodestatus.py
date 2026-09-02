@@ -26,7 +26,7 @@ Failing at t=0 says so; auto-naming hides it until someone reads the marker file
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, Iterator, Mapping, Union
+from typing import Dict, Generator, Mapping, Union
 
 __all__ = ["FAILED", "RUNNING", "STATUS_SUFFIXES", "SUCCEEDED", "NodeStatusDir", "qualified_ids"]
 
@@ -153,7 +153,7 @@ class NodeStatusDir:
                 entry.unlink()
 
     @contextmanager
-    def node(self, qualified_id: str) -> Iterator[None]:
+    def node(self, qualified_id: str) -> Generator[None, None, None]:
         """Bracket one node's execution with its status markers.
 
         Entering writes ``<qualified_id>.running``; leaving normally writes ``.succeeded``; an

@@ -591,7 +591,7 @@ class TestOutputPortResolution:
         WHEN the workflow runs
         THEN all three deliver the whole tuple.
 
-        Graph check 5 documents the three as synonyms; before the fix they produced ``(10, 20)``,
+        Graph check 7 documents the three as synonyms; before the fix they produced ``(10, 20)``,
         ``10`` and ``20`` respectively, because the executor indexed on ``isinstance(value, tuple)``
         instead of asking the port table."""
         assert self._received(executor_over, "pair", **edge_extras) == (10, 20)
@@ -752,7 +752,7 @@ class TestNodeStatusMarkers:
 
     def _markers(self, status_dir, executor, node_id):
         """The suffixes written for one node, by its qualified id."""
-        qualified_id = executor.qualified_ids[node_id]
+        qualified_id = executor.graph.qualified_ids[node_id]
         return {
             path.name[len(qualified_id) :]
             for path in status_dir.iterdir()

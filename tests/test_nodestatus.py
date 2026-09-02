@@ -274,6 +274,26 @@ class TestNodeStatusDirMarkers:
 
         assert raised.value is original
 
+    @pytest.mark.parametrize("raised", [KeyboardInterrupt, SystemExit])
+    def test_an_exception_outside_Exception_still_writes_failed(self, tmp_path, raised):
+        """GIVEN a node interrupted by something outside the ``Exception`` hierarchy
+        WHEN it leaves the block
+        THEN ``.failed`` is written and the interruption propagates unchanged.
+
+        This is why the ``except`` clause names ``BaseException`` and not the idiomatic
+        ``Exception``: a Ctrl-C during a long run is exactly when the timeline matters, and a node
+        left with only ``.running`` reads as still in flight. Nothing else pins the choice, so a
+        later tidy-up to ``except Exception`` would pass every other test in this file."""
+        status = NodeStatusDir(tmp_path)
+
+        with pytest.raises(raised):
+            with status.node("3"):
+                raise raised()
+
+        assert (tmp_path / f"3{RUNNING}").exists()
+        assert (tmp_path / f"3{FAILED}").exists()
+        assert not (tmp_path / f"3{SUCCEEDED}").exists()
+
     def test_a_touch_failure_mid_run_warns_once_and_does_not_raise(self, tmp_path, capsys):
         """GIVEN a status directory that disappears after construction
         WHEN two nodes run through it
