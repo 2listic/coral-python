@@ -15,7 +15,14 @@ from specimen import SPECIMEN, Accumulator
 
 
 def graph(nodes: dict, edges: dict = None) -> dict:
-    """Wrap nodes and edges in the workflow envelope the platform exports."""
+    """Wrap nodes and edges in the workflow envelope the platform exports, supplying each node's
+    ``qualified_id``.
+
+    A node keeps one it declares; otherwise it gets ``str(node_id)``. Same convention as
+    ``test_graph.py``'s ``build``, and for the same reason: it keeps the node literals below about
+    execution rather than about identity.
+    """
+    nodes = {node_id: {"qualified_id": str(node_id), **node} for node_id, node in nodes.items()}
     return {"workflow": {"nodes": nodes, "edges": edges or {}}}
 
 

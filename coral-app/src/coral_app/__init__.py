@@ -56,8 +56,9 @@ def load(name: str) -> Plugin:
     """Import, instantiate, and return the plugin registered under ``name``.
 
     Imports only the requested plugin. Raises ``LookupError`` if no plugin is
-    registered under ``name`` (D4: fail-loud, no silent skip), and ``TypeError``
-    if the entry point does not resolve to a ``coral_core.Plugin`` subclass.
+    registered under ``name`` — fail loud, never skip silently — and
+    ``TypeError`` if the entry point does not resolve to a ``coral_core.Plugin``
+    subclass.
     """
     matches = entry_points(group=PLUGIN_GROUP, name=name)
     if not matches:
@@ -110,7 +111,7 @@ def build_function_map(
         leaves every plugin-contributed entry at the position it already had.
 
     Raises:
-        LookupError: if a selected name is not a discoverable plugin (D4).
+        LookupError: if a selected name is not a discoverable plugin.
         DuplicateNodeTypeError: if two contributors declare the same function name.
     """
     function_map: Dict[str, Any] = {}
@@ -156,7 +157,7 @@ def build_class_map(
         Mapping of class name -> class, merged in selection order.
 
     Raises:
-        LookupError: if a selected name is not a discoverable plugin (D4).
+        LookupError: if a selected name is not a discoverable plugin.
         DuplicateNodeTypeError: if two plugins declare the same class name.
     """
     class_map: Dict[str, Any] = {}

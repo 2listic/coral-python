@@ -1,41 +1,31 @@
 {
   "workflow": {
     "nodes": {
-      "one": { "type": "int", "value": "1" },
-      "two": { "type": "int", "value": "2" },
-      "three": { "type": "int", "value": "3" },
-      "index_0": { "type": "int", "value": "0" },
-      "index_1": { "type": "int", "value": "1" },
-      "empty": { "type": "list_new" },
-      "with_one": { "type": "list_append" },
-      "with_two": { "type": "list_append" },
-      "with_three": { "type": "list_append" },
-      "size": { "type": "list_size" },
-      "second": { "type": "list_get" },
-      "without_first": { "type": "list_remove_at" }
+      "0": { "qualified_id": "0", "type": "int", "value": "1" },
+      "1": { "qualified_id": "1", "type": "int", "value": "2" },
+      "2": { "qualified_id": "2", "type": "int", "value": "3" },
+      "3": { "qualified_id": "3", "type": "int", "value": "0" },
+      "4": { "qualified_id": "4", "type": "int", "value": "1" },
+      "5": { "qualified_id": "5", "type": "list_new" },
+      "6": { "qualified_id": "6", "type": "list_append" },
+      "7": { "qualified_id": "7", "type": "list_append" },
+      "8": { "qualified_id": "8", "type": "list_append" },
+      "9": { "qualified_id": "9", "type": "list_size" },
+      "10": { "qualified_id": "10", "type": "list_get" },
+      "11": { "qualified_id": "11", "type": "list_remove_at" }
     },
     "edges": {
-      "e1": { "source": "empty", "target": "with_one", "source_output": 0, "target_input": 0 },
-      "e2": { "source": "one", "target": "with_one", "source_output": 0, "target_input": 1 },
-      "e3": { "source": "with_one", "target": "with_two", "source_output": 0, "target_input": 0 },
-      "e4": { "source": "two", "target": "with_two", "source_output": 0, "target_input": 1 },
-      "e5": { "source": "with_two", "target": "with_three", "source_output": 0, "target_input": 0 },
-      "e6": { "source": "three", "target": "with_three", "source_output": 0, "target_input": 1 },
-      "e7": { "source": "with_three", "target": "size", "source_output": 0, "target_input": 0 },
-      "e8": { "source": "with_three", "target": "second", "source_output": 0, "target_input": 0 },
-      "e9": { "source": "index_1", "target": "second", "source_output": 0, "target_input": 1 },
-      "e10": {
-        "source": "with_three",
-        "target": "without_first",
-        "source_output": 0,
-        "target_input": 0
-      },
-      "e11": {
-        "source": "index_0",
-        "target": "without_first",
-        "source_output": 0,
-        "target_input": 1
-      }
+      "0": { "source": 5, "target": 6, "source_output": 0, "target_input": 0 },
+      "1": { "source": 0, "target": 6, "source_output": 0, "target_input": 1 },
+      "2": { "source": 6, "target": 7, "source_output": 0, "target_input": 0 },
+      "3": { "source": 1, "target": 7, "source_output": 0, "target_input": 1 },
+      "4": { "source": 7, "target": 8, "source_output": 0, "target_input": 0 },
+      "5": { "source": 2, "target": 8, "source_output": 0, "target_input": 1 },
+      "6": { "source": 8, "target": 9, "source_output": 0, "target_input": 0 },
+      "7": { "source": 8, "target": 10, "source_output": 0, "target_input": 0 },
+      "8": { "source": 4, "target": 10, "source_output": 0, "target_input": 1 },
+      "9": { "source": 8, "target": 11, "source_output": 0, "target_input": 0 },
+      "10": { "source": 3, "target": 11, "source_output": 0, "target_input": 1 }
     }
   }
 }

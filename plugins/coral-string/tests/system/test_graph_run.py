@@ -19,11 +19,11 @@ from string_suite import PLUGIN_NAME
 GRAPH = {
     "workflow": {
         "nodes": {
-            "prefix": {"type": "str", "value": "Hello, "},
-            "text": {"type": "str", "value": "world"},
-            "sp": {"type": "StringProcessor"},
-            "cat": {"type": "StringProcessor.concatenate"},
-            "out": {"type": "print_text"},
+            "prefix": {"qualified_id": "prefix", "type": "str", "value": "Hello, "},
+            "text": {"qualified_id": "text", "type": "str", "value": "world"},
+            "sp": {"qualified_id": "sp", "type": "StringProcessor"},
+            "cat": {"qualified_id": "cat", "type": "StringProcessor.concatenate"},
+            "out": {"qualified_id": "out", "type": "print_text"},
         },
         "edges": {
             # the prefix feeds the constructor

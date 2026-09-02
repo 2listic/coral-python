@@ -63,14 +63,39 @@ def _annotation(param: inspect.Parameter):
     return param.annotation
 
 
-def _outputs_from_return(return_annotation) -> List[Any]:
+def _outputs_from_return(return_annotation, node_type: str) -> List[Any]:
     """Turn a return annotation into one annotation per output port.
 
     A ``Tuple[...]`` return is one output per element; ``None`` (or a missing annotation) is no
-    output at all; anything else is a single output.
+    output at all; anything else is a single output — including plain ``tuple``, which is *one*
+    output that happens to carry a tuple.
+
+    A tuple return must declare its elements, so the spellings that do not are rejected here rather
+    than silently mis-described:
+
+    - ``Tuple`` and ``Tuple[()]`` carry no arguments and would yield **zero** ports, reading as "no
+      outputs" when the author meant "returns a tuple". Every outgoing edge would then fail graph
+      check 7 with a message about ports, when the fault is the annotation.
+    - ``Tuple[Any, ...]`` is variadic: it has no static arity for the port table to record, and
+      would yield a second port annotated ``Ellipsis`` — which the registry renders as a socket type
+      and the edge type check reasons about.
+
+    Args:
+        return_annotation: The callable's return annotation.
+        node_type: The node type this annotation belongs to, used only to name the offender.
+
+    Raises:
+        ValueError: if the return annotation is a tuple that does not declare its elements.
     """
     if get_origin(return_annotation) is tuple:
-        return list(get_args(return_annotation))
+        args = get_args(return_annotation)
+        if not args or Ellipsis in args:
+            raise ValueError(
+                f"Node type {node_type!r} returns {return_annotation!r}, which does not declare "
+                f"its output ports. Write the elements out, e.g. Tuple[float, str] — or plain "
+                f"`tuple` for a single output carrying a tuple."
+            )
+        return list(args)
 
     if (
         return_annotation is not None
@@ -99,13 +124,13 @@ def _public_method_names(cls: type) -> List[str]:
     return names
 
 
-def _function_ports(func: Callable) -> NodePorts:
+def _function_ports(func: Callable, node_type: str) -> NodePorts:
     """Ports of a plain function: its parameters in, its return annotation out."""
     sig = inspect.signature(func)
     return NodePorts(
         kind=FUNCTION,
         inputs=[(name, _annotation(param)) for name, param in sig.parameters.items()],
-        outputs=_outputs_from_return(sig.return_annotation),
+        outputs=_outputs_from_return(sig.return_annotation, node_type),
     )
 
 
@@ -137,7 +162,7 @@ def _constructor_ports(cls: type) -> NodePorts:
     )
 
 
-def _method_ports(cls: type, method_name: str) -> NodePorts:
+def _method_ports(cls: type, method_name: str, node_type: str) -> NodePorts:
     """Ports of a method: the instance at port 0, then the declared parameters.
 
     ``signature(cls.method)`` keeps ``self``, which is exactly the instance-at-port-0 convention;
@@ -149,7 +174,7 @@ def _method_ports(cls: type, method_name: str) -> NodePorts:
         (name, _annotation(param)) for name, param in sig.parameters.items() if name != "self"
     )
     return NodePorts(
-        kind=METHOD, inputs=inputs, outputs=_outputs_from_return(sig.return_annotation)
+        kind=METHOD, inputs=inputs, outputs=_outputs_from_return(sig.return_annotation, node_type)
     )
 
 
@@ -176,6 +201,9 @@ def build_port_table(
             function and a constructor all key the table by a bare name, and this is the only place
             the three surfaces meet. A ``Class.method`` key colliding with a function or constructor
             of the same name is *not* an error: see ``put`` below.
+        ValueError: if any callable returns a tuple without declaring its elements — see
+            :func:`_outputs_from_return`. This fires while the table is built, so a badly annotated
+            function in an installed plugin fails the host rather than yielding a wrong registry.
     """
     table: Dict[str, NodePorts] = {}
 
@@ -202,14 +230,15 @@ def build_port_table(
         put(prim_name, NodePorts(kind=PRIMITIVE, inputs=[], outputs=[prim_type]))
 
     for func_name, func in (function_map or {}).items():
-        put(func_name, _function_ports(func))
+        put(func_name, _function_ports(func, func_name))
 
     for class_name, cls in (class_map or {}).items():
         put(class_name, _constructor_ports(cls))
 
     for class_name, cls in (class_map or {}).items():
         for method_name in _public_method_names(cls):
-            put(f"{class_name}.{method_name}", _method_ports(cls, method_name))
+            node_type = f"{class_name}.{method_name}"
+            put(node_type, _method_ports(cls, method_name, node_type))
 
     return table
 

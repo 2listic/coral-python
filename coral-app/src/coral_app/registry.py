@@ -40,8 +40,7 @@ def _number_outputs(ports: NodePorts, first_idx: int):
 
     The file format numbers outputs in a per-node index space that *continues after the inputs*, so
     the caller passes the first free index. (The editor and the executor number outputs 0-based
-    within outputs; that difference is deliberate and confined to this file — see the issue #23
-    architecture note on output-port numbering.)
+    within outputs; that difference is deliberate and confined to this file.)
 
     Returns:
         tuple: (output_arguments, output_indices)

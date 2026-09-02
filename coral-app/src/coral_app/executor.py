@@ -1,8 +1,10 @@
+from contextlib import nullcontext
 from typing import Any, List, Optional
 
 from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
 from coral_app.graph import Graph
 from coral_app.nodeports import CONSTRUCTOR, FUNCTION, METHOD, PRIMITIVE, build_port_table
+from coral_app.nodestatus import NodeStatusDir
 
 
 class WorkflowExecutor:
@@ -13,19 +15,39 @@ class WorkflowExecutor:
     node's inputs from the results so far, resolve its callable, call it, store the result.
     """
 
-    def __init__(self, workflow_file: str, plugins: Optional[List[str]] = None):
-        """Load the plugins, then read and validate the workflow.
+    def __init__(
+        self,
+        workflow_file: str,
+        plugins: Optional[List[str]] = None,
+        touch_dir: Optional[str] = None,
+    ):
+        """Prepare the status directory, load the plugins, then read and validate the workflow.
 
         A wiring error raises here, before any node runs — the point of validating up front is that
         a long simulation is never spent on a graph already known to be broken.
 
+        The status directory is prepared *first*, ahead of plugin loading and validation, for three
+        reasons: it is what the reference backend does; a bad path then fails before phiflow is
+        imported; and a graph that fails validation leaves the platform an **empty** directory
+        rather than the stale timeline of an earlier job.
+
+        ``touch_dir=None`` means "write nothing": this is a library object, and it should do no
+        filesystem I/O nobody asked for. The reference default of the cwd belongs to the CLI, which
+        is where the platform's contract actually lives.
+
         Args:
             workflow_file: Path to the workflow JSON file
             plugins: List of plugin names to load. If None, loads every discovered plugin.
+            touch_dir: Directory to write per-node status markers into, or None to write none.
 
         Raises:
-            ValueError: if the graph does not agree with the loaded plugins' node types.
+            OSError: if ``touch_dir`` cannot be created or cleaned.
+            ValueError: from :class:`~coral_app.graph.Graph`, if the graph does not agree with the
+                loaded plugins' node types, or one of its nodes declares no ``qualified_id`` or
+                repeats another's.
         """
+        self.status = NodeStatusDir(touch_dir) if touch_dir else None
+
         # Build function and class maps based on the specified plugins.
         # None means "every discovered plugin" — the host never names a specific plugin.
         if plugins is None:
@@ -41,35 +63,91 @@ class WorkflowExecutor:
 
         self.port_table = build_port_table(self.function_map, self.class_map, self.primitives_map)
         self.graph = Graph.from_file(workflow_file, self.port_table)
+
         self.results = {}
 
     def execute(self):
-        """Execute the workflow, returning every node's result keyed by node id."""
+        """Execute the workflow, returning every node's result keyed by node id.
+
+        Each node is bracketed by two lines in the log and, when a status directory was configured,
+        by its three markers — written by the collaborator rather than here, so that "``.failed`` is
+        written before the exception escapes" is a property of one testable object instead of a
+        discipline this walk has to keep. Everything raising inside the block is covered: a plugin
+        function, the method-instance check, the output-arity check.
+        """
         print(f"Execution order: {self.graph.order}\n")
 
         for node_id in self.graph.order:
             node = self.graph.node(node_id)
-            kind = self.graph.ports_of(node_id).kind
+            ports = self.graph.ports_of(node_id)
+            kind = ports.kind
+            qualified_id = self.graph.qualified_ids[node_id]
 
-            if kind == PRIMITIVE:
-                self.results[node_id] = self._convert(node)
-                print(f"{node_id} (primitive) = {self.results[node_id]}")
-                print()
-                continue
+            # The pair of lines is printed whatever the flag says, which is how a failing node is
+            # named: the exception itself is propagated untouched, so its message must not have to
+            # carry the node id.
+            print(f"Start running node {node_id} [{qualified_id}] (type = {node['type']})")
 
-            values = self._input_values(node_id)
-            target, arguments = self._resolve(node_id, node["type"], kind, values)
+            status = self.status.node(qualified_id) if self.status else nullcontext()
+            with status:
+                if kind == PRIMITIVE:
+                    self.results[node_id] = self._convert(node)
+                    print(f"{node_id} (primitive) = {self.results[node_id]}")
+                else:
+                    values = self._input_values(node_id)
+                    target, arguments = self._resolve(node_id, node["type"], kind, values)
 
-            # Inputs arrive in port order, which is parameter order, so a positional call binds
-            # them correctly — no need to look at the callable's signature.
-            self.results[node_id] = target(*arguments)
+                    # Inputs arrive in port order, which is parameter order, so a positional call
+                    # binds them correctly — no need to look at the callable's signature.
+                    result = target(*arguments)
+                    self._check_output_arity(node_id, node["type"], ports, result)
+                    self.results[node_id] = result
 
-            if kind == CONSTRUCTOR:
-                print(f"{node_id} (constructor {node['type']}) = {self.results[node_id]}")
+                    if kind == CONSTRUCTOR:
+                        print(f"{node_id} (constructor {node['type']}) = {self.results[node_id]}")
+
+            print(f"Node {node_id} [{qualified_id}] (type = {node['type']}) run")
             print()
 
         print("All nodes executed successfully!")
         return self.results
+
+    @staticmethod
+    def _check_output_arity(node_id: str, node_type: str, ports, result) -> None:
+        """A node declaring more than one output must return a tuple of exactly that many.
+
+        The port table's output arity comes from a return annotation, which is a *claim* by the
+        function's author. Everything downstream trusts it: the registry emits that many sockets,
+        graph checks 7 and 8 bound and type an edge by it, and :meth:`_input_values` indexes with
+        it. This is the one place the claim meets what the function actually returned.
+
+        Confronting them here — at the node that made the claim, right after the call — rather than
+        at a consumer's edge is deliberate: it fires whether or not the offending port is wired, so
+        an under-declared node cannot slip through by nobody reading its last output, and the error
+        names the function whose annotation is wrong rather than the graph that believed it.
+
+        Only ``n > 1`` is checkable. At ``n == 1`` a returned tuple is legitimate — that is exactly
+        the ``-> tuple`` case — so there is nothing to compare. At ``n == 0`` the value is
+        unreachable anyway: graph check 7 rejects every outgoing edge of a node with no outputs.
+
+        Raises:
+            ValueError: if the result is not a tuple, or is a tuple of the wrong length.
+        """
+        expected = len(ports.outputs)
+        if expected <= 1:
+            return
+
+        if not isinstance(result, tuple):
+            raise ValueError(
+                f"Node {node_id} ({node_type}) declares {expected} outputs but returned "
+                f"{type(result).__name__}"
+            )
+
+        if len(result) != expected:
+            raise ValueError(
+                f"Node {node_id} ({node_type}) declares {expected} outputs but returned "
+                f"a tuple of {len(result)}"
+            )
 
     def _convert(self, node: dict):
         """A primitive node's value, cast to the type the node declares.
@@ -88,8 +166,19 @@ class WorkflowExecutor:
         """The values feeding a node, in port order.
 
         The graph hands over the incoming edges already sorted by ``target_input``; each is read
-        from the results of the node it comes from, unwrapping the requested element of a tuple
-        return.
+        from the results of the node it comes from.
+
+        Whether that result is a *bundle* of outputs to index into is decided by the **port table**,
+        never by the value. How many outputs a node has is a static fact, settled in stage 2 from
+        the return annotation; a runtime ``isinstance(value, tuple)`` cannot tell "three outputs,
+        bundled" from "one output that happens to be a tuple", so answering it that way is wrong.
+        ``graph.py:_output_annotation`` asks the same question the same way.
+
+        So a single-output node passes its value on whole whatever ``source_output`` says — the
+        three spellings graph check 7 accepts for "the only output" (``0``, ``-1``, and the key
+        omitted) therefore deliver one and the same value. A multi-output node always indexes, and
+        the index is in range because check 7 bounded it by the declared output count and
+        :meth:`_check_output_arity` confronted that count with what the node actually returned.
         """
         values = []
         for edge in self.graph.inputs_of(node_id):
@@ -97,9 +186,8 @@ class WorkflowExecutor:
                 raise ValueError(f"Node {edge.source} hasn't been executed yet!")
             value = self.results[edge.source]
 
-            if edge.source_output is not None:
-                if isinstance(value, tuple) and edge.source_output < len(value):
-                    value = value[edge.source_output]
+            if len(self.graph.ports_of(edge.source).outputs) > 1:
+                value = value[edge.source_output]
 
             values.append(value)
         return values

@@ -265,6 +265,28 @@ class TestStageSeparation:
         assert "json" not in modules
         assert "graphlib" not in modules
 
+    def test_executor_does_no_filesystem_io_of_its_own(self):
+        """GIVEN executor.py
+        WHEN its imports are parsed
+        THEN neither `pathlib` nor `os` is there — writing the per-node status markers is
+        nodestatus.py's job, and the executor only decides *when* a node starts and ends."""
+        modules, _ = self._imports("executor")
+
+        assert "pathlib" not in modules
+        assert "os" not in modules
+
+    def test_nodestatus_knows_nothing_of_graphs_or_execution(self):
+        """GIVEN nodestatus.py
+        WHEN its imports are parsed
+        THEN it imports neither `graph` nor `executor`: it is handed a plain mapping and a path, so
+        the file-naming convention of one external consumer stays out of both, exactly as
+        registry.py keeps the registry's JSON format out of graph.py."""
+        modules, _ = self._imports("nodestatus")
+
+        assert "coral_app.graph" not in modules
+        assert "coral_app.executor" not in modules
+        assert not [name for name in modules if name.startswith("coral_plugin")]
+
     def test_executor_never_holds_the_edge_list(self):
         """GIVEN executor.py
         WHEN its source is read

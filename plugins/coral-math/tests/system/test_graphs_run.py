@@ -141,6 +141,28 @@ class TestTheClassesExport:
         assert results["3"] is None
 
 
+#: ``network-collections-math.json``'s nodes by the name each one plays. The protocol requires
+#: integer node ids, which therefore carry no meaning; the meaning lives here, so the assertions
+#: below still read as sentences about the graph rather than about node "6". Every node is listed,
+#: not only the asserted ones, so the map doubles as the graph's legend.
+#:
+#: Nothing ties the map to the file: renumber the graph without updating this and the assertions
+#: move to the wrong nodes. Both are hand-maintained together, deliberately — the alternative was a
+#: ``"name"`` field the protocol has no room for.
+NODES = {
+    "three": "0",
+    "four": "1",
+    "index_0": "2",
+    "index_1": "3",
+    "empty": "4",
+    "with_three": "5",
+    "with_both": "6",
+    "first": "7",
+    "second": "8",
+    "total": "9",
+}
+
+
 class TestTheCollectionsInteropGraph:
     """``network-collections-math.json`` — the host's builtins feeding this plugin's ``add``.
 
@@ -160,14 +182,14 @@ class TestTheCollectionsInteropGraph:
 
         The builtins are pure by design: several downstream nodes may read one result, in an order the
         topological sort chooses, so in-place mutation would make the outcome depend on that choice."""
-        assert results["empty"] == []
-        assert results["with_three"] == [3.0]
-        assert results["with_both"] == [3.0, 4.0]
+        assert results[NODES["empty"]] == []
+        assert results[NODES["with_three"]] == [3.0]
+        assert results[NODES["with_both"]] == [3.0, 4.0]
 
     def test_extraction_feeds_the_plugin_function(self, results):
         """GIVEN two list_get nodes feeding this plugin's add
         WHEN the graph is executed
         THEN the elements come out in index order and their sum is computed by `add`."""
-        assert results["first"] == 3.0
-        assert results["second"] == 4.0
-        assert results["total"] == 7.0
+        assert results[NODES["first"]] == 3.0
+        assert results[NODES["second"]] == 4.0
+        assert results[NODES["total"]] == 7.0

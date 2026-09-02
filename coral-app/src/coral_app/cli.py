@@ -1,7 +1,7 @@
 """Coral-compatible CLI for the Python backend.
 
-Presents the same command surface as the C++ ``coral`` binary so the DealiiX platform can drive this
-backend by changing only the executable and plugin paths:
+Presents the same command surface as the reference ``coral`` binary so the DealiiX platform can
+drive this backend by changing only the executable and plugin paths:
 
     coral -p <plugin> register           # write the node registry (node_types.json) into the cwd
     coral -p <plugin> run <graph.json>    # execute a workflow graph
@@ -9,7 +9,7 @@ backend by changing only the executable and plugin paths:
 For this Python backend ``-p/--plugin`` names the plugins to load (comma-separated, e.g.
 ``"math,string"``); an empty value loads every installed plugin (via entry-point discovery).
 ``-p/--plugin`` must appear before the subcommand. Exposed as the ``coral`` console script and
-wrapped by the ``coral-py`` launcher. See the integration plan in issue #12.
+wrapped by the ``coral-py`` launcher.
 """
 
 import argparse
@@ -20,6 +20,10 @@ from coral_app.registry import save_registry_to_file
 
 # Fixed filename the DealiiX platform probes for after `register`.
 DEFAULT_REGISTRY_FILENAME = "node_types.json"
+
+# Where per-node status markers go when `--touch-dir` is omitted: the cwd, as in the reference
+# backend.
+DEFAULT_TOUCH_DIR = "./"
 
 
 def main():
@@ -61,10 +65,19 @@ def main():
         "graph",
         help="Path to the workflow JSON graph to execute.",
     )
+    # The reference backend defaults this to "./" and has no "write nothing" mode, so the platform's
+    # contract — which is this CLI — keeps that: omit the flag and the markers land in the cwd.
+    # `nargs="?"` with the same const accepts a bare `--touch-dir`. Writing nothing at all is
+    # reachable only from `WorkflowExecutor(touch_dir=None)`.
     run_parser.add_argument(
         "--touch-dir",
-        default=None,
-        help="Directory for per-node status files. Accepted for coral compatibility; not yet emitted.",
+        default=DEFAULT_TOUCH_DIR,
+        nargs="?",
+        const=DEFAULT_TOUCH_DIR,
+        metavar="PATH",
+        help="Output directory for touch files (node status markers): one empty "
+        f"<qualified_id>.running / .succeeded / .failed per node (default: {DEFAULT_TOUCH_DIR}). "
+        "Existing markers in it are removed before the run.",
     )
 
     args = parser.parse_args()
@@ -73,7 +86,7 @@ def main():
     if args.command == "register":
         save_registry_to_file(args.output, plugins=plugins)
     elif args.command == "run":
-        executor = WorkflowExecutor(args.graph, plugins=plugins)
+        executor = WorkflowExecutor(args.graph, plugins=plugins, touch_dir=args.touch_dir)
         results = executor.execute()
         print(f"\nFinal results: {results}")
 
