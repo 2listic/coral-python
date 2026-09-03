@@ -17,8 +17,9 @@ operations in `coral_app/builtin_nodes.py`, available with no plugin installed a
 
 The project uses PhiFlow for physics simulations and numerical computing.
 
-The repo is a **uv workspace / monorepo**: a small set of independently installable distributions
-under `packages/*`. A minimal contract package (`coral-core`) defines a `Plugin` ABC; the host
+The repo is a **uv workspace / monorepo**: a small set of independently installable distributions —
+the framework at the root (`coral-core/`, `coral-app/`) and one directory per plugin under `plugins/`.
+A minimal contract package (`coral-core`) defines a `Plugin` ABC; the host
 (`coral-app`) discovers and loads plugins at runtime via `importlib.metadata` entry points; each
 capability (`math`, `string`, `phiflow`) is its own `coral-plugin-*` distribution. See
 [Package layout](#package-layout) below.
@@ -54,8 +55,8 @@ the hook (no runners yet).
 
 ```bash
 uv run pre-commit run --all-files   # everything the hook would do, over the whole repo
-uv run ruff format packages tests
-uv run ruff check packages tests
+uv run ruff format coral-core coral-app plugins tests
+uv run ruff check coral-core coral-app plugins tests
 ```
 
 ### Package Management
@@ -69,6 +70,27 @@ uv add --dev <package-name>
 # Re-resolve the lockfile and sync the environment
 uv lock && uv sync
 ```
+
+**Read the `uv.lock` diff before committing it.** Nothing enforces this, and one specific accident is
+why it is written down (issue #27, step 9): a `uv sync` run while `[tool.uv.workspace] members` was
+stale — it pointed at a directory that no longer existed, and a **memberless workspace is valid**, so
+the command succeeded. It uninstalled all five packages, re-resolved from scratch, and silently
+upgraded `jax` 0.10.2 → 0.11.0 along with `jaxlib` and `matplotlib`. Reading the diff is what caught it.
+
+Two habits follow, and neither is checkable by a tool:
+
+- **Never run `uv sync` after moving a package directory without updating `members` first.** The
+  failure is silent in both directions: uv accepts a workspace that matches nothing, and the upgrade
+  it performs looks like an unrelated commit's noise. (The invariants suite now fails on a stale root —
+  `TestConfigCoversEveryDistribution` in `tests/invariants/test_source_rules.py` — but only once tests
+  run, i.e. after the re-resolve has already happened.)
+- **A `uv.lock` diff should touch only what you meant to change.** After a package move that is
+  exactly the `editable = { path = ... }` strings and nothing else; after a `uv add` it is that
+  dependency and its transitive closure. Any other version bump in the diff is an accident until
+  proven deliberate.
+
+`uv lock --check` does *not* answer this question — it verifies the lock is consistent with the
+manifests, and after that accidental re-resolve it was perfectly consistent.
 
 ### Distribution (wheels)
 
@@ -91,7 +113,7 @@ subcommands. `-p/--plugin` must precede the subcommand.
 # Run a workflow graph (graph path required; all installed plugins by default)
 coral run path/to/workflow.json
 coral -p "math" run path/to/workflow.json
-coral -p "math,string,phiflow" run examples/phiflow/network-from-fe.json
+coral -p "phiflow" run plugins/coral-phiflow/examples/phiflow/network-from-fe.json
 
 # Send the per-node status markers somewhere other than the cwd
 coral run path/to/workflow.json --touch-dir /run/job-42
@@ -118,70 +140,130 @@ entry-point group):
 - `phiflow` - PhiFlow physics simulation wrappers
 
 ### Running Tests
+
 ```bash
-# Run all tests (from the workspace root, against the editable-installed packages)
+# The whole suite: the repo-level tests plus every package's own (from the workspace root)
 pytest
 
-# Run with coverage
-pytest --cov=. --cov-report=html
-open htmlcov/index.html
+# The fast lane — everything except the one fluid simulation and the wheel build (~0.8s)
+pytest -m "not slow"
 
-# Run specific test file
-pytest tests/test_executor.py
-pytest tests/test_integration.py
+# The offline lane — everything except the one test that downloads from PyPI
+pytest -m "not network"
 
-# Run specific test class or function
-pytest tests/test_executor.py::TestPrimitiveNodeExecution
-pytest tests/test_executor.py::TestPrimitiveNodeExecution::test_int_primitive
-
-# Run tests by category (using markers)
-pytest -m integration  # Integration tests with JSON network files
-pytest -m math         # Math plugin tests
-pytest -m phiflow      # PhiFlow tests
-pytest -m string       # String plugin tests
+# With coverage over every package's src
+pytest --cov --cov-report=html && open htmlcov/index.html
 ```
 
-**Plugin-set-agnostic suite**: the suite passes under any install subset/superset, not only the
-fully-synced workspace. Discovery/load *mechanics* tests derive names from `discover()` (never a
-hardcoded catalog); any test needing a specific plugin's nodes is tagged `@pytest.mark.<plugin>`
-(`math`/`string`/`phiflow`, class-level `pytestmark` when the whole class needs it).
-`tests/conftest.py::pytest_collection_modifyitems` **auto-skips** a plugin-tagged test when that
-plugin isn't in `discover()` (keyed on the `packages/coral-plugin-*` the repo ships, so it tracks the
-set automatically) — a missing plugin yields clean skips, not `LookupError`. Verify a subset with
-`uv pip uninstall coral-plugin-<x>` then `uv run --no-sync pytest` (the `--no-sync` stops `uv run`
-from re-installing it); restore with `uv sync`.
+**Selection is by path, not by marker** (issue #27, R3). A test lives in the package it is about, so
+naming a directory is how you name a subject:
 
 ```bash
-# Verbose output with print statements
-pytest -v   # Verbose
-pytest -vv  # Extra verbose
-pytest -s   # Show print statements
+pytest coral-app/tests                    # the host, on its designed specimen
+pytest plugins/coral-math/tests           # the math plugin: its own functions and its graphs
+pytest plugins/coral-math/tests/unit      # just its callables — no host, no graph
+pytest plugins/coral-phiflow/tests/system # its graphs through the host
+pytest tests                              # only what needs no plugin installed
+pytest coral-app/tests/test_graph.py::TestEdgeTypes  # a class, as usual
 ```
+
+Two markers survive, both about **cost** rather than about which plugin a test needs. They are
+independent properties, not a partition, so one test carries both:
+
+- `slow` — *costs real time*: the one phiflow simulation (~33s) and the wheel acceptance test.
+  Everything else is the fast lane.
+- `network` — *needs the internet*: `tests/test_acceptance.py` only, which pip-installs wheels into a
+  clean venv. It is 4s with a warm uv cache, but **~250s** whenever PyPI has published a `jax` newer
+  than the workspace's pin — `uv pip install` resolves fresh and never reads `uv.lock`, so the cache
+  misses and it downloads jax+jaxlib. Its `_run()` captures output, so such a run prints nothing and
+  looks hung; it is not.
+
+The acceptance test is marked twice deliberately: dropping `slow` from it would let the fast lane
+collect it, giving the ~0.8s lane a network dependency.
+
+**The layout, and the rule that decides it** — every test belongs to exactly one of four kinds, and
+the directory says which (see [`tests/README.md`](tests/README.md) for the full statement):
+
+| kind | where | plugin names it may use |
+| --- | --- | --- |
+| repo-level | `tests/` | as **data** only, never imported; needs none installed |
+| framework | `coral-core/tests/`, `coral-app/tests/` | **none**; never skips |
+| plugin unit | `plugins/coral-<n>/tests/unit/` | `<n>` |
+| plugin system | `plugins/coral-<n>/tests/system/` | `<n>` |
+
+> A test that needs one plugin's name belongs to that plugin. A test that needs *two* is testing a
+> host rule, not a plugin fact — rewrite it on the specimen plugins and give it to the host.
+
+That rule decides between the last three. The repo-level kind is decided by a different property —
+it must pass with **zero** plugins installed — so it may name one as data (`test_acceptance.py`
+pip-installs `coral-plugin-math` into a throwaway venv) but may never import one.
+
+Data ships with its owner: a graph, example or golden lives in the package whose tests use it, so a
+graph's plugin requirement is its directory and never something inferred at run time.
+
+**Two rules worth knowing before adding a test:**
+
+- **No unmarked test may run a simulation.** Exactly one test in the repo runs PhiFlow's solver
+  (`plugins/coral-phiflow/tests/system/test_graphs_run.py`, marked `slow`). Every other
+  phiflow graph is *validated without being executed* — constructing a `Graph` runs all seven checks
+  and calls nothing, so the graph-JSON contract is guarded at ~0 ms per file.
+- **The framework suites name no plugin.** `coral-app/tests/specimen.py` provides a designed
+  plugin surface (`SpecimenPlugin`, `RivalPlugin`, and three clash plugins that exist to be refused),
+  handed to the host by patching the one name→instance lookup. Enforced from outside by
+  `tests/invariants/test_source_rules.py`, which fails on a `coral_plugin_*` import, a `mark.<plugin>`,
+  or a string literal equal to a plugin name anywhere under `coral-core/tests` or `coral-app/tests`.
+
+**Subset installs.** Each plugin's `tests/` guards itself: its `conftest.py` reads its own entry point
+and, when absent, drops from collection everything that cannot be imported without the plugin —
+`system/` entire, and every module in `unit/` but `test_plugin_present.py`, which survives to report
+the skip. So a subset install yields named skips, never errors:
+
+```bash
+uv pip uninstall coral-plugin-phiflow && uv run --no-sync pytest -m "not slow"
+uv sync   # restore
+```
+
+`coral-app/tests` and `tests/` are the exception: they name no plugin, so with **every**
+plugin uninstalled they pass with zero skips — which is the property that makes the host agnostic
+rather than merely claiming to be.
 
 ## Architecture
 
 ### Package layout
 
+The layout says which part is open and which is not: the framework sits at the root, and every
+extension is a directory under `plugins/`. Adding a plugin is routine; touching the host is not.
+
 ```
 pyproject.toml                     # virtual uv workspace root (no [project]); members + sources
-packages/
-├── coral-core/                    # the contract: the Plugin ABC, nothing else. Depends on nothing internal.
-│   └── src/coral_core/__init__.py
-├── coral-app/                     # the host: discovery, node types, graph, executor, CLI. Depends on coral-core only.
-│   └── src/coral_app/
-│       ├── __init__.py            # PLUGIN_GROUP, discover/load, build_function_map/build_class_map
-│       ├── primitives.py          # the type table: PRIMITIVES_MAP + COLLECTION_TYPES (host-only)
-│       ├── builtin_nodes.py       # the host's own functions: the list/set/dict operations
-│       ├── nodeports.py           # the port table: each node type's inputs and outputs
-│       ├── graph.py               # read, validate and order a workflow graph
-│       ├── registry.py            # node_types.json generation (renders the port table)
-│       ├── executor.py            # graph execution: walk the order, call each node
-│       ├── nodestatus.py          # the per-node status markers: qualified ids + the marker files
-│       └── cli.py                 # register / run subcommands; console script `coral`
-├── coral-plugin-math/             # entry point `math`  -> coral_plugin_math:MathPlugin
-├── coral-plugin-string/           # entry point `string`-> coral_plugin_string:StringPlugin
-└── coral-plugin-phiflow/          # entry point `phiflow` -> coral_plugin_phiflow:PhiFlowPlugin (owns phiflow/jax/h5py)
+coral-core/                        # the contract: the Plugin ABC, nothing else. Depends on nothing internal.
+└── src/coral_core/__init__.py
+coral-app/                         # the host: discovery, node types, graph, executor, CLI. Depends on coral-core only.
+└── src/coral_app/
+    ├── __init__.py                # PLUGIN_GROUP, discover/load, build_function_map/build_class_map
+    ├── primitives.py              # the type table: PRIMITIVES_MAP + COLLECTION_TYPES (host-only)
+    ├── builtin_nodes.py           # the host's own functions: the list/set/dict operations
+    ├── nodeports.py               # the port table: each node type's inputs and outputs
+    ├── graph.py                   # read, validate and order a workflow graph
+    ├── registry.py                # node_types.json generation (renders the port table)
+    ├── executor.py                # graph execution: walk the order, call each node
+    ├── nodestatus.py              # the per-node status markers: qualified ids + the marker files
+    └── cli.py                     # register / run subcommands; console script `coral`
+plugins/                           # the open set: a third-party plugin is a peer of these three
+├── coral-math/                    # entry point `math`  -> coral_plugin_math:MathPlugin
+├── coral-string/                  # entry point `string`-> coral_plugin_string:StringPlugin
+└── coral-phiflow/                 # entry point `phiflow` -> coral_plugin_phiflow:PhiFlowPlugin (owns phiflow/jax/h5py)
 ```
+
+**A plugin has four names, and only the directory drops the word `plugin`** — worth knowing before
+grepping for one:
+
+| | value |
+| --- | --- |
+| directory | `plugins/coral-math` |
+| distribution (what `pip install` names) | `coral-plugin-math` |
+| import package | `coral_plugin_math` |
+| entry point (what `-p` selects) | `math` |
 
 **Dependency direction (strict):** `coral-core` depends on nothing internal; `coral-app` depends on `coral-core`;
 each plugin depends on `coral-core` **and only core** (never on `coral-app`); the host never imports a plugin —
@@ -212,13 +294,19 @@ it finds them at runtime via entry-point discovery.
    - `load(name) -> Plugin`: imports **only** that plugin, validates it resolves to a `Plugin` subclass
      (`TypeError` otherwise), instantiates it (`PluginClass()`); unknown name → `LookupError`.
    - `build_function_map(include=None, exclude=None)` / `build_class_map(...)`: same signatures as before, now
-     re-backed by `discover`/`load`. `include=None` → `sorted(discover())`; names are merged in selection order
-     (later wins on key collision, e.g. the `print_result` shared by math + string). An unknown name → `LookupError`.
-     `build_function_map` then applies `BUILTIN_FUNCTIONS` **last**, so **a builtin name cannot be shadowed**:
-     "later wins" settles a collision between two *plugins*, which are peers; a builtin is a host guarantee, and
-     a plugin silently redefining `list_append` for every graph on the platform would be undebuggable from the
-     graph, which names only the node type. Such a plugin declaration is ignored (silently — making it fail loud
-     is a separate change). `build_class_map` is unaffected: there are no builtin classes.
+     re-backed by `discover`/`load`. `include=None` → `sorted(discover())`; names are merged in selection order.
+     An unknown name → `LookupError`. **One node type, one owner**: a name declared twice raises
+     `DuplicateNodeTypeError` (a `ValueError` subclass, in `coral_app/errors.py`, re-exported here) — whether
+     the second declaration comes from another plugin or collides with one of the host's
+     `BUILTIN_FUNCTIONS`. A name claimed by a function *and* a class escapes this check, because the two
+     surfaces are merged into two separate maps; `nodeports.build_port_table` is where they meet and raises
+     the same error. There is nothing to
+     arbitrate: a graph names only the node type, so a silently displaced `list_append` would change what every
+     graph on the platform computes while the JSON looks identical. `build_function_map` still applies
+     `BUILTIN_FUNCTIONS` **last**, which is now only about *key order* in `node_types.json`, not about precedence.
+     This replaced the former "later wins" merge, which was never a designed rule but the behaviour of
+     `dict.update()`; the single real duplicate it papered over — `print_result`, declared by both math and
+     string — is gone, each plugin naming its own (`print_number` / `print_text`).
    - Re-exports the two host-owned node surfaces: `PRIMITIVES_MAP` / `COLLECTION_TYPES` / `TYPE_NAMES`
      (from `coral_app/primitives.py`) and `BUILTIN_FUNCTIONS` (from `coral_app/builtin_nodes.py`).
 
@@ -231,7 +319,11 @@ it finds them at runtime via entry-point discovery.
      port order, `outputs` one annotation per output port. The **single place** that derives a node's
      arity from a callable, so the registry and the executor can no longer disagree about it. A
      method's port 0 is its instance (`("self", cls)`); a missing annotation is normalised to `Any`.
-     `methods_of(port_table, class_name)` lists a class's `Class.method` entries.
+     `methods_of(port_table, class_name)` lists a class's `Class.method` entries. Also the only place
+     the three node surfaces meet, so it is where **one name declared as two kinds** — a primitive and
+     a function, a function and a class — raises `DuplicateNodeTypeError`. A collision with a
+     `Class.method` key is *not* refused: that key is derived from a class, not declared by anyone, so
+     a function named `math.sqrt` keeps its name against a class `math` with a `sqrt` method.
    - **`graph.py`** (stage 3): `Graph(nodes, edges, port_table)` and
      `Graph.from_file(path, port_table)`. **Constructing one validates it** — see
      [Graph validation](#graph-validation). Exposes `.order`, `.node(id)`, `.ports_of(id)`,
@@ -311,12 +403,15 @@ Edge format:
 
 1. **Discover/Load**: the host lists installed plugins (no import) and loads only the requested names.
 2. **Build maps**: each loaded plugin's `get_functions()`/`get_classes()` are merged into `function_map` /
-   `class_map` (selection order; later wins), then `BUILTIN_FUNCTIONS` is applied on top of `function_map`
-   — so the host's own nodes are present under every selection and cannot be shadowed. Primitives come
+   `class_map` (selection order; a duplicate name raises `DuplicateNodeTypeError`), then `BUILTIN_FUNCTIONS`
+   is added to `function_map` last — so the host's own nodes are present under every selection, and a plugin
+   claiming one of their names is refused rather than ignored. Primitives come
    from the host `PRIMITIVES_MAP`. With no plugin at all, stage 1 still yields a complete surface: the
    primitives plus the 15 builtins.
-3. **Describe node types**: `build_port_table()` turns the maps into one entry per node type, listing
-   its input parameters and its outputs. Stages 4 and 5 both read it; neither introspects again.
+3. **Describe node types**: `build_port_table()` turns the maps into one entry per node type — and
+   raises `DuplicateNodeTypeError` if one name is declared as two kinds, the duplicate stage 2 sees
+   because it holds all three surfaces at once. Each entry lists the node type's input parameters and
+   its outputs. Stages 4 and 5 both read it; neither introspects again.
 4. **Read, validate and order the graph**: `Graph.from_file()` loads `workflow.nodes` /
    `workflow.edges`, runs every check in [Graph validation](#graph-validation), and orders the nodes
    with `graphlib.TopologicalSorter` (`{node: predecessors}`, each ready batch sorted so the order
@@ -419,8 +514,8 @@ one place the C++ backend is not followed — it invents
 `<node_id>_auto_<counter>` and warns. An invented name is not the node's identity, so a graph that
 omits the field would hand the platform a timeline it cannot key back to its nodes; and note that
 node ids and qualified ids are not the same thing (a node id is unique only within one graph), so
-nothing derives one from the other. Every graph under `examples/` and `tests/fixtures/` therefore
-carries a `qualified_id` per node, numbered progressively in declaration order.
+nothing derives one from the other. Every graph the repo ships therefore carries a `qualified_id`
+per node, numbered progressively in declaration order.
 
 **The mapping is built by `Graph`, whether or not markers are written**: a graph must not become
 valid or invalid depending on an unrelated flag, and "every node declares a unique, filename-safe
@@ -531,13 +626,13 @@ standard library's own `numbers` tower rather than a hand-written table.
 The check only sees what a node's author declares, so **annotation quality is the author's
 responsibility**. A *slot* below is one annotation the check can look at — every input and output of
 every node type, except a method's `self` (which the port table synthesises from the class). Across
-the three plugins and the host's builtins, 86 of 120 slots are checkable and 34 are `Any` — and the
-`Any` is concentrated in one plugin:
+the three plugins and the host's builtins, 88 of 120 slots are checkable and 32 are `Any` — and every
+one of the 32 is in phiflow or in the builtins, where 9 are deliberate (see below):
 
 | source | slots | `Any` | checkable |
 | --- | --- | --- | --- |
-| math | 28 | 1 | 27 |
-| string | 8 | 1 | 7 |
+| math | 28 | 0 | 28 |
+| string | 8 | 0 | 8 |
 | phiflow | 48 | 23 | 25 |
 | builtins (host) | 36 | 9 | 27 |
 
@@ -557,7 +652,7 @@ that are checkable are precisely what decision 3's type names bought.
 
 PhiFlow physics simulations (fluid dynamics — smoke plumes, obstacles) are exposed to the workflow
 system by the `phiflow` plugin. Wrapper classes in
-`packages/coral-plugin-phiflow/src/coral_plugin_phiflow/__init__.py` provide a simplified,
+`plugins/coral-phiflow/src/coral_plugin_phiflow/__init__.py` provide a simplified,
 type-hinted API for workflow integration; the plugin owns the `phiflow`/`jax`/`h5py` dependencies.
 
 ### Built-in collection nodes
@@ -598,9 +693,10 @@ Two details worth knowing before touching them:
   socket type that is not a registry key, these are the two platform-facing novelties to confirm in the
   editor.
 
-Runnable examples: `coral run examples/collections/list.json` (also `set.json`, `dict.json`). The
-"needs no plugin" property is asserted by `tests/test_integration.py::TestCollectionWorkflows`, which
-passes `plugins=[]` — the CLI cannot express it, since an empty `-p` means *all* installed plugins.
+Runnable examples: `coral run coral-app/examples/collections/list.json` (also `set.json`,
+`dict.json`) — they ship with the host, because the host is what provides their node types. The
+"needs no plugin" property is asserted by `coral-app/tests/test_examples.py`, which passes
+`plugins=[]` — the CLI cannot express it, since an empty `-p` means *all* installed plugins.
 
 ## Key Constraints and Design Decisions
 
@@ -624,14 +720,15 @@ passes `plugins=[]` — the CLI cannot express it, since an empty `-p` means *al
   every edge into it failed as "names no declared node" — and because coercion can *merge* two keys
   (`0` and `"0"`), two ids denoting the same string now raise instead of the later node silently
   overwriting the earlier. A graph from a file cannot reach that: JSON object keys are strings. The rule is therefore
-  enforced on *files*, not in the loader — `tests/test_graph_ids.py` checks every graph under
-  `examples/` and `tests/fixtures/`: node ids, edge keys, both endpoints of every edge, and that
+  enforced on *files*, not in the loader — `tests/invariants/test_graph_corpus.py` checks every
+  graph under each package's `examples/` and `tests/`: node ids, edge keys, both endpoints of
+  every edge, and that
   every node declares a filename-safe `qualified_id` **equal to its node id**, which is what the
   editor writes at the top level (a nested `12_3` only occurs one level down, and this host rejects
   nested graphs). Leading
   zeros and negative ids are rejected too (`std::stoi("01")` is `1`, so `"01"` and `"1"` would name one
-  node). Consequence for test data: a fixture's node names live in a `*_NODES` map in
-  `tests/test_integration.py`, not in the JSON, which has no field for them
+  node). Consequence for test data: where a graph's node names matter to an assertion, they live in
+  a `NODES` map beside that graph's own test, not in the JSON, which has no field for them
 - **No cycles**: Workflow graphs must be acyclic (DAG) — `graph.py` raises `ValueError` naming the
   cycle path, using `graphlib.TopologicalSorter` (stdlib, `{node: predecessors}`)
 - **Validate before executing**: every defect — identity, wiring, typing, ordering — raises while the `Graph` is being constructed, so
@@ -639,20 +736,21 @@ passes `plugins=[]` — the CLI cannot express it, since an empty `-p` means *al
 - **One job per module**: `nodeports` knows callables but not graphs; `graph` knows graphs but not
   callables (it never imports `inspect` or a plugin; its one host import is `nodestatus`, for
   check 3's filename rules); `executor` receives an already-validated graph
-  (no `json`, no `graphlib`, no edge list). `tests/test_core_contract.py` enforces these boundaries
+  (no `json`, no `graphlib`, no edge list). `tests/invariants/test_source_rules.py` enforces these
+  boundaries by reading the source
 - **Lazy discovery**: `discover()` never imports a plugin; `load(name)` imports only that one. An unselected
   `phiflow` is never imported, so its heavy deps aren't paid for.
 - **Fail-loud on unknown plugin**: an unknown / not-discoverable `-p` name raises `LookupError`; an
   installed-but-broken plugin raises `ImportError` at load. No silent partial state.
 - **No `from __future__ import annotations`** (project-wide): it stringizes annotations, which would make
   `registry.py:python_type_to_string` see `"float"` instead of `float` and collapse every socket to `"any"`. A
-  guard test (`tests/test_core_contract.py`) enforces this across `packages/*/src`.
-- **No issue, PR, plan-step or decision numbers in code**: docstrings and comments in
-  `packages/*/src` and `tests/` document the code as it stands, never how it got there. Never write
-  `issue #31`, `PR #12`, `Step 3.4`, `decision 2`, or `see the plan` — `git blame` and the commit
-  message carry that link, and they stay correct when an issue is closed or renumbered. Keep the
-  reasoning, drop the citation: reword the sentence so it stands on its own. `issues/` is the
-  historical record and is exempt.
+  guard test (`tests/invariants/test_source_rules.py`) enforces this across every package's `src`.
+- **No issue, PR, plan-step or decision numbers in code**: docstrings and comments in every
+  package's `src` and in the test suites document the code as it stands, never how it got there.
+  Never write `issue #31`, `PR #12`, `Step 3.4`, `decision 2`, or `see the plan` — `git blame` and
+  the commit message carry that link, and they stay correct when an issue is closed or renumbered.
+  Keep the reasoning, drop the citation: reword the sentence so it stands on its own. `issues/` is
+  the historical record and is exempt.
 - **Naming conventions**:
   - Functions: Use simple names in the function map (e.g., `"add"`, `"math.sqrt"`)
   - Methods: Use fully qualified names (e.g., `"Calculator.add_to_value"`)
@@ -663,12 +761,12 @@ passes `plugins=[]` — the CLI cannot express it, since an empty `-p` means *al
 
 ## Adding a New Plugin
 
-To add support for a new library or capability, create a **new plugin distribution** under `packages/`. Nothing
+To add support for a new library or capability, create a **new plugin distribution** under `plugins/`. Nothing
 in `coral-core` or `coral-app` changes — the host discovers the plugin at runtime once it's installed.
 
-1. **Create the package skeleton** `packages/coral-plugin-<name>/`:
+1. **Create the package skeleton** `plugins/coral-<name>/`:
    ```
-   packages/coral-plugin-<name>/
+   plugins/coral-<name>/
    ├── pyproject.toml
    └── src/coral_plugin_<name>/__init__.py
    ```
@@ -695,7 +793,7 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
            return {"MyClass": MyClass}
    ```
 
-3. **Declare the entry point and dependencies** in `packages/coral-plugin-<name>/pyproject.toml`:
+3. **Declare the entry point and dependencies** in `plugins/coral-<name>/pyproject.toml`:
    ```toml
    [build-system]
    requires = ["hatchling"]
@@ -721,7 +819,7 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
    [tool.uv.sources]
    coral-plugin-<name> = { workspace = true }
    ```
-   (`[tool.uv.workspace] members = ["packages/*"]` already includes the directory.)
+   (`[tool.uv.workspace] members = [..., "plugins/*"]` already includes the directory.)
 
 5. **Sync and regenerate the registry**:
    ```bash
@@ -730,6 +828,47 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
    coral -p "<name>" run my_test_graph.json
    ```
    The plugin's entry point is discovered automatically; `discover()` will list `<name>`.
+
+6. **Give it a test suite.** Copy the shape every plugin here uses — this is the step the recipe used
+   to be missing, and the reason a third-party plugin author had nowhere to put a test:
+
+   ```
+   plugins/coral-<name>/
+   ├── examples/                       # optional: graphs a user is told to run
+   └── tests/
+       ├── <name>_suite.py             # PLUGIN_NAME, MODULE_NAME, INSTALLED, paths to graphs/golden
+       ├── conftest.py                 # fixtures + the collect-time guard (see below)
+       ├── graphs/                     # editor exports this plugin owns
+       ├── unit/                       # its functions and classes, plus its ABC conformance.
+       │   │                           #   Imports only itself and `coral_core`.
+       │   └── test_plugin_present.py  #   the entry-point name, and that it is *this* package's
+       └── system/                     # its graphs through the host; `coral_app` allowed here
+           ├── test_graphs_validate.py #   every shipped graph constructs a Graph — never executes
+           ├── test_graphs_run.py      #   they execute, with real value assertions
+           ├── test_registry.py        #   its slice of node_types.json, byte-compared
+           └── golden/node_types.<name>.json
+   ```
+
+   Three conventions, each with a reason:
+
+   - **`PLUGIN_NAME` is hardcoded** in `<name>_suite.py`. That is not the forbidden "plugin catalog":
+     it is a self-reference inside the package that declares the name in its own `pyproject.toml`, and
+     deriving it from installed metadata would silently follow a rename — destroying the one assertion
+     worth having, since the name is what the platform's `-p` selects.
+   - **The suite guards itself.** `conftest.py` reads its own entry point and, when absent, sets
+     `collect_ignore_glob = ["system/*"]` plus a scanned `collect_ignore` for every `unit/` module but
+     `test_plugin_present.py`, because importing the others imports the plugin. That one imports
+     nothing from it, so it survives to report a visible skip.
+   - **`coral-app` is a test-only dependency**, declared as a PEP 735 group so it never reaches the
+     wheel:
+
+     ```toml
+     [dependency-groups]
+     test = ["coral-app"]
+     ```
+
+     Then `uv sync --group test`. Outside this workspace, that group is what makes `tests/system/`
+     installable at all.
 
 **How registration works internally:**
 1. Constructor nodes are generated from `__init__` signatures.
