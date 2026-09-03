@@ -300,6 +300,11 @@ class TestDependencyDirection:
     The host finds plugins through entry points at run time; a plugin is handed nothing but
     ``coral_core``. Neither side may name the other in an import, or the monorepo acquires a cycle
     that `uv` cannot see and a plugin author cannot break.
+
+    The same direction binds a plugin's `tests/unit/`, where `coral_app` is a *test-only* dependency
+    and therefore always installed here — so an import of it passes in this workspace and fails only
+    for someone who installed the plugin alone. That is the reader `unit/` exists for, which is why
+    the rule needs a guard rather than a convention.
     """
 
     def test_plugin_sources_present(self):
@@ -331,57 +336,98 @@ class TestDependencyDirection:
                     offenders[str(path.relative_to(REPO_ROOT))] = sorted(named)
         assert not offenders, f"a plugin must not import coral_app: {offenders}"
 
+    def test_plugin_unit_tests_never_import_the_host(self):
+        """GIVEN every plugin's `tests/unit/` files
+        WHEN their imports are parsed
+        THEN none names `coral_app` — a unit test must run with the plugin installed alone."""
+        offenders = {}
+        for name in repo_plugin_names():
+            unit = PLUGINS / f"{PLUGIN_PREFIX}{name}" / "tests" / "unit"
+            for path in python_files(unit):
+                named = {m for m in imported_modules(path) if m.split(".")[0] == "coral_app"}
+                if named:
+                    offenders[str(path.relative_to(REPO_ROOT))] = sorted(named)
 
-class TestHostTestsNameNoPlugin:
-    """The separation principle, made executable: the host's own suite names no plugin.
+        assert not offenders, f"a plugin's unit tests must not import coral_app: {offenders}"
 
-    `coral-app`'s tests run against the designed specimen in `coral-app/tests/specimen.py`, so they
-    pass with **zero** plugins installed and never skip. Three ways a plugin name could creep back in
-    are checked; a plugin's own name inside its own `tests/` is fine and untouched here.
+
+class TestFrameworkTestsNameNoPlugin:
+    """The separation principle, made executable: the framework's own suites name no plugin.
+
+    The framework is two packages: the contract (`coral-core`) and the app (`coral-app`). Neither may
+    reach for a plugin — `coral-app`'s tests run against the designed specimen in
+    `coral-app/tests/specimen.py`, and the contract's need only the ABC — so both pass with **zero**
+    plugins installed and never skip. Three ways a plugin name could creep back in are checked; a
+    plugin's own name inside its own `tests/` is fine and untouched here.
 
     The literal check compares a string for *equality* with a plugin name, so `"math.sqrt"` and the
     word "string" in prose do not trip it, while `build_function_map(include=["math"])` does.
     """
 
-    HOST_TESTS = HOST / "tests"
+    FRAMEWORK_TESTS = (CORE / "tests", HOST / "tests")
 
-    def _host_test_files(self):
-        return python_files(self.HOST_TESTS) if self.HOST_TESTS.exists() else []
+    def _framework_test_files(self):
+        return [path for directory in self.FRAMEWORK_TESTS for path in python_files(directory)]
 
-    def test_host_suite_never_imports_a_plugin(self):
-        """GIVEN every file in coral-app's test suite
+    def test_framework_suite_never_imports_a_plugin(self):
+        """GIVEN every file in the framework's test suites
         WHEN its imports are parsed
         THEN none names a `coral_plugin_*` module."""
         offenders = {}
-        for path in self._host_test_files():
+        for path in self._framework_test_files():
             named = {m for m in imported_modules(path) if m.startswith("coral_plugin")}
             if named:
                 offenders[str(path.relative_to(REPO_ROOT))] = sorted(named)
-        assert not offenders, f"the host suite must not import a plugin: {offenders}"
+        assert not offenders, f"the framework suites must not import a plugin: {offenders}"
 
-    def test_host_suite_uses_no_plugin_marker(self):
-        """GIVEN every file in coral-app's test suite
+    def test_framework_suite_uses_no_plugin_marker(self):
+        """GIVEN every file in the framework's test suites
         WHEN its text is read
         THEN it applies no `mark.<plugin>` — nothing in it may be skipped for a missing plugin."""
         offenders = {}
-        for path in self._host_test_files():
+        for path in self._framework_test_files():
             source = path.read_text()
             used = [name for name in repo_plugin_names() if f"mark.{name}" in source]
             if used:
                 offenders[str(path.relative_to(REPO_ROOT))] = used
-        assert not offenders, f"the host suite must carry no plugin marker: {offenders}"
+        assert not offenders, f"the framework suites must carry no plugin marker: {offenders}"
 
-    def test_host_suite_names_no_plugin_in_a_literal(self):
-        """GIVEN every file in coral-app's test suite
+    def test_framework_suite_names_no_plugin_in_a_literal(self):
+        """GIVEN every file in the framework's test suites
         WHEN its string literals are collected
         THEN none equals a plugin name — no `include=["math"]`, no `-p` selection."""
         names = set(repo_plugin_names())
         offenders = {}
-        for path in self._host_test_files():
+        for path in self._framework_test_files():
             named = string_constants(path) & names
             if named:
                 offenders[str(path.relative_to(REPO_ROOT))] = sorted(named)
-        assert not offenders, f"the host suite must not name a plugin: {offenders}"
+        assert not offenders, f"the framework suites must not name a plugin: {offenders}"
+
+
+class TestRepoLevelTestsNeedNoPluginInstalled:
+    """Kind 1's rule, made executable: the repo-level suite must pass on a bare install.
+
+    `tests/` holds what no package owns — the source-text rules, the graph corpus, the wheel
+    acceptance run, the entry-point contract. Its rule is *installation independence*, not silence
+    about plugins: a name may appear as **data**, to scan a plugin's source directory or to install
+    it out of process. What may never appear is an `import`, which would fail collection the moment
+    that plugin is absent.
+    """
+
+    REPO_TESTS = REPO_ROOT / "tests"
+
+    def test_repo_level_suite_never_imports_a_plugin(self):
+        """GIVEN every file in the repo-level test suite
+        WHEN its imports are parsed
+        THEN none names a `coral_plugin_*` module, so the suite collects with none installed."""
+        offenders = {}
+        for path in python_files(self.REPO_TESTS):
+            named = {m for m in imported_modules(path) if m.startswith("coral_plugin")}
+            if named:
+                offenders[str(path.relative_to(REPO_ROOT))] = sorted(named)
+
+        assert not offenders, f"the repo-level suite must not import a plugin: {offenders}"
 
 
 class TestConfigCoversEveryDistribution:
@@ -493,8 +539,26 @@ class TestGuardsAreNotVacuous:
             "in pytest.ini with it."
         )
 
-    def test_host_test_suite_is_scanned(self):
-        """GIVEN coral-app's test directory
+    def test_framework_test_suites_are_scanned(self):
+        """GIVEN coral-core's and coral-app's test directories
+        WHEN their Python files are collected
+        THEN each holds at least one, so the framework-suite rules guard something."""
+        empty = [str(d) for d in (CORE / "tests", HOST / "tests") if not python_files(d)]
+        assert not empty, f"no test files under: {empty}"
+
+    def test_repo_level_test_suite_is_scanned(self):
+        """GIVEN the repo-level test directory
         WHEN its Python files are collected
-        THEN at least one exists, so the host-suite rules guard something."""
-        assert python_files(HOST / "tests"), f"no test files under {HOST / 'tests'}"
+        THEN at least one exists, so the kind-1 rule guards something."""
+        assert python_files(REPO_ROOT / "tests"), f"no test files under {REPO_ROOT / 'tests'}"
+
+    def test_plugin_unit_directories_are_populated(self):
+        """GIVEN every plugin package on disk
+        WHEN its tests/unit directory is collected
+        THEN each holds at least one file, so the unit-test direction rule guards something."""
+        empty = [
+            name
+            for name in repo_plugin_names()
+            if not python_files(PLUGINS / f"{PLUGIN_PREFIX}{name}" / "tests" / "unit")
+        ]
+        assert not empty, f"no unit tests to guard for: {empty}"

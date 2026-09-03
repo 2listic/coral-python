@@ -163,7 +163,7 @@ pytest coral-app/tests                    # the host, on its designed specimen
 pytest plugins/coral-math/tests           # the math plugin: its own functions and its graphs
 pytest plugins/coral-math/tests/unit      # just its callables — no host, no graph
 pytest plugins/coral-phiflow/tests/system # its graphs through the host
-pytest tests                              # only what names no plugin at all
+pytest tests                              # only what needs no plugin installed
 pytest coral-app/tests/test_graph.py::TestEdgeTypes  # a class, as usual
 ```
 
@@ -181,17 +181,22 @@ independent properties, not a partition, so one test carries both:
 The acceptance test is marked twice deliberately: dropping `slow` from it would let the fast lane
 collect it, giving the ~0.8s lane a network dependency.
 
-**The layout, and the rule that decides it** — every test belongs to exactly one of three kinds, and
+**The layout, and the rule that decides it** — every test belongs to exactly one of four kinds, and
 the directory says which (see [`tests/README.md`](tests/README.md) for the full statement):
 
 | kind | where | plugin names it may use |
 | --- | --- | --- |
-| host | `coral-app/tests/` | **none**; never skips |
+| repo-level | `tests/` | as **data** only, never imported; needs none installed |
+| framework | `coral-core/tests/`, `coral-app/tests/` | **none**; never skips |
 | plugin unit | `plugins/coral-<n>/tests/unit/` | `<n>` |
 | plugin system | `plugins/coral-<n>/tests/system/` | `<n>` |
 
 > A test that needs one plugin's name belongs to that plugin. A test that needs *two* is testing a
 > host rule, not a plugin fact — rewrite it on the specimen plugins and give it to the host.
+
+That rule decides between the last three. The repo-level kind is decided by a different property —
+it must pass with **zero** plugins installed — so it may name one as data (`test_acceptance.py`
+pip-installs `coral-plugin-math` into a throwaway venv) but may never import one.
 
 Data ships with its owner: a graph, example or golden lives in the package whose tests use it, so a
 graph's plugin requirement is its directory and never something inferred at run time.
@@ -202,16 +207,16 @@ graph's plugin requirement is its directory and never something inferred at run 
   (`plugins/coral-phiflow/tests/system/test_graphs_run.py`, marked `slow`). Every other
   phiflow graph is *validated without being executed* — constructing a `Graph` runs all seven checks
   and calls nothing, so the graph-JSON contract is guarded at ~0 ms per file.
-- **The host suite names no plugin.** `coral-app/tests/specimen.py` provides a designed
+- **The framework suites name no plugin.** `coral-app/tests/specimen.py` provides a designed
   plugin surface (`SpecimenPlugin`, `RivalPlugin`, and three clash plugins that exist to be refused),
   handed to the host by patching the one name→instance lookup. Enforced from outside by
   `tests/invariants/test_source_rules.py`, which fails on a `coral_plugin_*` import, a `mark.<plugin>`,
-  or a string literal equal to a plugin name anywhere under `coral-app/tests`.
+  or a string literal equal to a plugin name anywhere under `coral-core/tests` or `coral-app/tests`.
 
 **Subset installs.** Each plugin's `tests/` guards itself: its `conftest.py` reads its own entry point
-and drops `unit/` and `system/` from collection when absent (they cannot be imported without the
-plugin), while `test_plugin_present.py` survives to report the skip. So a subset install yields named
-skips, never errors:
+and, when absent, drops from collection everything that cannot be imported without the plugin —
+`system/` entire, and every module in `unit/` but `test_plugin_present.py`, which survives to report
+the skip. So a subset install yields named skips, never errors:
 
 ```bash
 uv pip uninstall coral-plugin-phiflow && uv run --no-sync pytest -m "not slow"
@@ -833,10 +838,10 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
    └── tests/
        ├── <name>_suite.py             # PLUGIN_NAME, MODULE_NAME, INSTALLED, paths to graphs/golden
        ├── conftest.py                 # fixtures + the collect-time guard (see below)
-       ├── test_plugin_present.py      # the entry-point name, and that it is *this* package's
        ├── graphs/                     # editor exports this plugin owns
        ├── unit/                       # its functions and classes, plus its ABC conformance.
-       │                               #   Imports only itself and `coral_core`.
+       │   │                           #   Imports only itself and `coral_core`.
+       │   └── test_plugin_present.py  #   the entry-point name, and that it is *this* package's
        └── system/                     # its graphs through the host; `coral_app` allowed here
            ├── test_graphs_validate.py #   every shipped graph constructs a Graph — never executes
            ├── test_graphs_run.py      #   they execute, with real value assertions
@@ -850,10 +855,10 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
      it is a self-reference inside the package that declares the name in its own `pyproject.toml`, and
      deriving it from installed metadata would silently follow a rename — destroying the one assertion
      worth having, since the name is what the platform's `-p` selects.
-   - **The suite guards itself.** `conftest.py` reads its own entry point and sets
-     `collect_ignore_glob = ["unit/*", "system/*"]` when absent, because importing those modules imports
-     the plugin. `test_plugin_present.py` imports nothing from the plugin, so it survives to report a
-     visible skip.
+   - **The suite guards itself.** `conftest.py` reads its own entry point and, when absent, sets
+     `collect_ignore_glob = ["system/*"]` plus a scanned `collect_ignore` for every `unit/` module but
+     `test_plugin_present.py`, because importing the others imports the plugin. That one imports
+     nothing from it, so it survives to report a visible skip.
    - **`coral-app` is a test-only dependency**, declared as a PEP 735 group so it never reaches the
      wheel:
 
