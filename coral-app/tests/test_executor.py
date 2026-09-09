@@ -54,7 +54,7 @@ class TestConstruction:
         """GIVEN a graph naming a specimen function
         WHEN the executor is constructed
         THEN it exposes the validated graph plus the function and class maps it resolved."""
-        path = write_graph(graph({"n": {"type": "make_one"}}))
+        path = write_graph(graph({"0": {"type": "make_one"}}))
 
         executor = WorkflowExecutor(str(path), plugins=[SPECIMEN])
 
@@ -69,7 +69,7 @@ class TestConstruction:
 
         This is the whole reason validation moved into construction: a long-running graph must never
         start on wiring already known to be broken."""
-        path = write_graph(graph({"n": {"type": "no_such_node"}}))
+        path = write_graph(graph({"0": {"type": "no_such_node"}}))
 
         with pytest.raises(ValueError):
             WorkflowExecutor(str(path), plugins=[SPECIMEN])
@@ -93,26 +93,26 @@ class TestPrimitiveNodes:
         """GIVEN a primitive node carrying a value
         WHEN the workflow is executed
         THEN the value is cast by the declared type, whatever the JSON carried."""
-        results = run({"n": {"type": type_name, "value": raw}})
+        results = run({"0": {"type": type_name, "value": raw}})
 
-        assert results["n"] == expected
-        assert isinstance(results["n"], type(expected))
+        assert results["0"] == expected
+        assert isinstance(results["0"], type(expected))
 
     def test_any_passes_its_value_through_unconverted(self, run):
         """GIVEN a node declared `any`
         WHEN it is executed
         THEN the value arrives exactly as the JSON carried it — no cast is defined for `any`."""
-        results = run({"n": {"type": "any", "value": [1, "two"]}})
+        results = run({"0": {"type": "any", "value": [1, "two"]}})
 
-        assert results["n"] == [1, "two"]
+        assert results["0"] == [1, "two"]
 
     def test_none_is_none(self, run):
         """GIVEN a node declared `none`
         WHEN it is executed
         THEN its result is None regardless of the value field."""
-        results = run({"n": {"type": "none", "value": "ignored"}})
+        results = run({"0": {"type": "none", "value": "ignored"}})
 
-        assert results["n"] is None
+        assert results["0"] is None
 
 
 class TestFunctionNodes:
@@ -124,14 +124,14 @@ class TestFunctionNodes:
         THEN each value lands on its own parameter."""
         results = run(
             {
-                "a": {"type": "float", "value": 5.0},
-                "b": {"type": "float", "value": 3.0},
-                "f": {"type": "add_pair"},
+                "0": {"qualified_id": "a", "type": "float", "value": 5.0},
+                "1": {"qualified_id": "b", "type": "float", "value": 3.0},
+                "2": {"qualified_id": "f", "type": "add_pair"},
             },
-            {"e0": edge("a", "f", 0), "e1": edge("b", "f", 1)},
+            {"0": edge("0", "2", 0), "1": edge("1", "2", 1)},
         )
 
-        assert results["f"] == 8.0
+        assert results["2"] == 8.0
 
     def test_target_input_decides_the_order_not_the_edge_order(self, run):
         """GIVEN two edges into an asymmetric function, declared port 1 first
@@ -141,33 +141,36 @@ class TestFunctionNodes:
         Division makes the swap visible: 8/2 is 4.0 and 2/8 is 0.25."""
         results = run(
             {
-                "two": {"type": "float", "value": 2.0},
-                "eight": {"type": "float", "value": 8.0},
-                "f": {"type": "specimen.ratio"},
+                "0": {"qualified_id": "two", "type": "float", "value": 2.0},
+                "1": {"qualified_id": "eight", "type": "float", "value": 8.0},
+                "2": {"qualified_id": "f", "type": "specimen.ratio"},
             },
-            {"e1": edge("two", "f", 1), "e0": edge("eight", "f", 0)},
+            {"1": edge("0", "2", 1), "0": edge("1", "2", 0)},
         )
 
-        assert results["f"] == 4.0
+        assert results["2"] == 4.0
 
     def test_a_zero_input_function_runs(self, run):
         """GIVEN a function taking no inputs at all
         WHEN it is executed
         THEN it is called and its result stored — no edge is needed to trigger it."""
-        results = run({"n": {"type": "make_one"}})
+        results = run({"0": {"type": "make_one"}})
 
-        assert results["n"] == 1.0
+        assert results["0"] == 1.0
 
     def test_a_none_returning_function_stores_none(self, run):
         """GIVEN a function annotated `-> None`
         WHEN it is executed
         THEN None is stored under its node id, like any other result."""
         results = run(
-            {"v": {"type": "float", "value": 1.5}, "r": {"type": "record"}},
-            {"e0": edge("v", "r", 0)},
+            {
+                "0": {"qualified_id": "v", "type": "float", "value": 1.5},
+                "1": {"qualified_id": "r", "type": "record"},
+            },
+            {"0": edge("0", "1", 0)},
         )
 
-        assert results["r"] is None
+        assert results["1"] is None
 
     def test_a_dotted_function_name_is_a_function_node(self, run):
         """GIVEN a function registered under a dotted name
@@ -175,14 +178,14 @@ class TestFunctionNodes:
         THEN it is called as a function — the dot does not make it a method lookup."""
         results = run(
             {
-                "v": {"type": "float", "value": 12.0},
-                "f": {"type": "float", "value": 4.0},
-                "s": {"type": "specimen.ratio"},
+                "0": {"qualified_id": "v", "type": "float", "value": 12.0},
+                "1": {"qualified_id": "f", "type": "float", "value": 4.0},
+                "2": {"qualified_id": "s", "type": "specimen.ratio"},
             },
-            {"e0": edge("v", "s", 0), "e1": edge("f", "s", 1)},
+            {"0": edge("0", "2", 0), "1": edge("1", "2", 1)},
         )
 
-        assert results["s"] == 3.0
+        assert results["2"] == 3.0
 
     def test_chained_functions_feed_each_other(self, run):
         """GIVEN one function's output wired into another's input
@@ -190,22 +193,22 @@ class TestFunctionNodes:
         THEN the downstream node receives the upstream result."""
         results = run(
             {
-                "a": {"type": "float", "value": 2.0},
-                "b": {"type": "float", "value": 3.0},
-                "sum": {"type": "add_pair"},
-                "two": {"type": "float", "value": 2.0},
-                "half": {"type": "specimen.ratio"},
+                "0": {"qualified_id": "a", "type": "float", "value": 2.0},
+                "1": {"qualified_id": "b", "type": "float", "value": 3.0},
+                "2": {"qualified_id": "sum", "type": "add_pair"},
+                "3": {"qualified_id": "two", "type": "float", "value": 2.0},
+                "4": {"qualified_id": "half", "type": "specimen.ratio"},
             },
             {
-                "e0": edge("a", "sum", 0),
-                "e1": edge("b", "sum", 1),
-                "e2": edge("sum", "half", 0),
-                "e3": edge("two", "half", 1),
+                "0": edge("0", "2", 0),
+                "1": edge("1", "2", 1),
+                "2": edge("2", "4", 0),
+                "3": edge("3", "4", 1),
             },
         )
 
-        assert results["sum"] == 5.0
-        assert results["half"] == 2.5
+        assert results["2"] == 5.0
+        assert results["4"] == 2.5
 
 
 class TestMultipleOutputs:
@@ -218,25 +221,28 @@ class TestMultipleOutputs:
         THEN that element is what the downstream node receives."""
         results = run(
             {
-                "v": {"type": "float", "value": 4.0},
-                "split": {"type": "split_triple"},
-                "sink": {"type": "anything"},
+                "0": {"qualified_id": "v", "type": "float", "value": 4.0},
+                "1": {"qualified_id": "split", "type": "split_triple"},
+                "2": {"qualified_id": "sink", "type": "anything"},
             },
-            {"e0": edge("v", "split", 0), "e1": edge("split", "sink", 0, source_output=port)},
+            {"0": edge("0", "1", 0), "1": edge("1", "2", 0, source_output=port)},
         )
 
-        assert results["sink"] == expected
+        assert results["2"] == expected
 
     def test_the_whole_tuple_is_stored_for_the_producing_node(self, run):
         """GIVEN a multi-output function
         WHEN it is executed
         THEN its own result is the whole tuple; the unwrapping happens per consuming edge."""
         results = run(
-            {"v": {"type": "float", "value": 4.0}, "split": {"type": "split_triple"}},
-            {"e0": edge("v", "split", 0)},
+            {
+                "0": {"qualified_id": "v", "type": "float", "value": 4.0},
+                "1": {"qualified_id": "split", "type": "split_triple"},
+            },
+            {"0": edge("0", "1", 0)},
         )
 
-        assert results["split"] == (4.0, "4.0", True)
+        assert results["1"] == (4.0, "4.0", True)
 
 
 class TestConstructorNodes:
@@ -247,12 +253,15 @@ class TestConstructorNodes:
         WHEN it is executed
         THEN the stored result is an instance holding that value."""
         results = run(
-            {"v": {"type": "float", "value": 10.0}, "acc": {"type": "Accumulator"}},
-            {"e0": edge("v", "acc", 0)},
+            {
+                "0": {"qualified_id": "v", "type": "float", "value": 10.0},
+                "1": {"qualified_id": "acc", "type": "Accumulator"},
+            },
+            {"0": edge("0", "1", 0)},
         )
 
-        assert isinstance(results["acc"], Accumulator)
-        assert results["acc"].start == 10.0
+        assert isinstance(results["1"], Accumulator)
+        assert results["1"].start == 10.0
 
     def test_source_output_minus_one_is_accepted_from_a_constructor(self, run):
         """GIVEN an edge leaving a constructor with `source_output: -1`
@@ -260,14 +269,14 @@ class TestConstructorNodes:
         THEN it is accepted: -1 is the format's "the one unnamed output" for a constructor."""
         results = run(
             {
-                "v": {"type": "float", "value": 10.0},
-                "acc": {"type": "Accumulator"},
-                "t": {"type": "Accumulator.total"},
+                "0": {"qualified_id": "v", "type": "float", "value": 10.0},
+                "1": {"qualified_id": "acc", "type": "Accumulator"},
+                "2": {"qualified_id": "t", "type": "Accumulator.total"},
             },
-            {"e0": edge("v", "acc", 0), "e1": edge("acc", "t", 0, source_output=-1)},
+            {"0": edge("0", "1", 0), "1": edge("1", "2", 0, source_output=-1)},
         )
 
-        assert results["t"] == 10.0
+        assert results["2"] == 10.0
 
 
 class TestMethodNodes:
@@ -279,19 +288,19 @@ class TestMethodNodes:
         THEN the method runs on that instance with that argument."""
         results = run(
             {
-                "start": {"type": "float", "value": 10.0},
-                "acc": {"type": "Accumulator"},
-                "amount": {"type": "float", "value": 5.0},
-                "add": {"type": "Accumulator.add"},
+                "0": {"qualified_id": "start", "type": "float", "value": 10.0},
+                "1": {"qualified_id": "acc", "type": "Accumulator"},
+                "2": {"qualified_id": "amount", "type": "float", "value": 5.0},
+                "3": {"qualified_id": "add", "type": "Accumulator.add"},
             },
             {
-                "e0": edge("start", "acc", 0),
-                "e1": edge("acc", "add", 0),
-                "e2": edge("amount", "add", 1),
+                "0": edge("0", "1", 0),
+                "1": edge("1", "3", 0),
+                "2": edge("2", "3", 1),
             },
         )
 
-        assert results["add"] == 15.0
+        assert results["3"] == 15.0
 
     def test_a_method_taking_only_self_runs(self, run):
         """GIVEN a method whose only input is the instance
@@ -299,14 +308,14 @@ class TestMethodNodes:
         THEN it is called with no further arguments."""
         results = run(
             {
-                "start": {"type": "float", "value": 7.0},
-                "acc": {"type": "Accumulator"},
-                "total": {"type": "Accumulator.total"},
+                "0": {"qualified_id": "start", "type": "float", "value": 7.0},
+                "1": {"qualified_id": "acc", "type": "Accumulator"},
+                "2": {"qualified_id": "total", "type": "Accumulator.total"},
             },
-            {"e0": edge("start", "acc", 0), "e1": edge("acc", "total", 0)},
+            {"0": edge("0", "1", 0), "1": edge("1", "2", 0)},
         )
 
-        assert results["total"] == 7.0
+        assert results["2"] == 7.0
 
     def test_a_subclass_instance_is_accepted(self, run):
         """GIVEN a subclass instance wired into port 0 of a base class's method
@@ -314,21 +323,21 @@ class TestMethodNodes:
         THEN it runs: the check is `isinstance`, so a subclass is a valid receiver."""
         results = run(
             {
-                "start": {"type": "float", "value": 1.0},
-                "digits": {"type": "int", "value": 2},
-                "acc": {"type": "PreciseAccumulator"},
-                "amount": {"type": "float", "value": 2.0},
-                "add": {"type": "Accumulator.add"},
+                "0": {"qualified_id": "start", "type": "float", "value": 1.0},
+                "1": {"qualified_id": "digits", "type": "int", "value": 2},
+                "2": {"qualified_id": "acc", "type": "PreciseAccumulator"},
+                "3": {"qualified_id": "amount", "type": "float", "value": 2.0},
+                "4": {"qualified_id": "add", "type": "Accumulator.add"},
             },
             {
-                "e0": edge("start", "acc", 0),
-                "e1": edge("digits", "acc", 1),
-                "e2": edge("acc", "add", 0),
-                "e3": edge("amount", "add", 1),
+                "0": edge("0", "2", 0),
+                "1": edge("1", "2", 1),
+                "2": edge("2", "4", 0),
+                "3": edge("3", "4", 1),
             },
         )
 
-        assert results["add"] == 3.0
+        assert results["4"] == 3.0
 
     def test_an_unrelated_class_never_reaches_execution(self, write_graph, specimen_plugins):
         """GIVEN an unrelated class's instance wired into port 0 of a method
@@ -338,15 +347,15 @@ class TestMethodNodes:
         path = write_graph(
             graph(
                 {
-                    "reading": {"type": "float", "value": 1.0},
-                    "gauge": {"type": "Gauge"},
-                    "amount": {"type": "float", "value": 2.0},
-                    "add": {"type": "Accumulator.add"},
+                    "0": {"qualified_id": "reading", "type": "float", "value": 1.0},
+                    "1": {"qualified_id": "gauge", "type": "Gauge"},
+                    "2": {"qualified_id": "amount", "type": "float", "value": 2.0},
+                    "3": {"qualified_id": "add", "type": "Accumulator.add"},
                 },
                 {
-                    "e0": edge("reading", "gauge", 0),
-                    "e1": edge("gauge", "add", 0),
-                    "e2": edge("amount", "add", 1),
+                    "0": edge("0", "1", 0),
+                    "1": edge("1", "3", 0),
+                    "2": edge("2", "3", 1),
                 },
             )
         )
@@ -365,15 +374,15 @@ class TestMethodNodes:
         with pytest.raises(ValueError, match="expected instance of Accumulator"):
             run(
                 {
-                    "v": {"type": "float", "value": 1.0},
-                    "opaque": {"type": "anything"},
-                    "amount": {"type": "float", "value": 2.0},
-                    "add": {"type": "Accumulator.add"},
+                    "0": {"qualified_id": "v", "type": "float", "value": 1.0},
+                    "1": {"qualified_id": "opaque", "type": "anything"},
+                    "2": {"qualified_id": "amount", "type": "float", "value": 2.0},
+                    "3": {"qualified_id": "add", "type": "Accumulator.add"},
                 },
                 {
-                    "e0": edge("v", "opaque", 0),
-                    "e1": edge("opaque", "add", 0),
-                    "e2": edge("amount", "add", 1),
+                    "0": edge("0", "1", 0),
+                    "1": edge("1", "3", 0),
+                    "2": edge("2", "3", 1),
                 },
             )
 
@@ -388,21 +397,23 @@ class TestExecutionOrder:
         path = write_graph(
             graph(
                 {
-                    "src": {"type": "float", "value": 9.0},
-                    "left": {"type": "anything"},
-                    "right": {"type": "anything"},
-                    "sink": {"type": "add_pair"},
+                    "0": {"qualified_id": "src", "type": "float", "value": 9.0},
+                    "1": {"qualified_id": "left", "type": "anything"},
+                    "2": {"qualified_id": "right", "type": "anything"},
+                    "3": {"qualified_id": "sink", "type": "add_pair"},
                 },
                 {
-                    "e0": edge("src", "left", 0),
-                    "e1": edge("src", "right", 0),
-                    "e2": edge("left", "sink", 0),
-                    "e3": edge("right", "sink", 1),
+                    "0": edge("0", "1", 0),
+                    "1": edge("0", "2", 0),
+                    "2": edge("1", "3", 0),
+                    "3": edge("2", "3", 1),
                 },
             )
         )
 
-        order = WorkflowExecutor(str(path), plugins=[SPECIMEN]).graph.order
+        executor = WorkflowExecutor(str(path), plugins=[SPECIMEN])
+        # The order is node ids; each node's qualified_id gives it back the name it plays here.
+        order = [executor.graph.qualified_ids[node_id] for node_id in executor.graph.order]
 
         assert sorted(order) == ["left", "right", "sink", "src"]
         assert order.index("src") < order.index("left") < order.index("sink")
@@ -414,15 +425,15 @@ class TestExecutionOrder:
         THEN the isolated node has a result too."""
         results = run(
             {
-                "v": {"type": "float", "value": 2.0},
-                "n": {"type": "anything"},
-                "lonely": {"type": "str", "value": "unconnected"},
+                "0": {"qualified_id": "v", "type": "float", "value": 2.0},
+                "1": {"qualified_id": "n", "type": "anything"},
+                "2": {"qualified_id": "lonely", "type": "str", "value": "unconnected"},
             },
-            {"e0": edge("v", "n", 0)},
+            {"0": edge("0", "1", 0)},
         )
 
-        assert results["lonely"] == "unconnected"
-        assert results["n"] == 2.0
+        assert results["2"] == "unconnected"
+        assert results["1"] == 2.0
 
     def test_an_empty_graph_executes_to_nothing(self, run):
         """GIVEN a workflow with no nodes and no edges

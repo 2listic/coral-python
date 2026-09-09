@@ -16,26 +16,34 @@ from coral_plugin_string import StringProcessor
 from string_suite import PLUGIN_NAME
 
 #: Hello-world through this plugin: a prefix and a text into StringProcessor, then printed.
+#:
+#: The protocol keys nodes by integer, so the ids carry no meaning; each node's ``qualified_id``
+#: keeps the name it plays, and `NODES` below maps that name back to the id the assertions need.
 GRAPH = {
     "workflow": {
         "nodes": {
-            "prefix": {"qualified_id": "prefix", "type": "str", "value": "Hello, "},
-            "text": {"qualified_id": "text", "type": "str", "value": "world"},
-            "sp": {"qualified_id": "sp", "type": "StringProcessor"},
-            "cat": {"qualified_id": "cat", "type": "StringProcessor.concatenate"},
-            "out": {"qualified_id": "out", "type": "print_text"},
+            "0": {"qualified_id": "prefix", "type": "str", "value": "Hello, "},
+            "1": {"qualified_id": "text", "type": "str", "value": "world"},
+            "2": {"qualified_id": "sp", "type": "StringProcessor"},
+            "3": {"qualified_id": "cat", "type": "StringProcessor.concatenate"},
+            "4": {"qualified_id": "out", "type": "print_text"},
         },
         "edges": {
             # the prefix feeds the constructor
-            "e0": {"source": "prefix", "target": "sp", "source_output": 0, "target_input": 0},
+            "0": {"source": "0", "target": "2", "source_output": 0, "target_input": 0},
             # the instance is the method's port 0; the text is port 1
-            "e1": {"source": "sp", "target": "cat", "source_output": 0, "target_input": 0},
-            "e2": {"source": "text", "target": "cat", "source_output": 0, "target_input": 1},
+            "1": {"source": "2", "target": "3", "source_output": 0, "target_input": 0},
+            "2": {"source": "1", "target": "3", "source_output": 0, "target_input": 1},
             # the concatenation feeds the printer
-            "e3": {"source": "cat", "target": "out", "source_output": 0, "target_input": 0},
+            "3": {"source": "3", "target": "4", "source_output": 0, "target_input": 0},
         },
     }
 }
+
+#: Each node of ``GRAPH`` by the name it plays — its ``qualified_id``, which the ids themselves
+#: cannot carry. Maintained by hand alongside the graph above: renumber one without the other and
+#: the assertions move to the wrong nodes.
+NODES = {"prefix": "0", "text": "1", "sp": "2", "cat": "3", "out": "4"}
 
 
 class TestTheStringGraph:
@@ -51,15 +59,15 @@ class TestTheStringGraph:
         """GIVEN two `str` primitives
         WHEN the graph is executed
         THEN each holds its literal, whitespace included."""
-        assert results["prefix"] == "Hello, "
-        assert results["text"] == "world"
+        assert results[NODES["prefix"]] == "Hello, "
+        assert results[NODES["text"]] == "world"
 
     def test_the_constructor_holds_the_prefix(self, results):
         """GIVEN the prefix wired into StringProcessor's only input
         WHEN the graph is executed
         THEN the constructor node holds an instance carrying it."""
-        assert isinstance(results["sp"], StringProcessor)
-        assert results["sp"].prefix == "Hello, "
+        assert isinstance(results[NODES["sp"]], StringProcessor)
+        assert results[NODES["sp"]].prefix == "Hello, "
 
     def test_the_method_node_concatenates(self, results):
         """GIVEN the instance on port 0 and the text on port 1
@@ -67,13 +75,13 @@ class TestTheStringGraph:
         THEN the method node holds the concatenation, in prefix-then-text order.
 
         The port order is the assertion: swapped, this would be "worldHello, "."""
-        assert results["cat"] == "Hello, world"
+        assert results[NODES["cat"]] == "Hello, world"
 
     def test_the_printer_returns_none(self, results):
         """GIVEN print_text at the end
         WHEN the graph is executed
         THEN its result is None — it has no outputs, so nothing may follow it."""
-        assert results["out"] is None
+        assert results[NODES["out"]] is None
 
     def test_the_user_visible_output(self, write_graph, capsys):
         """GIVEN the graph

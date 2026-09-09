@@ -23,8 +23,8 @@ GRAPH = {
             "2": {"qualified_id": "2", "type": "list_append"},
         },
         "edges": {
-            "e0": {"source": "0", "target": "2", "source_output": 0, "target_input": 0},
-            "e1": {"source": "1", "target": "2", "source_output": 0, "target_input": 1},
+            "0": {"source": "0", "target": "2", "source_output": 0, "target_input": 0},
+            "1": {"source": "1", "target": "2", "source_output": 0, "target_input": 1},
         },
     }
 }

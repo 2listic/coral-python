@@ -710,25 +710,25 @@ Runnable examples: `coral run coral-app/examples/collections/list.json` (also `s
   node type and graph check 4 rejects it. `TYPE_NAMES` is their union and is what `registry.py` renders
   from. Consequence to know: `"list"` is the first socket type string with no matching `registry[...]`
   key — see [Built-in collection nodes](#built-in-collection-nodes)
-- **Node ids are decimal integers** in any graph the repo ships. The protocol keys nodes by integer:
-  the reference C++ backend reads each key with `std::stoi` into an `unsigned int`, and the platform's
-  exporter `parseInt`s every edge endpoint — a word id becomes `NaN`, which `JSON.stringify` writes as
-  `null`, so the graph comes back with its wiring gone. `graph.py` itself takes the opposite position on
-  purpose: it coerces **both** node keys and edge endpoints with `str()` and treats ids as opaque,
-  which keeps readable ids (`"a"`, `"b"`) available to the in-memory graphs `tests/test_graph.py`
-  builds. Coercing one side only was incoherent — an int-keyed in-memory graph was accepted while
-  every edge into it failed as "names no declared node" — and because coercion can *merge* two keys
-  (`0` and `"0"`), two ids denoting the same string now raise instead of the later node silently
-  overwriting the earlier. A graph from a file cannot reach that: JSON object keys are strings. The rule is therefore
-  enforced on *files*, not in the loader — `tests/invariants/test_graph_corpus.py` checks every
-  graph under each package's `examples/` and `tests/`: node ids, edge keys, both endpoints of
-  every edge, and that
-  every node declares a filename-safe `qualified_id` **equal to its node id**, which is what the
-  editor writes at the top level (a nested `12_3` only occurs one level down, and this host rejects
-  nested graphs). Leading
-  zeros and negative ids are rejected too (`std::stoi("01")` is `1`, so `"01"` and `"1"` would name one
-  node). Consequence for test data: where a graph's node names matter to an assertion, they live in
-  a `NODES` map beside that graph's own test, not in the JSON, which has no field for them
+- **Node ids are decimal integers**, and the loader enforces it: node keys, edge keys and both
+  endpoints of every edge go through `graph.py:_read_id`, which raises `ValueError` while the `Graph`
+  is being constructed. The protocol keys nodes by integer and three platform mechanisms rest on it:
+  the reference C++ backend reads each key with `std::stoi` into an `unsigned int`, the platform's
+  exporter `parseInt`s every edge endpoint — a word id becomes `NaN`, which `JSON.stringify` writes
+  as `null`, so the graph comes back with its wiring gone — and the editor's id counter `parseInt`s
+  every node id to find the next free one. Leading zeros and negative ids are rejected too
+  (`std::stoi("01")` is `1`, so `"01"` and `"1"` would name one node), as are the non-ASCII digits
+  `str.isdigit` accepts and `std::stoi` does not. Ids are still *keyed* as strings — **both** node
+  keys and edge endpoints are coerced with `str()`, because the editor writes endpoints as numbers
+  while JSON object keys are always strings, and coercing one side only was incoherent — and because
+  that coercion can *merge* two keys (`0` and `"0"`), two ids denoting the same node raise instead of
+  the later declaration silently overwriting the earlier. A graph from a file cannot reach that: JSON
+  object keys are strings. Note what is *not* required: a `qualified_id` need only be unique and
+  filename-safe (check 3), not equal to its node id — the reference backend requires no more, and a
+  flattened subgraph would legitimately carry `12_3`. Consequence for test data: node ids carry no
+  meaning, so where a graph's node names matter to an assertion they live in a `NODES` map beside
+  that graph's own test, or in each node's `qualified_id` — never in the JSON, which has no field
+  for them
 - **No cycles**: Workflow graphs must be acyclic (DAG) — `graph.py` raises `ValueError` naming the
   cycle path, using `graphlib.TopologicalSorter` (stdlib, `{node: predecessors}`)
 - **Validate before executing**: every defect — identity, wiring, typing, ordering — raises while the `Graph` is being constructed, so

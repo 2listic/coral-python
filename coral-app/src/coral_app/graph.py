@@ -6,6 +6,9 @@ long PhiFlow simulation must never be spent on a graph that was already known to
 
 The port table (stage 2) arrives as plain data, so this module introspects nothing and knows nothing
 about plugins: give it a node/edge dict and a table and it will tell you whether the two agree.
+
+Node ids, edge keys and edge endpoints must all be decimal integers, which is what the protocol
+keys a graph by and what the platform's editor reads back — see :func:`_read_id`.
 """
 
 import json
@@ -105,8 +108,8 @@ class Graph:
     Attributes:
         qualified_ids: Node id -> qualified id, validated during construction. It lives here rather
             than in the executor because "every node declares a unique, filename-safe
-            ``qualified_id``" is a rule about node *identity* — the same family as the id coercion
-            in :func:`_read_nodes` — and a graph whose nodes cannot be told apart is not
+            ``qualified_id``" is a rule about node *identity* — the same family as the id format
+            :func:`_read_id` enforces — and a graph whose nodes cannot be told apart is not
             executable. The rules themselves stay in :mod:`coral_app.nodestatus`, which owns the
             filename convention they come from.
     """
@@ -360,13 +363,44 @@ class Graph:
         return order
 
 
+def _read_id(value, what: str) -> str:
+    """The id ``value`` denotes, as a string, or raise if the protocol cannot read one out of it.
+
+    The protocol keys nodes by integer, and three platform mechanisms rest on it: the editor's
+    exporter ``parseInt``s every edge endpoint, its id counter ``parseInt``s every node id to find
+    the next free one, and the reference backend reads each key with ``std::stoi``. A word id runs
+    here and nowhere else — exported, its endpoints come back as ``null`` and the graph loses its
+    wiring — so it is refused at the door rather than carried as an opaque string.
+
+    A sign, a fraction, whitespace and a leading zero are refused too: ``parseInt("01")`` and
+    ``std::stoi("01")`` are both ``1``, so ``"01"`` and ``"1"`` would name one node. ``isascii``
+    excludes the non-ASCII digits ``isdigit`` accepts and ``std::stoi`` does not.
+
+    Args:
+        value: The id as the JSON spells it — a string key, or a number where the editor writes an
+            endpoint.
+        what: How the id is named in the error message.
+
+    Returns:
+        The id as a string, which is how every id is keyed here.
+
+    Raises:
+        ValueError: if the value is not a decimal integer.
+    """
+    key = str(value)
+    if not (key.isascii() and key.isdigit()) or (key != "0" and key.startswith("0")):
+        raise ValueError(f"{what} {value!r} is not a decimal integer")
+    return key
+
+
 def _read_nodes(nodes: Mapping[str, dict]) -> Dict[str, dict]:
     """The graph's nodes, keyed by node id as a string.
 
-    Ids are coerced with ``str()`` for the same reason :func:`_read_edges` coerces its endpoints: the
-    editor writes an edge's endpoints as numbers while a JSON object's keys are always strings, and
-    the two have to meet. Coercing in one place and not the other is how an in-memory graph keyed by
-    ``int`` came to be accepted while every edge into it failed as "names no declared node".
+    Every id must be a decimal integer (:func:`_read_id`), and is keyed as a string for the same
+    reason :func:`_read_edges` keys its endpoints that way: the editor writes an edge's endpoints as
+    numbers while a JSON object's keys are always strings, and the two have to meet. Reading one
+    side and not the other is how an in-memory graph keyed by ``int`` came to be accepted while
+    every edge into it failed as "names no declared node".
 
     Coercion can merge two keys — ``0`` and ``"0"`` are distinct in a Python dict and name one node
     here — so a collision raises rather than letting the later declaration overwrite the earlier
@@ -378,7 +412,7 @@ def _read_nodes(nodes: Mapping[str, dict]) -> Dict[str, dict]:
     """
     read: Dict[str, dict] = {}
     for node_id, node in nodes.items():
-        key = str(node_id)
+        key = _read_id(node_id, "Node id")
         if key in read:
             raise ValueError(
                 f"Node id {key!r} is declared twice: {node_id!r} and one of the ids before it "
@@ -392,22 +426,23 @@ def _read_edges(edges: Union[Mapping[str, dict], Sequence[dict]]) -> List[Edge]:
     """Turn the JSON's edges into :class:`Edge` objects.
 
     Accepts the graph JSON's id -> edge mapping (the ids become the edge names used in error
-    messages) or a plain sequence, in which case the position is the name. Endpoint ids are coerced
-    to ``str``: the editor writes them as numbers in some graphs, while node keys are always strings
-    once parsed from JSON.
+    messages) or a plain sequence, in which case the position is the name. Keys and endpoints alike
+    must be decimal integers (:func:`_read_id`) and are keyed as strings: the editor writes
+    endpoints as numbers in some graphs, while node keys are always strings once parsed from JSON.
     """
     items = edges.items() if isinstance(edges, Mapping) else enumerate(edges)
 
     read = []
     for edge_id, edge in items:
+        name = _read_id(edge_id, "Edge key")
         for required in ("source", "target", "target_input"):
             if required not in edge:
-                raise ValueError(f"Edge {str(edge_id)!r} declares no {required!r}")
+                raise ValueError(f"Edge {name!r} declares no {required!r}")
         read.append(
             Edge(
-                id=str(edge_id),
-                source=str(edge["source"]),
-                target=str(edge["target"]),
+                id=name,
+                source=_read_id(edge["source"], f"Edge {name!r} source"),
+                target=_read_id(edge["target"], f"Edge {name!r} target"),
                 target_input=edge["target_input"],
                 source_output=edge.get("source_output"),
             )
