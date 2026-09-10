@@ -176,15 +176,16 @@ which:
 
 | # | kind | where | plugin names it may use |
 | --- | --- | --- | --- |
-| 1 | **host** — the app itself, on the specimen (D3) | `packages/coral-app/tests/` | **none**; never skips |
-| 2 | **plugin unit** — a plugin's own functions and classes | `packages/coral-plugin-<n>/tests/unit/` | `<n>` |
-| 3 | **plugin system** — that plugin's graphs run through `coral_app` | `packages/coral-plugin-<n>/tests/system/` | `<n>` |
+| 1 | **host** — the app itself, on the specimen (D3) | `coral-app/tests/` | **none**; never skips |
+| 2 | **plugin unit** — a plugin's own functions and classes | `plugins/coral-<n>/tests/unit/` | `<n>` |
+| 3 | **plugin system** — that plugin's graphs run through `coral_app` | `plugins/coral-<n>/tests/system/` | `<n>` |
 
 Data ships with its owner: a graph, example or golden lives in the package whose tests use it. So a
 graph's plugin requirement is its owner's name — never something a test has to work out at run time.
 
 Repo-level `tests/` keeps only what needs **no plugin name at all**: the source-text invariants and
-the wheel acceptance test. Both scan `packages/*` from disk.
+the wheel acceptance test. The invariants read the plugin set from `plugins/coral-*` on disk;
+acceptance names distributions as literals and globs only `dist/*.whl`.
 
 **The rule that decides every case:**
 
@@ -239,12 +240,12 @@ tests/                                   # repo-level: ONLY tests that name no p
 │   └── test_source_rules.py             # R2: no __future__ annotations; directional greps
 ├── discovery/                           # [!] step 4: needs a real installed distribution
 │   └── test_installed_plugins.py        #     discover/laziness/nodes-appear; all names derived
-└── test_acceptance.py                   # wheels, incremental install, laziness — scans packages/*
+└── test_acceptance.py                   # wheels, incremental install, laziness — globs dist/*.whl
 
-packages/coral-core/tests/
+coral-core/tests/
 └── test_plugin_abc.py                   # R2: the ABC enforces both methods
 
-packages/coral-app/
+coral-app/
 ├── examples/collections/{list,set,dict}.json          # D5
 └── tests/
     ├── specimen.py                      # D3: the designed surface + 5 plugins [!] see step 4
@@ -255,13 +256,15 @@ packages/coral-app/
     ├── test_nodeports.py                # moved unchanged
     ├── test_graph.py                    # moved unchanged
     ├── test_builtin_nodes.py            # moved unchanged
+    ├── test_cli.py                      # moved unchanged
+    ├── test_nodestatus.py               # moved unchanged
     ├── test_discovery.py                # [!] step 4: the specimen half of the old discovery file
     ├── test_executor.py                 # respecified on the specimen
     ├── test_registry.py                 # respecified on the specimen; incl. merge + refusal
     ├── test_graphs_validate.py          # D9: its graphs + examples construct, none executes
     └── test_examples.py                 # the collections examples actually run (builtins: fast)
 
-packages/coral-plugin-math/
+plugins/coral-math/
 └── tests/
     ├── math_suite.py                    # [!] D12: PLUGIN_NAME, MODULE_NAME, INSTALLED, paths
     ├── conftest.py                       #     fixtures + collect_ignore_glob when absent
@@ -277,16 +280,16 @@ packages/coral-plugin-math/
         ├── test_registry.py             # its own content, byte-compared
         └── golden/node_types.math.json  # R1
 
-packages/coral-plugin-string/            # same shape; owns no graph, so no test_graphs_validate.py.
+plugins/coral-string/                    # same shape; owns no graph, so no test_graphs_validate.py.
                                          #   system/test_graph_run.py holds the one inline graph (O1)
-packages/coral-plugin-phiflow/           # same shape; also owns examples/phiflow/ and
+plugins/coral-phiflow/                   # same shape; also owns examples/phiflow/ and
                                          #   graphs/network-from-fe{,-obstacle,-smoke_plume}.json.
-                                         #   unit/: test_wrappers.py, test_union.py (55 tests, no
-                                         #   solver); system/test_graphs_run.py is the one `slow` test
+                                         #   unit/: test_wrappers.py, test_union.py — no solver;
+                                         #   system/test_graphs_run.py is the one `slow` test
 ```
 
 **The owning directory replaces every hardcoded table.** A graph or example under
-`packages/coral-plugin-<name>/` needs `<name>`; one under `packages/coral-app/` needs nothing. That
+`plugins/coral-<name>/` needs `<name>`; one under `coral-app/` needs nothing. That
 single rule is what lets `EXAMPLE_SPECS` be deleted (**D5**) and lets **D9** exist without any
 run-time inference about which plugins a graph requires.
 
@@ -294,8 +297,8 @@ run-time inference about which plugins a graph requires.
 
 | directory | if its plugin is uninstalled |
 | --- | --- |
-| `packages/coral-app/tests/`, `tests/` | nothing to skip — they name no plugin |
-| `packages/coral-plugin-<n>/tests/` | `unit/` and `system/` are dropped from collection by its `conftest.py`; `test_plugin_present.py` survives to report the skip. The directory survives `uv pip uninstall`, so it must guard itself |
+| `coral-app/tests/`, `tests/` | nothing to skip — they name no plugin |
+| `plugins/coral-<n>/tests/` | `unit/` and `system/` are dropped from collection by its `conftest.py`; `test_plugin_present.py` survives to report the skip. The directory survives `uv pip uninstall`, so it must guard itself |
 
 **Test-space dependencies stay acyclic**: declared `plugin[test] → coral-app → coral-core` and
 `plugin → coral-core`. `coral-app` needs nothing from any plugin (that is D3's whole point), and
