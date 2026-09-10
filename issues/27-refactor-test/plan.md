@@ -585,6 +585,15 @@ hatch key relative to its own directory.
    looks exactly like a missed reference; cleared with `find . -name __pycache__ -type d -not -path
    "./.venv/*" -exec rm -rf {} +` plus `.pytest_cache`. Worth doing after any `git mv` of a test tree.
 
+   **Delete the emptied directories too, not only the caches.** `git mv` moves tracked files, and
+   `__pycache__` is not tracked — so each old path survived as a directory holding nothing but
+   `.pyc` files. That is not merely untidy: a venv still pointing an editable install at
+   `packages/coral-app/src` finds a `coral_app/` directory there with no `__init__.py`, imports it as
+   a **namespace package**, and `from coral_app import build_function_map` fails with
+   `(unknown location)` rather than falling through to the real path. It needs a stale pointer *and*
+   the leftover directory — after `uv sync` the directory is inert — and `uv run` hides it by syncing
+   first, so the suite stays green while a direct `.venv/bin/python` or a bare `pytest` breaks.
+
 **Two stale references fixed in passing**, both in lines the rename had to touch anyway: phiflow's
 `test_graphs_validate.py` docstring claimed its graphs live under `packages/coral-plugin-math/` and
 need `math` (a copy-paste from math's file), and `docs/ONBOARDING.md` still cited
