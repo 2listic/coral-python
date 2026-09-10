@@ -17,7 +17,8 @@ def print_text(value: str) -> None:
     Named for what it prints. This plugin and ``coral-plugin-math`` both used to declare a
     ``print_result``, which the host resolved by silently letting the later plugin win; a duplicate
     node type is now a ``DuplicateNodeTypeError``, so each plugin names its own. The parameter is
-    typed ``str`` rather than ``Any`` — an edge feeding it is then checkable by graph check 6.
+    typed ``str`` rather than ``Any``, so the graph's edge-type check can judge an edge into it —
+    but only when the source is typed too: an ``Any`` source still skips the check.
     """
     print(f"Print: {value}")
 

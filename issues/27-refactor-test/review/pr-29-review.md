@@ -1,23 +1,58 @@
 # Review: PR #29 — the plugin conformance suites
 
 Review of [PR #29](https://github.com/2listic/coral-python/pull/29) against
-[`../plan.md`](../plan.md). Partial: read as far as
-[The separation principle](../plan.md), so the plan's rationale is covered and its execution detail
-is not.
+[`../plan.md`](../plan.md). Partial — see [Scope](#scope) before reading the findings as a verdict.
+
+## Scope
+
+**Covered**
+
+- `plan.md` in full, execution record included.
+- `test_plugin_conformance.py` ×3, phiflow's source and golden, `pytest.ini`, and the plugin
+  self-guard (`conftest.py` / `<name>_suite.py` / `test_plugin_present.py`).
+- `graph.py`, `test_graph.py` and the seven cited docstrings, for findings 3 and 4.
+- **D10** — `errors.py`, both raise sites, `build_port_table`'s `put()` — read and mutation-tested.
+- **Mutation pass, 37 mutants** across `nodestatus.py`, `executor.py`, `graph.py`, `registry.py`,
+  `nodeports.py` and `builtin_nodes.py`, picked from the decisions `CLAUDE.md` documents. **34
+  killed, 3 survivors** — all three from one cause, [finding 6](#6-the-executor-lost-three-test-classes).
+  No over-coupling: the one mutant that failed more than six tests was reversing parameter order,
+  which legitimately breaks every executing graph.
+- **C0**, checked rather than taken: each of the three edited exports differs from its pre-PR
+  version by exactly one line, `"print_result"` → `"print_number"`. No node, edge or position moved.
+- Run: 516 passed / 4 deselected after `2516db2`, `ruff` clean; the surface lists against plugin
+  source; phiflow's golden at 13 owned keys; GWT adherence 447/448, none missing, so **O2** held;
+  no graph wires `test_tuple_return`.
+- **Consumer pass in the DealiiX editor.** A registry generated from this branch loads; a graph
+  exported from the editor still runs through the now-stricter `_read_id`; `list_new` renders and
+  wires as the first zero-input *function* node; and the 22 sockets typed `list`/`set`/`dict` —
+  socket types with no registry key of their own — render and validate. One surprise, which turned
+  out to be documented design: [finding 5](#5-what-d11s-typing-actually-buys).
+
+**Not covered, and material to an approval**
+
+- The **41 newly added test files** were never *read* — `specimen.py`, `test_executor.py`,
+  `test_registry.py`, `test_discovery.py` among them. The mutation pass samples how well they hold,
+  which is how finding 6 surfaced, but sampling is not reading: a test that is redundant, misnamed or
+  asserts the implementation back at itself is invisible to a mutant that some other test kills.
+- The four goldens as diffs.
+- **D11**'s plugin-side rename, verified only through C0, the goldens and the editor pass, not by
+  reading the two plugins' sources.
 
 ## Findings
 
-**Yours to decide:**
+**Open.** [Finding 6](#6-the-executor-lost-three-test-classes) is the only one that blocks.
 
 | # | subject | verdict |
 | --- | --- | --- |
-| [1](#1-the-exact-surface-test-is-a-change-detector) | `test_it_declares_the_expected_node_types`, ×3 | redundant with the goldens — recommend deleting |
-| [2](#2-the-any-count-is-the-wrong-instrument) | `test_how_many_sockets_are_checkable`, phiflow only | pins totals step 10 superseded — recommend deleting, or loosening to an inequality |
+| [5](#5-what-d11s-typing-actually-buys) | `print_number` / `print_text` | docstring claim corrected here; the name and the cast are yours |
+| [6](#6-the-executor-lost-three-test-classes) | `test_executor.py`, respecified in step 4 | **blocking** — three classes dropped, three behaviours now unpinned |
 
-**Already settled, and fixed in this branch** — recorded so the change is not a surprise:
+**Closed** — recorded so the changes are not a surprise:
 
 | # | subject | what was done |
 | --- | --- | --- |
+| [1](#1-the-exact-surface-test-is-a-change-detector) | `test_it_declares_the_expected_node_types`, ×3 | deleted by the author in `2516db2` |
+| [2](#2-the-any-count-is-the-wrong-instrument) | `test_how_many_sockets_are_checkable`, phiflow only | deleted by the author in `2516db2` |
 | [3](#3-the-graph-corpus-moves-into-the-loader) | `test_graph_corpus.py` → `graph.py:_read_id` | right call; the premises now cited in the docstring |
 | [4](#4-issue-numbers-in-the-new-docstrings) | seven `issue #N` citations | removed |
 
@@ -55,6 +90,9 @@ fossil of a surface that no longer exists.
 **Recommend:** delete all three. If the unit level should still say something about the surface, an
 assertion that both dicts are non-empty carries the same real information at a third of the
 maintenance.
+
+**Closed:** deleted in `2516db2`, without a replacement assertion. The four property tests carry the
+unit-level surface check on their own, as above.
 
 ## 2. The `Any` count is the wrong instrument
 
@@ -96,6 +134,10 @@ also keeps two counts in circulation under one word, this test's **13 of 21** fo
 `TODO.md`'s **23 of 48** for every port-table slot. Both are right under their own definition; say
 which one the test uses.
 
+**Closed:** deleted in `2516db2`, and the sibling docstring that pointed at it by name was repointed
+in the same commit. The regression floor goes with it, deliberately — `TODO.md` item 2 now carries
+the debt in prose alone, which is where the recommendation put it.
+
 ## 3. The graph corpus moves into the loader
 
 A later layer, and not a plan step: commit `4cbead1` deletes
@@ -135,3 +177,82 @@ Seven `issue #N` references, written in this refactor, in files `CLAUDE.md`'s ru
 
 Removed, reasoning kept. The string one was mostly provenance — where the test came from and what
 moved where — so it is now two lines saying what it is.
+
+## 5. What D11's typing actually buys
+
+Found in the editor: a `bool` reaching `print_number` prints `Print: True`, unrefused. Reproduced
+directly — a `bool` primitive wired straight into `print_number` is accepted, a `str` correctly
+rejected.
+
+Both reasons are documented design and neither is new here. That edge came from `list_get`, which
+returns `Any`, and the edge-type check skips whenever either side is `Any`. Even typed it would pass:
+`bool` is an `int` subclass and `int` widens to `float`, both deliberate. Nothing checks types at run
+time, and Python does not enforce annotations.
+
+What it shows is that **D11's justification claims more than it delivers.** Both printers said *"an
+edge feeding it is then checkable by graph check 6"*: wrong number, and typing the *target* only buys
+a check when the *source* is typed as well — feed either printer from any collection extractor and it
+still skips.
+
+**Done in this branch:** both docstrings now say the check applies *only when the source is typed
+too*, and name it by what it does rather than by number, since that number has already moved once —
+from 6 to 8, when two checks were inserted ahead of it. The same claim in the plan's D11 row is left
+as history.
+
+**Two questions left to you, since the behaviour may be perfectly acceptable:**
+
+1. **The names.** `math_print` / `string_print` would say what actually disambiguates these two — the
+   owning plugin — and would stop promising a type they do not keep. Against it: a node type is
+   platform-facing, and the platform still names `print_result` in three files, so this would be a
+   second rename for it to chase. It would also touch **C0**: the three editor exports currently
+   differ from genuine by exactly one field, and a second rename makes that two.
+2. **The cast.** `print_number` does not act on its annotation — `print(f"Print: {value}")` prints
+   whatever arrives, which is why a `bool` shows as `True` and not `1.0`. `float(value)` would make
+   the declared type visible and push a genuinely non-numeric value to an error at the node that
+   declared it.
+
+Neither is the host's business; both are the plugin owner's, and doing nothing is defensible for each.
+
+## 6. The executor lost three test classes
+
+**Blocking.** Step 4's *"respecify `test_executor.py` … on the specimen"* dropped three whole classes
+that `main` had, and nothing replaced them:
+
+| class on `main` | test functions | fate |
+| --- | --- | --- |
+| `TestOutputPortResolution` | 2, parametrized | gone |
+| `TestOutputArity` | 7 | gone |
+| `TestNodeStatusMarkers` | 7 | 2 rehomed to `test_graph.py`; 5 gone |
+
+Three behaviours are now unpinned, each confirmed by a surviving mutant:
+
+- **The bundling rule** — whether an edge indexes into a result is decided by the port table, never
+  by the value. Swap it back to `isinstance(value, tuple)` and a `-> tuple` single-output node feeding
+  a sink delivers `10` where it should deliver `(10, 20)`, with the suite green. That is the
+  regression issue #31 exists to prevent, and `main` pinned it by name.
+- **The output-arity check** — one of only two run-time checks left in the executor. Disable both
+  raise sites and nothing fails.
+- **The status directory prepared on the first line of `__init__`** — move it after `Graph.from_file`
+  and nothing fails, though an invalid graph then leaves the previous job's markers for the platform
+  to read as this job's.
+
+**The cause is mechanical, not carelessness.** `main`'s `executor_over` fixture patched
+`build_function_map` with an *ad-hoc* map, so each test chose its own shapes. The specimen fixture
+patches the name→instance lookup instead, which exposes only the fixed `SpecimenPlugin` surface — so
+shapes can no longer be chosen per test, and the five functions those classes relied on had to be
+ported into `specimen.py`. None were: `pair`, `triple`, `short_triple`, `long_pair` and
+`not_a_tuple` are each present once on `main` and nowhere on the branch.
+
+Two related gaps, no single-line mutant for either: **`touch_dir` is never passed to a
+`WorkflowExecutor` anywhere in the suite** — the only occurrence in `tests/` is a docstring — so a
+`.failed` marker is never produced *through the executor*, and `test_cli.py`'s two tests are the sole
+executor-level marker coverage, over a succeeding graph.
+
+Nothing here says the code is wrong: all three behaviours are correct, and 28 of 30 mutants died with
+no over-coupling, so the suite that remains is good. It blocks because the product of this PR *is* the
+test suite, the plan records no deletion of any of this, and its own line 45 lists as forbidden *"any
+decision that reduces coverage of either shape."* A green run cannot show this to you.
+
+**Recommend:** three functions in `specimen.py` — a `-> tuple` single output, an over-declaring
+`Tuple[Any, Any, Any]` that returns two, an under-declaring one — recover the first two. The third
+needs no specimen shape; it runs on `plugins=[]` with builtin collection nodes and an unknown type.
