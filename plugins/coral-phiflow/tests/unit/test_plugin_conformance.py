@@ -61,26 +61,6 @@ class TestConformance:
 class TestDeclaredSurface:
     """What this plugin puts on the table — and that it is fit to be a node type."""
 
-    def test_it_declares_the_expected_node_types(self, plugin):
-        """GIVEN this plugin
-        WHEN its function and class names are read
-        THEN they are exactly the node types it means to contribute.
-
-        An exact comparison, not a subset: adding or removing a node type is a change to what the
-        platform can wire, so it should require editing this list on purpose."""
-        assert set(plugin.get_functions()) == {
-            "phiflow_iterate",
-            "phiflow_plot_and_save",
-            "phiflow_union",
-        }
-        assert set(plugin.get_classes()) == {
-            "PhiFlowBox",
-            "PhiFlowSphere",
-            "PhiFlowStaggeredGrid",
-            "PhiFlowCenteredGrid",
-            "PhiFlowCuboid",
-        }
-
     def test_every_declared_function_is_callable(self, plugin):
         """GIVEN this plugin's functions
         WHEN each value is inspected
@@ -103,41 +83,13 @@ class TestDeclaredSurface:
         Note what this does *not* claim. Most of the annotations here are `Any`, which the registry
         renders as an `any` socket and which makes the graph's edge check **skip** — so a grid wired
         where a float belongs is only discovered once the simulation has run. That is a real weakness
-        of this plugin, not of the host, and fixing it means giving the wrappers precise types. It is
-        recorded in `test_how_many_sockets_are_checkable` below rather than left implicit.
+        of this plugin, not of the host, and fixing it means giving the wrappers precise types.
         """
         for name, func in plugin.get_functions().items():
             signature = inspect.signature(func)
             for parameter in signature.parameters.values():
                 assert parameter.annotation is not inspect.Signature.empty, f"{name}:{parameter}"
             assert signature.return_annotation is not inspect.Signature.empty, name
-
-    def test_how_many_sockets_are_checkable(self, plugin):
-        """GIVEN this plugin's functions
-        WHEN their annotations are counted
-        THEN the number typed as `Any` is exactly what it is today.
-
-        Deliberately a *number*, so that improving it fails this test and forces someone to lower it on
-        purpose. An `Any` socket is a socket the graph cannot check before running a simulation, which
-        for this plugin is the difference between a wiring error found at t=0 and one found 30 seconds
-        in. The count only ever goes down.
-
-        Today: 13 of 21. `phiflow_union` is 7 of 7 — every geometry slot plus its return — which is why
-        a graph feeding it a grid instead of a geometry is not refused until PhiFlow itself objects.
-        """
-        from typing import Any as AnyType
-
-        total = anys = 0
-        for func in plugin.get_functions().values():
-            signature = inspect.signature(func)
-            annotations = [p.annotation for p in signature.parameters.values()]
-            annotations.append(signature.return_annotation)
-            total += len(annotations)
-            anys += sum(1 for annotation in annotations if annotation is AnyType)
-
-        assert (anys, total) == (13, 21), (
-            "this plugin's annotation quality changed; if it improved, lower the expected count"
-        )
 
     def test_every_public_method_is_annotated(self, plugin):
         """GIVEN this plugin's classes

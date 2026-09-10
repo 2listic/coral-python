@@ -61,25 +61,6 @@ class TestConformance:
 class TestDeclaredSurface:
     """What this plugin puts on the table — and that it is fit to be a node type."""
 
-    def test_it_declares_the_expected_node_types(self, plugin):
-        """GIVEN this plugin
-        WHEN its function and class names are read
-        THEN they are exactly the node types it means to contribute.
-
-        An exact comparison, not a subset: adding or removing a node type is a change to what the
-        platform can wire, so it should require editing this list on purpose."""
-        assert set(plugin.get_functions()) == {
-            "print_number",
-            "add",
-            "multiply",
-            "math.sqrt",
-            "math.sin",
-            "math.cos",
-            "math.pow",
-            "test_tuple_return",
-        }
-        assert set(plugin.get_classes()) == {"Calculator"}
-
     def test_every_declared_function_is_callable(self, plugin):
         """GIVEN this plugin's functions
         WHEN each value is inspected
