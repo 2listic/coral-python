@@ -12,7 +12,7 @@ is not.
 | # | subject | verdict |
 | --- | --- | --- |
 | [1](#1-the-exact-surface-test-is-a-change-detector) | `test_it_declares_the_expected_node_types`, ×3 | redundant with the goldens — recommend deleting |
-| [2](#2-the-any-count-is-the-wrong-instrument) | `test_how_many_sockets_are_checkable`, phiflow only | wrong shape for its purpose — recommend replacing with an inequality, or deleting |
+| [2](#2-the-any-count-is-the-wrong-instrument) | `test_how_many_sockets_are_checkable`, phiflow only | pins totals step 10 superseded — recommend deleting, or loosening to an inequality |
 
 **Already settled, and fixed in this branch** — recorded so the change is not a surprise:
 
@@ -58,8 +58,15 @@ maintenance.
 
 ## 2. The `Any` count is the wrong instrument
 
-`plugins/coral-phiflow/tests/unit/test_plugin_conformance.py:115` asserts `(anys, total) == (13, 21)`
-over the plugin's function annotations. Phiflow only; math and string have no equivalent.
+`plugins/coral-phiflow/tests/unit/test_plugin_conformance.py:138` asserts `(anys, total) == (13, 21)`
+over the plugin's function annotations. Phiflow only — and never present in math or string, which
+carry the stricter `test_every_function_parameter_is_annotated` instead. This count is phiflow's
+substitute for that test, not a peer of it.
+
+**Step 10 already superseded those numbers.** Item 6b recounted the slots — 23 of 48 into `TODO.md`
+item 2, 32 of 120 into `CLAUDE.md`'s table, both exact — and concluded *"no test pins those
+numbers."* This assertion does, and it predates the recount (`1325508`, against `e9f4b56` for the
+claim), so the prose was corrected in three places while the one enforcing site was missed.
 
 Its purpose is to stop annotation quality regressing, and to flag where the plugin can improve. It
 does the first and not the second, and it charges for both:
@@ -77,15 +84,17 @@ does the first and not the second, and it charges for both:
 - **The name overclaims.** `how_many_sockets_are_checkable` counts function slots only; a socket in
   the registry includes the five classes' constructors and methods.
 
-**Recommend:** `assert anys <= 13`, renamed to say *functions*, with the offending names in the
-message. Or delete it: [`../TODO.md`](../TODO.md) item 2 already records the debt in prose, which is
-where "here is where this plugin can be improved" actually belongs.
+**Recommend: delete it.** [`../TODO.md`](../TODO.md) item 2 records the debt in prose, which is where
+"here is where this plugin can be improved" belongs, and step 10 has already moved the numbers there.
+Two loose ends if you do: `test_every_function_parameter_carries_some_annotation`'s docstring points
+at this test by name, and should point at `TODO.md` instead; and the regression guard goes with it,
+since that sibling catches only a *bare* annotation, not a `float` decaying to `Any`.
 
-**If the inequality is kept**, fix the scope mismatch while renaming. Two counts are in circulation
-under one word: this test's **13 of 21** is functions only, while `TODO.md` item 2 and `CLAUDE.md`'s
-annotation table say **23 of 48**, counting every port-table slot including class methods. Both are
-right under their own definition; say which one the test uses. Deleting the test removes the
-ambiguity instead.
+**Second choice, if that guard is worth keeping:** `assert anys <= 13`, renamed to say *functions*,
+with the offending names in the message. That keeps the floor without the bookkeeping tax — but it
+also keeps two counts in circulation under one word, this test's **13 of 21** for functions against
+`TODO.md`'s **23 of 48** for every port-table slot. Both are right under their own definition; say
+which one the test uses.
 
 ## 3. The graph corpus moves into the loader
 
