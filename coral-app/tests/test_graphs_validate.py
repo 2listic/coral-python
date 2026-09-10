@@ -63,19 +63,3 @@ class TestShippedGraphsAreValid:
         WHEN they run against this package
         THEN they found graphs — an empty parametrisation would pass as zero silent cases."""
         assert shipped_graphs(), f"no graphs found under {GRAPHS} or {EXAMPLES}"
-
-    def test_the_host_needs_no_plugin_for_them(self, port_table):
-        """GIVEN the port table built with no plugin selected
-        WHEN the node types of every shipped graph are collected
-        THEN each one is in that table.
-
-        This is the claim the directory makes by holding these files: they run wherever a coral host
-        runs, with nothing installed. The CLI cannot express it — an empty `-p` means *all* installed
-        plugins — so it is asserted here."""
-        import json
-
-        for case in shipped_graphs():
-            path = case.values[0]
-            workflow = json.loads(path.read_text())["workflow"]
-            for node_id, node in workflow["nodes"].items():
-                assert node["type"] in port_table, f"{path.name}:{node_id} needs a plugin"

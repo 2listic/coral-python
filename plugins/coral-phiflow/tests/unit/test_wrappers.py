@@ -59,10 +59,17 @@ class TestGeometryWrappers:
         THEN its getter returns a live geometry.
 
         The constructor is the interesting part: it converts four scalars into the two `vec`s PhiFlow
-        wants, which is exactly the translation a graph cannot do for itself."""
+        wants, which is exactly the translation a graph cannot do for itself. So the centre and the
+        extent are both asserted — a half-size read as a centre would still return a geometry."""
+        from phi.flow import Box
+
         cuboid = PhiFlowCuboid(center_x=50.0, center_y=30.0, half_size_x=10.0, half_size_y=5.0)
 
-        assert cuboid.get_cuboid() is not None
+        geometry = cuboid.get_cuboid()
+
+        assert isinstance(geometry, Box)
+        assert (float(geometry.center["x"]), float(geometry.center["y"])) == (50.0, 30.0)
+        assert (float(geometry.size["x"]), float(geometry.size["y"])) == (20.0, 10.0)
 
     @pytest.mark.parametrize(
         "wrapper, kwargs, expected",

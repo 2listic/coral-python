@@ -113,10 +113,14 @@ class TestUnwrapping:
 
         assert "phiflow_union: combined 2 geometries" in capsys.readouterr().out
 
-    def test_the_full_six_slots_are_usable(self, sphere):
+    def test_the_full_six_slots_are_usable(self, sphere, capsys):
         """GIVEN six geometries
         WHEN they are unioned
-        THEN all six are combined — the documented maximum, asserted so it stays true."""
+        THEN all six are combined — the documented maximum, asserted so it stays true.
+
+        The printed count is what makes this more than "it returned something": a regression that
+        dropped the later slots would still return a union of the first two."""
         spheres = [PhiFlowSphere(x=float(i), y=0.0, radius=1.0) for i in range(6)]
 
         assert phiflow_union(*spheres) is not None
+        assert "phiflow_union: combined 6 geometries" in capsys.readouterr().out

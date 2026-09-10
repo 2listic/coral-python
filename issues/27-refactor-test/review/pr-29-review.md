@@ -1,42 +1,8 @@
 # Review: PR #29 — the plugin conformance suites
 
 Review of [PR #29](https://github.com/2listic/coral-python/pull/29) against
-[`../plan.md`](../plan.md). Partial — see [Scope](#scope) before reading the findings as a verdict.
-
-## Scope
-
-**Covered**
-
-- `plan.md` in full, execution record included.
-- `test_plugin_conformance.py` ×3, phiflow's source and golden, `pytest.ini`, and the plugin
-  self-guard (`conftest.py` / `<name>_suite.py` / `test_plugin_present.py`).
-- `graph.py`, `test_graph.py` and the seven cited docstrings, for findings 3 and 4.
-- **D10** — `errors.py`, both raise sites, `build_port_table`'s `put()` — read and mutation-tested.
-- **Mutation pass, 37 mutants** across `nodestatus.py`, `executor.py`, `graph.py`, `registry.py`,
-  `nodeports.py` and `builtin_nodes.py`, picked from the decisions `CLAUDE.md` documents. **34
-  killed, 3 survivors** — all three from one cause, [finding 6](#6-the-executor-lost-three-test-classes).
-  No over-coupling: the one mutant that failed more than six tests was reversing parameter order,
-  which legitimately breaks every executing graph.
-- **C0**, checked rather than taken: each of the three edited exports differs from its pre-PR
-  version by exactly one line, `"print_result"` → `"print_number"`. No node, edge or position moved.
-- Run: 516 passed / 4 deselected after `2516db2`, `ruff` clean; the surface lists against plugin
-  source; phiflow's golden at 13 owned keys; GWT adherence 447/448, none missing, so **O2** held;
-  no graph wires `test_tuple_return`.
-- **Consumer pass in the DealiiX editor.** A registry generated from this branch loads; a graph
-  exported from the editor still runs through the now-stricter `_read_id`; `list_new` renders and
-  wires as the first zero-input *function* node; and the 22 sockets typed `list`/`set`/`dict` —
-  socket types with no registry key of their own — render and validate. One surprise, which turned
-  out to be documented design: [finding 5](#5-what-d11s-typing-actually-buys).
-
-**Not covered, and material to an approval**
-
-- The **41 newly added test files** were never *read* — `specimen.py`, `test_executor.py`,
-  `test_registry.py`, `test_discovery.py` among them. The mutation pass samples how well they hold,
-  which is how finding 6 surfaced, but sampling is not reading: a test that is redundant, misnamed or
-  asserts the implementation back at itself is invisible to a mutant that some other test kills.
-- The four goldens as diffs.
-- **D11**'s plugin-side rename, verified only through C0, the goldens and the editor pass, not by
-  reading the two plugins' sources.
+[`../plan.md`](../plan.md). Three findings are open, one blocking; [Scope](#scope) at the end
+records what was examined and by what method.
 
 ## Findings
 
@@ -46,6 +12,7 @@ Review of [PR #29](https://github.com/2listic/coral-python/pull/29) against
 | --- | --- | --- |
 | [5](#5-what-d11s-typing-actually-buys) | `print_number` / `print_text` | docstring claim corrected here; the name and the cast are yours |
 | [6](#6-the-executor-lost-three-test-classes) | `test_executor.py`, respecified in step 4 | **blocking** — three classes dropped, three behaviours now unpinned |
+| [8](#8-the-registry-filename-the-default-that-matters-is-pinned-nowhere) | `test_the_default_filename_lands_in_the_current_directory` | pins a default no `coral` command can reach; the platform's is unpinned |
 
 **Closed** — recorded so the changes are not a surprise:
 
@@ -55,6 +22,8 @@ Review of [PR #29](https://github.com/2listic/coral-python/pull/29) against
 | [2](#2-the-any-count-is-the-wrong-instrument) | `test_how_many_sockets_are_checkable`, phiflow only | deleted by the author in `2516db2` |
 | [3](#3-the-graph-corpus-moves-into-the-loader) | `test_graph_corpus.py` → `graph.py:_read_id` | right call; the premises now cited in the docstring |
 | [4](#4-issue-numbers-in-the-new-docstrings) | seven `issue #N` citations | removed |
+| [7](#7-a-hand-rolled-copy-of-graph-check-4-x3) | `test_this_plugin_is_sufficient`, ×3 | deleted here — its sibling already runs the same check |
+| [9](#9-two-assertions-that-cannot-see-what-they-claim) | phiflow's six-slot union and cuboid tests | strengthened here, and each confirmed to bite |
 
 Not findings: the other nine tests in each file. `test_every_declared_function_is_callable`,
 `_is_a_class`, `_is_annotated` and `test_no_function_name_collides_with_a_class_name` assert
@@ -256,3 +225,89 @@ decision that reduces coverage of either shape."* A green run cannot show this t
 **Recommend:** three functions in `specimen.py` — a `-> tuple` single output, an over-declaring
 `Tuple[Any, Any, Any]` that returns two, an under-declaring one — recover the first two. The third
 needs no specimen shape; it runs on `plugins=[]` with builtin collection nodes and an unknown type.
+
+## 7. A hand-rolled copy of graph check 4, ×3
+
+Math's and phiflow's `test_this_plugin_is_sufficient`, and coral-app's
+`test_the_host_needs_no_plugin_for_them`. Each re-reads the graph JSON and asserts
+`node["type"] in port_table` for every node — which is `_check_node_types_are_known` transcribed.
+`test_graph_constructs`, three lines above in the same class, calls `Graph.from_file` over the same
+parametrisation with the same `port_table` fixture, so it runs that check already. No graph could
+fail one and pass the other.
+
+Same shape as finding 1, and the claim it documents — "the owning directory *is* the answer" — is
+already in each module docstring, where it costs nothing.
+
+**Closed:** deleted here, 9 cases in total, one per shipped graph. `ruff` then dropped the
+`import json` each file kept only for it.
+
+## 8. The registry filename: the default that matters is pinned nowhere
+
+`coral-app/tests/test_registry.py:459`. Two defaults exist —
+`save_registry_to_file(filename="registry-py.json")` is the library's, and `node_types.json` is the
+CLI's, *"the fixed filename the DealiiX platform probes for"*. `cli.py` always passes `args.output`,
+so the library default is unreachable from any `coral` command.
+
+The test asserts `registry-py.json`. Its docstring is about the other one: *"`coral register` must
+write where the caller stands."* Nothing pins that — both places in the suite naming
+`node_types.json` pass it explicitly, and `test_cli.py` has no `register` case at all.
+
+Pre-existing, not introduced here; `main` is the same. What is new is noticing that the docstring
+promises a guard that does not exist.
+
+**Recommend:** not deletion — write the test the docstring describes: drive `main()` with
+`["coral", "register"]` and assert `node_types.json` appears in the cwd. Left to you, since it is a
+new test and where the platform's contract gets pinned is a decision rather than a tidy-up.
+
+## 9. Two assertions that cannot see what they claim
+
+Both in phiflow's new unit tests, both one line from being real.
+
+`test_the_full_six_slots_are_usable` promised *"all six are combined — the documented maximum,
+asserted so it stays true"* and asserted `is not None`. A regression dropping slots 3–6 returns a
+union of the first two, which is not `None`. Its own sibling three lines up shows the way: the
+function prints `phiflow_union: combined N geometries`.
+
+`test_a_cuboid_holds_a_phiflow_cuboid` called the four-scalar-to-two-`vec` conversion "the
+interesting part" and asserted only `is not None`, where its box and sphere siblings assert
+`isinstance`. Swapping centre and half-size passed.
+
+Step 5 traded four simulation tests away on the strength of these new unit tests being *"a net gain
+rather than a trade"*, so a replacement that cannot see the regression weakens that trade.
+
+**Closed:** both strengthened here, and each confirmed to bite by mutating the source it guards —
+dropping the later slots fails the union test, reading half-size as the centre fails the cuboid
+test, one test each and nothing else.
+
+## Scope
+
+- `plan.md` in full, execution record included.
+- `test_plugin_conformance.py` ×3, phiflow's source and golden, `pytest.ini`, and the plugin
+  self-guard (`conftest.py` / `<name>_suite.py` / `test_plugin_present.py`).
+- `graph.py`, `test_graph.py` and the seven cited docstrings, for findings 3 and 4.
+- **D10** — `errors.py`, both raise sites, `build_port_table`'s `put()` — read and mutation-tested.
+- **Mutation pass, 37 mutants** across `nodestatus.py`, `executor.py`, `graph.py`, `registry.py`,
+  `nodeports.py` and `builtin_nodes.py`, picked from the decisions `CLAUDE.md` documents. **34
+  killed, 3 survivors** — all three from one cause, [finding 6](#6-the-executor-lost-three-test-classes).
+  No over-coupling: the one mutant that failed more than six tests was reversing parameter order,
+  which legitimately breaks every executing graph.
+- **C0**, checked rather than taken: each of the three edited exports differs from its pre-PR
+  version by exactly one line, `"print_result"` → `"print_number"`. No node, edge or position moved.
+- **D11** end to end: both plugin sources, and all four goldens diffed against `main`. The platform's
+  contract moves in exactly two places — math's and string's printer entry, each a key rename plus a
+  socket going from `any` to `float` / `str`. Phiflow's golden is byte-identical, and
+  `node_types.all.json`'s deletion with `node_types.format.json`'s arrival is **R1** as designed.
+  Nothing unaccounted for.
+- Run: 507 passed / 4 deselected, `ruff` clean; the surface lists against plugin
+  source; phiflow's golden at 13 owned keys; GWT adherence 447/448, none missing, so **O2** held;
+  no graph wires `test_tuple_return`.
+- **Consumer pass in the DealiiX editor.** A registry generated from this branch loads; a graph
+  exported from the editor still runs through the now-stricter `_read_id`; `list_new` renders and
+  wires as the first zero-input *function* node; and the 22 sockets typed `list`/`set`/`dict` —
+  socket types with no registry key of their own — render and validate. One surprise, which turned
+  out to be documented design: [finding 5](#5-what-d11s-typing-actually-buys).
+- **Every new test module read**, for the class mutation is blind to: redundancy and tautology,
+  which is what findings 1 and 2 were. Yielded findings 7, 8 and 9; **twelve modules came back
+  clean**, and there are no category violations anywhere. Four lower-value items were left unraised.
+  `test_graph.py` and `test_nodeports.py`, reworked here, were reviewed by test inventory rather
+  than assertion by assertion.
