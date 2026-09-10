@@ -366,11 +366,19 @@ class Graph:
 def _read_id(value, what: str) -> str:
     """The id ``value`` denotes, as a string, or raise if the protocol cannot read one out of it.
 
-    The protocol keys nodes by integer, and three platform mechanisms rest on it: the editor's
-    exporter ``parseInt``s every edge endpoint, its id counter ``parseInt``s every node id to find
-    the next free one, and the reference backend reads each key with ``std::stoi``. A word id runs
-    here and nowhere else — exported, its endpoints come back as ``null`` and the graph loses its
-    wiring — so it is refused at the door rather than carried as an opaque string.
+    The protocol keys nodes by integer, and the rule is not ours: every id is eventually converted
+    to a number by something outside this repo, so a word id runs here and nowhere else —
+    exported, its endpoints come back as ``null`` and the graph loses its wiring. It is refused at
+    the door rather than carried as an opaque string. What finally converts each one:
+
+    =================  =================  ============================================
+    id                 converted by       conversion
+    =================  =================  ============================================
+    node key           reference backend  ``std::stoi``, into ``unsigned int``
+    edge key           reference backend  ``std::stoi``, and it *is* the connection id
+    edge endpoint      the editor         ``parseInt``
+    next free node id  the editor         ``parseInt``
+    =================  =================  ============================================
 
     A sign, a fraction, whitespace and a leading zero are refused too: ``parseInt("01")`` and
     ``std::stoi("01")`` are both ``1``, so ``"01"`` and ``"1"`` would name one node. ``isascii``

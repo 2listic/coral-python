@@ -91,15 +91,9 @@ def build_function_map(
 
     **One node type, one owner.** A duplicate name — between two plugins, or between a plugin and
     one of the host's ``BUILTIN_FUNCTIONS`` — raises :class:`DuplicateNodeTypeError`. There is no
-    winner to pick: a graph names only the node type, so a silently shadowed ``list_append`` (or a
-    plugin's function displaced by another plugin's) would change what every graph on the platform
-    computes while looking identical in the JSON. Refusing the selection puts the error where it can
-    be fixed — in the plugin that chose the name.
-
-    This replaces the former "later wins" merge, which was never a designed rule but the behaviour
-    of ``dict.update()`` in this loop; the one real duplicate it resolved (``print_result``, declared
-    by both math and string) is gone — each plugin now names its own (``print_number`` /
-    ``print_text``).
+    winner to pick: a graph names only the node type, so a silently shadowed ``list_append`` would
+    change what every graph computes while the JSON looks identical. Refusing the selection puts the
+    error in the plugin that chose the name.
 
     Args:
         include: Plugin names to load. If ``None``, loads every discovered plugin.

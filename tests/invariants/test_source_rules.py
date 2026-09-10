@@ -9,11 +9,11 @@ Three families of rule live here:
 
 * **no ``from __future__ import annotations``** anywhere in package source — it stringizes
   annotations, and ``registry.py:python_type_to_string`` would collapse every socket to ``"any"``;
-* **the stage boundaries** inside ``coral-app`` (issue #23): ``graph.py`` compares plain data,
-  ``executor.py`` receives an already-validated graph;
-* **the directional rules** (issue #27) that keep the separation principle from eroding — the host
-  never reaches for a plugin, a plugin never reaches for the host, and the host's *tests* never name
-  a plugin at all.
+* **the stage boundaries** inside ``coral-app``: ``graph.py`` compares plain data, ``executor.py``
+  receives an already-validated graph;
+* **the directional rules** that keep the separation principle from eroding — the host never
+  reaches for a plugin, a plugin never reaches for the host, and the host's *tests* never name a
+  plugin at all.
 
 The plugin names come from ``plugins/coral-*`` on disk. That is not a catalog anyone maintains: it is
 the set of plugin distributions the repo ships, read at run time, so adding a plugin extends these
@@ -137,8 +137,8 @@ def repo_plugin_names() -> list:
     """Plugin names this repo ships, from ``plugins/coral-<name>`` (the source of truth).
 
     The directory name drops the word ``plugin`` that the distribution keeps, so ``coral-math`` here
-    is distribution ``coral-plugin-math``, import package ``coral_plugin_math``, entry point ``math``
-    (issue #27, L3–L5). It is the last of those four that these rules care about.
+    is distribution ``coral-plugin-math``, import package ``coral_plugin_math``, entry point
+    ``math``. It is the last of those four that these rules care about.
     """
     return sorted(p.name[len(PLUGIN_PREFIX) :] for p in PLUGINS.glob(f"{PLUGIN_PREFIX}*"))
 
@@ -506,8 +506,8 @@ class TestGuardsAreNotVacuous:
 
     * a directory it scans is **empty** or has moved — `test_scanned_directories_are_populated`;
     * ``SOURCE_ROOTS`` is **narrower than the repo** — a package was added, or moved, and this file
-      was not updated. Before issue #27's step 9 one glob (``packages/*``) meant "every
-      distribution"; now three roots are listed, here and in `pyproject.toml` and `pytest.ini`, so
+      was not updated. One glob (``packages/*``) once meant "every distribution"; now three roots
+      are listed, here and in `pyproject.toml` and `pytest.ini`, so
       "someone extended two of the three" is a real way to silently drop a package from the
       ``__future__`` rule. `test_source_roots_cover_every_distribution` is the answer to that.
     """

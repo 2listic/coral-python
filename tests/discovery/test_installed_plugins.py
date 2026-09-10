@@ -128,9 +128,9 @@ class TestInstalledPluginsAgree:
         THEN the maps are built — no DuplicateNodeTypeError.
 
         The rule itself is the host's and is tested on the specimen; this is the deployment question
-        it raises. Math and string both declared ``print_result`` until issue #27, so with every
-        plugin selected the platform silently received only one of the two; today that state would
-        make the default ``coral register`` fail for every user, which is the point of the rule.
+        it raises. Math and string once both declared ``print_result``, so with every plugin
+        selected the platform silently received only one of the two; today that state would make the
+        default ``coral register`` fail for every user, which is the point of the rule.
         """
         function_map = build_function_map()
         class_map = build_class_map()

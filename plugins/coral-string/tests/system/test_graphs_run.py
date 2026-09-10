@@ -4,10 +4,8 @@ The graph is written here rather than shipped as a file, because no editor expor
 is the one case where the wiring exists only for the test. Every other plugin discovers its graphs from
 its own ``graphs/`` directory.
 
-Inherited from the characterization test written for issue #16, which pinned the executor's results and
-stdout for one math graph and one string graph before the plugin-modularization move. The math half now
-lives in math's suite against its real exports; this is the string half, rehomed and with the node type
-updated to ``print_text``.
+A characterization test: it pins the executor's results and stdout for one string graph, as the math
+suite does for its own. The node type is ``print_text``, this plugin's own name for what it prints.
 """
 
 import pytest
