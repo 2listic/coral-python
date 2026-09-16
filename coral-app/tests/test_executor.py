@@ -11,6 +11,7 @@ success cases are about values.
 
 import pytest
 from coral_app.executor import WorkflowExecutor
+from coral_app.nodestatus import FAILED, RUNNING, SUCCEEDED
 from specimen import SPECIMEN, Accumulator
 
 
@@ -245,6 +246,79 @@ class TestMultipleOutputs:
         assert results["1"] == (4.0, "4.0", True)
 
 
+class TestOutputPortResolution:
+    """Whether an edge indexes into a result is decided by the port table, never by the value."""
+
+    @pytest.mark.parametrize(
+        "extras", [{}, {"source_output": 0}, {"source_output": -1}], ids=["omitted", "0", "-1"]
+    )
+    def test_the_three_spellings_of_the_only_output_agree(self, run, extras):
+        """GIVEN a single-output node whose value happens to be a tuple, read by an edge spelling
+             "the only output" as an omitted key, as 0, and as -1
+        WHEN the workflow is executed
+        THEN all three deliver the whole tuple.
+
+        Graph check 7 calls the three synonyms; this is where that holds in fact. A runtime
+        isinstance(result, tuple) cannot tell "two outputs, bundled" from "one output that happens
+        to be a tuple" — deciding it that way delivered (10, 20), 10 and 20 to the three."""
+        results = run(
+            {
+                "0": {"qualified_id": "pair", "type": "pair"},
+                "1": {"qualified_id": "sink", "type": "anything"},
+            },
+            {"0": {"source": "0", "target": "1", "target_input": 0, **extras}},
+        )
+
+        assert results["1"] == (10, 20)
+
+
+class TestOutputArity:
+    """A node's declared output count, confronted with what it actually returned.
+
+    The arity in the port table comes from a return annotation — a claim by the function's author,
+    which the registry, the edge checks and the bundling rule all trust. This is the one place that
+    claim meets the value.
+    """
+
+    def test_a_short_tuple_raises_naming_the_node_and_both_counts(self, run):
+        """GIVEN a function declaring three outputs that returns a tuple of two
+        WHEN the graph is executed
+        THEN ValueError names the node, its type, and what it returned."""
+        with pytest.raises(ValueError) as error:
+            run({"0": {"qualified_id": "short", "type": "short_triple"}})
+
+        assert "Node 0 (short_triple) declares 3 outputs but returned a tuple of 2" in str(
+            error.value
+        )
+
+    def test_it_fires_at_the_producer_not_at_a_consumer(self, run):
+        """GIVEN the same over-declaring node, this time with port 0 wired to a sink
+        WHEN the graph is executed
+        THEN it still raises at the producing node.
+
+        The check runs right after the node returns rather than on a consuming edge, so a node
+        whose last output nobody reads cannot slip through."""
+        with pytest.raises(ValueError) as error:
+            run(
+                {
+                    "0": {"qualified_id": "short", "type": "short_triple"},
+                    "1": {"qualified_id": "sink", "type": "anything"},
+                },
+                {"0": edge("0", "1", 0)},
+            )
+
+        assert "Node 0 (short_triple)" in str(error.value)
+
+    def test_a_non_tuple_result_raises_naming_its_type(self, run):
+        """GIVEN a function declaring two outputs that returns a plain int
+        WHEN the graph is executed
+        THEN ValueError names the type that came back instead of a tuple."""
+        with pytest.raises(ValueError) as error:
+            run({"0": {"qualified_id": "scalar", "type": "not_a_tuple"}})
+
+        assert "Node 0 (not_a_tuple) declares 2 outputs but returned int" in str(error.value)
+
+
 class TestConstructorNodes:
     """A constructor node instantiates its class."""
 
@@ -440,3 +514,98 @@ class TestExecutionOrder:
         WHEN it is executed
         THEN the results are empty and no error is raised."""
         assert run({}) == {}
+
+
+class TestStatusMarkers:
+    """The executor's wiring to ``nodestatus``: the markers a real run leaves on disk.
+
+    The marker mechanics are ``nodestatus``'s own and are tested there, against that object
+    directly. What only an executor can show is that a run reaches them at all, that every node
+    gets them, and that the directory is prepared before the graph is even read.
+    """
+
+    def _executor(self, write_graph, nodes, edges, touch_dir):
+        """A WorkflowExecutor over an inline graph, pointed at a status directory."""
+        path = write_graph(graph(nodes, edges))
+        return WorkflowExecutor(str(path), plugins=[SPECIMEN], touch_dir=str(touch_dir))
+
+    def test_every_node_including_a_primitive_is_marked_succeeded(
+        self, write_graph, specimen_plugins, tmp_path
+    ):
+        """GIVEN a graph of two primitives and a function, run with a touch directory
+        WHEN it completes
+        THEN each node left a .running and a .succeeded named by its qualified_id, and no .failed.
+
+        Primitives are marked too: the reference backend makes every node a task with no exemption,
+        and a graph whose primitives never appear would read as "half the nodes never started"."""
+        status = tmp_path / "status"
+        executor = self._executor(
+            write_graph,
+            {
+                "0": {"qualified_id": "a", "type": "float", "value": 6.0},
+                "1": {"qualified_id": "b", "type": "float", "value": 3.0},
+                "2": {"qualified_id": "sum", "type": "add_pair"},
+            },
+            {"0": edge("0", "2", 0), "1": edge("1", "2", 1)},
+            status,
+        )
+
+        executor.execute()
+
+        assert {path.name for path in status.iterdir()} == {
+            f"a{RUNNING}",
+            f"a{SUCCEEDED}",
+            f"b{RUNNING}",
+            f"b{SUCCEEDED}",
+            f"sum{RUNNING}",
+            f"sum{SUCCEEDED}",
+        }
+
+    def test_a_failing_node_is_marked_failed_and_nothing_after_it_runs(
+        self, write_graph, specimen_plugins, tmp_path
+    ):
+        """GIVEN a graph whose division node divides by zero, with a sink downstream of it
+        WHEN it is executed
+        THEN that node has .running and .failed but no .succeeded, the sink has no marker at all,
+             and the original exception reaches the caller untouched."""
+        status = tmp_path / "status"
+        executor = self._executor(
+            write_graph,
+            {
+                "0": {"qualified_id": "num", "type": "float", "value": 1.0},
+                "1": {"qualified_id": "zero", "type": "float", "value": 0.0},
+                "2": {"qualified_id": "div", "type": "specimen.ratio"},
+                "3": {"qualified_id": "sink", "type": "anything"},
+            },
+            {"0": edge("0", "2", 0), "1": edge("1", "2", 1), "2": edge("2", "3", 0)},
+            status,
+        )
+
+        with pytest.raises(ZeroDivisionError):
+            executor.execute()
+
+        names = {path.name for path in status.iterdir()}
+        assert f"div{RUNNING}" in names
+        assert f"div{FAILED}" in names
+        assert f"div{SUCCEEDED}" not in names
+        assert not [name for name in names if name.startswith("sink")]
+
+    def test_a_graph_that_fails_validation_leaves_an_empty_directory(
+        self, write_graph, specimen_plugins, tmp_path
+    ):
+        """GIVEN a status directory holding a marker from an earlier job, and an invalid graph
+        WHEN the executor is constructed and raises
+        THEN the directory exists and is empty.
+
+        The platform then sees "nothing has run yet" rather than the previous job's timeline read
+        as this one's. That is what preparing the directory on the first line of __init__ buys —
+        before the graph is read, and before any plugin is loaded."""
+        status = tmp_path / "status"
+        status.mkdir()
+        (status / f"old{SUCCEEDED}").touch()
+
+        with pytest.raises(ValueError):
+            self._executor(write_graph, {"0": {"type": "no_such_node"}}, {}, status)
+
+        assert status.is_dir()
+        assert list(status.iterdir()) == []

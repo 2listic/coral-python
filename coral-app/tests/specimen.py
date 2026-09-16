@@ -14,6 +14,9 @@ entry                         the shape it exists for
 ``add_pair``                  two typed inputs, one output — the workhorse
 ``to_label``                  a type change across an edge (int -> str)
 ``split_triple``              three outputs, so ``source_output`` selection has something to pick
+``pair``                      a bare ``tuple`` return: **one** output port, passed on whole
+``short_triple``              declares three outputs, returns two — an annotation that lies
+``not_a_tuple``               declares two outputs, returns no tuple at all
 ``make_one``                  **no** inputs: a function node with ``inputs: []``
 ``record``                    returns ``None``: no output ports at all
 ``unannotated``               no annotations, which must normalise to ``Any``
@@ -78,6 +81,26 @@ def to_label(value: int) -> str:
 def split_triple(value: float) -> Tuple[float, str, bool]:
     """Return three values, so a downstream edge must choose one with ``source_output``."""
     return value, f"{value}", value > 0.0
+
+
+def pair() -> tuple:
+    """Return a tuple from a node with **one** output port.
+
+    ``tuple`` is a single annotation, so this node has one output and its value is passed on whole.
+    Deciding that from the value instead — ``isinstance(result, tuple)`` — would index into it and
+    deliver ``10`` where ``(10, 20)`` is what the node produced.
+    """
+    return 10, 20
+
+
+def short_triple() -> Tuple[Any, Any, Any]:
+    """Declare three outputs and return two: an annotation that lies about its own arity."""
+    return 1, 2
+
+
+def not_a_tuple() -> Tuple[Any, Any]:
+    """Declare two outputs and return something that is not a tuple at all."""
+    return 7
 
 
 def make_one() -> float:
@@ -187,6 +210,9 @@ class SpecimenPlugin(Plugin):
             "anything": anything,
             "specimen.ratio": ratio,
             "shared_label": shared_label,
+            "pair": pair,
+            "short_triple": short_triple,
+            "not_a_tuple": not_a_tuple,
         }
 
     def get_classes(self) -> Dict[str, Any]:

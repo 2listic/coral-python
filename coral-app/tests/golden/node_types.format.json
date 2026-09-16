@@ -260,6 +260,69 @@
     "node_type": "function",
     "type": "shared_label"
   },
+  "pair": {
+    "arguments": [
+      {
+        "connection_type": "output",
+        "type": "any",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "outputs": [
+      0
+    ],
+    "node_type": "function",
+    "type": "pair"
+  },
+  "short_triple": {
+    "arguments": [
+      {
+        "connection_type": "output",
+        "type": "any",
+        "name": ""
+      },
+      {
+        "connection_type": "output",
+        "type": "any",
+        "name": ""
+      },
+      {
+        "connection_type": "output",
+        "type": "any",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "outputs": [
+      0,
+      1,
+      2
+    ],
+    "node_type": "function",
+    "type": "short_triple"
+  },
+  "not_a_tuple": {
+    "arguments": [
+      {
+        "connection_type": "output",
+        "type": "any",
+        "name": ""
+      },
+      {
+        "connection_type": "output",
+        "type": "any",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "outputs": [
+      0,
+      1
+    ],
+    "node_type": "function",
+    "type": "not_a_tuple"
+  },
   "rival_only": {
     "arguments": [
       {
