@@ -87,3 +87,37 @@ class TestRunTouchDir:
 
         assert len([path for path in target.iterdir() if path.name.endswith(STATUS_SUFFIXES)]) == 6
         assert not [path for path in tmp_path.iterdir() if path.name.endswith(STATUS_SUFFIXES)]
+
+
+class TestRegisterOutput:
+    """``coral register`` and the filename the platform probes for."""
+
+    def test_register_without_the_flag_writes_node_types_into_the_cwd(
+        self, tmp_path, monkeypatch, specimen_plugins
+    ):
+        """GIVEN ``coral register`` with no ``--output``
+        WHEN it runs
+        THEN ``node_types.json`` appears in the current directory.
+
+        This is the CLI's default and the platform's contract: it probes for that fixed name, and
+        the launcher preserves the caller's cwd precisely so the file lands where it stands. The
+        library's own default is a different string, reachable only by calling
+        ``save_registry_to_file`` directly."""
+        monkeypatch.setattr("sys.argv", ["coral", "-p", SPECIMEN, "register"])
+
+        main()
+
+        assert (tmp_path / "node_types.json").exists()
+
+    def test_the_flag_redirects_the_file(self, tmp_path, monkeypatch, specimen_plugins):
+        """GIVEN ``coral register --output=<name>``
+        WHEN it runs
+        THEN that name is written and the default one is not."""
+        monkeypatch.setattr(
+            "sys.argv", ["coral", "-p", SPECIMEN, "register", "--output=custom.json"]
+        )
+
+        main()
+
+        assert (tmp_path / "custom.json").exists()
+        assert not (tmp_path / "node_types.json").exists()

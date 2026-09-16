@@ -461,7 +461,9 @@ class TestSaveRegistryToFile:
         WHEN the registry is saved
         THEN it is written to `registry-py.json` in the current directory.
 
-        The launcher relies on cwd: `coral register` must write where the caller stands."""
+        The *library's* default, which is not the CLI's: `cli.py` always passes `--output`,
+        whose own default is the `node_types.json` the platform probes for — pinned in
+        `test_cli.py`. This one pins what a direct caller of `save_registry_to_file` gets."""
         save_registry_to_file(plugins=[SPECIMEN])
 
         assert (tmp_path / "registry-py.json").exists()
