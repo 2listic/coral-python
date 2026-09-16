@@ -6,15 +6,8 @@ records what was examined and by what method.
 
 ## Findings
 
-**Open.** [Finding 6](#6-the-executor-lost-three-test-classes) is the only one that blocks.
-
-| # | subject | verdict |
-| --- | --- | --- |
-| [5](#5-what-d11s-typing-actually-buys) | `print_number` / `print_text` | docstring claim corrected here; the name and the cast are yours |
-| [6](#6-the-executor-lost-three-test-classes) | `test_executor.py`, respecified in step 4 | **blocking** — three classes dropped, three behaviours now unpinned |
-| [8](#8-the-registry-filename-the-default-that-matters-is-pinned-nowhere) | `test_the_default_filename_lands_in_the_current_directory` | pins a default no `coral` command can reach; the platform's is unpinned |
-
-**Closed** — recorded so the changes are not a surprise:
+**All nine findings are closed.** [Finding 6](#6-the-executor-lost-three-test-classes) was the only
+one that blocked. Recorded so the changes are not a surprise:
 
 | # | subject | what was done |
 | --- | --- | --- |
@@ -22,7 +15,10 @@ records what was examined and by what method.
 | [2](#2-the-any-count-is-the-wrong-instrument) | `test_how_many_sockets_are_checkable`, phiflow only | deleted by the author in `2516db2` |
 | [3](#3-the-graph-corpus-moves-into-the-loader) | `test_graph_corpus.py` → `graph.py:_read_id` | right call; the premises now cited in the docstring |
 | [4](#4-issue-numbers-in-the-new-docstrings) | seven `issue #N` citations | removed |
+| [5](#5-what-d11s-typing-actually-buys) | `print_number` / `print_text` | docstring claim corrected here; the author declined both the rename and the cast |
+| [6](#6-the-executor-lost-three-test-classes) | `test_executor.py`, respecified in step 4 | three specimen shapes added, the golden regenerated, the three behaviours re-pinned |
 | [7](#7-a-hand-rolled-copy-of-graph-check-4-x3) | `test_this_plugin_is_sufficient`, ×3 | deleted here — its sibling already runs the same check |
+| [8](#8-the-registry-filename-the-default-that-matters-is-pinned-nowhere) | `test_the_default_filename_lands_in_the_current_directory` | the CLI's default now pinned in `test_cli.py`; the docstring repointed |
 | [9](#9-two-assertions-that-cannot-see-what-they-claim) | phiflow's six-slot union and cuboid tests | strengthened here, and each confirmed to bite |
 
 Not findings: the other nine tests in each file. `test_every_declared_function_is_callable`,
@@ -182,6 +178,13 @@ as history.
 
 Neither is the host's business; both are the plugin owner's, and doing nothing is defensible for each.
 
+**Closed:** the plugin owner declined both. The names stay: a node type is platform-facing and the
+platform still names `print_result` in three files, so a second rename would be a second thing for it
+to chase, and would widen **C0** from one changed field to two. The cast stays out: no other function
+in either plugin casts its inputs, `print_text` has no counterpart to it since `str()` never fails,
+and a `ValueError` from inside a print node is not a better diagnostic than the edge check already
+gives. The corrected docstrings are what this finding actually changed.
+
 ## 6. The executor lost three test classes
 
 **Blocking.** Step 4's *"respecify `test_executor.py` … on the specimen"* dropped three whole classes
@@ -226,6 +229,22 @@ decision that reduces coverage of either shape."* A green run cannot show this t
 `Tuple[Any, Any, Any]` that returns two, an under-declaring one — recover the first two. The third
 needs no specimen shape; it runs on `plugins=[]` with builtin collection nodes and an unknown type.
 
+**Closed:** the three shapes are in `specimen.py` — `pair` (a bare `tuple` return, so one output
+port), `short_triple` (declares three, returns two) and `not_a_tuple` (declares two, returns an int).
+They are appended to `SpecimenPlugin.get_functions()`, so the format golden gained three entries at
+the end of the specimen block with nothing moved.
+
+`test_executor.py` regained `TestOutputPortResolution` — the three spellings of a single output,
+parametrized — and `TestOutputArity` — a short tuple, the same node with a consumer wired, and a
+non-tuple result. `TestStatusMarkers` is new rather than restored: it is the first place in the suite
+where a `WorkflowExecutor` is handed a `touch_dir` at all, and it covers a clean run, a failing node,
+and a graph rejected by validation. The marker mechanics stay where they were, on `nodestatus` itself.
+
+Each of the three mutants this finding named was re-run against them and now dies, narrowly:
+`isinstance(value, tuple)` for the bundling rule fails all three spellings; disabling both arity
+raises fails all three arity tests; moving the status directory after `Graph.from_file` fails exactly
+the validation-failure test. Nothing else moved in any of the three runs.
+
 ## 7. A hand-rolled copy of graph check 4, ×3
 
 Math's and phiflow's `test_this_plugin_is_sufficient`, and coral-app's
@@ -258,6 +277,13 @@ promises a guard that does not exist.
 **Recommend:** not deletion — write the test the docstring describes: drive `main()` with
 `["coral", "register"]` and assert `node_types.json` appears in the cwd. Left to you, since it is a
 new test and where the platform's contract gets pinned is a decision rather than a tidy-up.
+
+**Closed:** written as recommended. `test_cli.py` gained `TestRegisterOutput`, driving `main()` with
+`["coral", "register"]` and asserting `node_types.json` appears in the cwd, plus a case for `--output`
+redirecting it. Mutating `DEFAULT_REGISTRY_FILENAME` to the library's string fails exactly that first
+test and nothing else. The assertion on `registry-py.json` is kept — it is a real default for a direct
+caller of `save_registry_to_file` — and its docstring now says so, instead of promising the CLI's
+contract it never tested.
 
 ## 9. Two assertions that cannot see what they claim
 
