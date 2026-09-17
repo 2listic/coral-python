@@ -110,59 +110,83 @@ wheels = [
 [[package]]
 name = "coral-app"
 version = "0.1.0"
-source = { editable = "packages/coral-app" }
+source = { editable = "coral-app" }
 dependencies = [
     { name = "coral-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "coral-core", editable = "packages/coral-core" }]
+requires-dist = [{ name = "coral-core", editable = "coral-core" }]
 
 [[package]]
 name = "coral-core"
 version = "0.0.0"
-source = { editable = "packages/coral-core" }
+source = { editable = "coral-core" }
 
 [[package]]
 name = "coral-plugin-math"
 version = "0.0.0"
-source = { editable = "packages/coral-plugin-math" }
+source = { editable = "plugins/coral-math" }
 dependencies = [
     { name = "coral-core" },
 ]
 
+[package.dev-dependencies]
+test = [
+    { name = "coral-app" },
+]
+
 [package.metadata]
-requires-dist = [{ name = "coral-core", editable = "packages/coral-core" }]
+requires-dist = [{ name = "coral-core", editable = "coral-core" }]
+
+[package.metadata.requires-dev]
+test = [{ name = "coral-app", editable = "coral-app" }]
 
 [[package]]
 name = "coral-plugin-phiflow"
 version = "0.0.0"
-source = { editable = "packages/coral-plugin-phiflow" }
+source = { editable = "plugins/coral-phiflow" }
 dependencies = [
     { name = "coral-core" },
     { name = "h5py" },
     { name = "jax" },
     { name = "phiflow" },
+]
+
+[package.dev-dependencies]
+test = [
+    { name = "coral-app" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "coral-core", editable = "packages/coral-core" },
+    { name = "coral-core", editable = "coral-core" },
     { name = "h5py" },
     { name = "jax" },
     { name = "phiflow" },
 ]
 
+[package.metadata.requires-dev]
+test = [{ name = "coral-app", editable = "coral-app" }]
+
 [[package]]
 name = "coral-plugin-string"
 version = "0.0.0"
-source = { editable = "packages/coral-plugin-string" }
+source = { editable = "plugins/coral-string" }
 dependencies = [
     { name = "coral-core" },
 ]
 
+[package.dev-dependencies]
+test = [
+    { name = "coral-app" },
+]
+
 [package.metadata]
-requires-dist = [{ name = "coral-core", editable = "packages/coral-core" }]
+requires-dist = [{ name = "coral-core", editable = "coral-core" }]
+
+[package.metadata.requires-dev]
+test = [{ name = "coral-app", editable = "coral-app" }]
 
 [[package]]
 name = "coverage"
