@@ -1,0 +1,627 @@
+{
+  "int": {
+    "arguments": [],
+    "value": "",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "int"
+  },
+  "float": {
+    "arguments": [],
+    "value": "",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "float"
+  },
+  "str": {
+    "arguments": [],
+    "value": "",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "str"
+  },
+  "bool": {
+    "arguments": [],
+    "value": "",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "bool"
+  },
+  "any": {
+    "arguments": [],
+    "value": "",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "any"
+  },
+  "none": {
+    "arguments": [],
+    "value": "",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "none"
+  },
+  "list_new": {
+    "arguments": [
+      {
+        "connection_type": "output",
+        "type": "list",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "outputs": [
+      0
+    ],
+    "node_type": "function",
+    "type": "list_new"
+  },
+  "list_append": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "list",
+        "name": "lst"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "item"
+      },
+      {
+        "connection_type": "output",
+        "type": "list",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "list_append"
+  },
+  "list_get": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "list",
+        "name": "lst"
+      },
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "index"
+      },
+      {
+        "connection_type": "output",
+        "type": "any",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "list_get"
+  },
+  "list_size": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "list",
+        "name": "lst"
+      },
+      {
+        "connection_type": "output",
+        "type": "int",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "function",
+    "type": "list_size"
+  },
+  "list_remove_at": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "list",
+        "name": "lst"
+      },
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "index"
+      },
+      {
+        "connection_type": "output",
+        "type": "list",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "list_remove_at"
+  },
+  "set_new": {
+    "arguments": [
+      {
+        "connection_type": "output",
+        "type": "set",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "outputs": [
+      0
+    ],
+    "node_type": "function",
+    "type": "set_new"
+  },
+  "set_add": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "set",
+        "name": "s"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "item"
+      },
+      {
+        "connection_type": "output",
+        "type": "set",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "set_add"
+  },
+  "set_to_list": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "set",
+        "name": "s"
+      },
+      {
+        "connection_type": "output",
+        "type": "list",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "function",
+    "type": "set_to_list"
+  },
+  "set_size": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "set",
+        "name": "s"
+      },
+      {
+        "connection_type": "output",
+        "type": "int",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "function",
+    "type": "set_size"
+  },
+  "set_remove": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "set",
+        "name": "s"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "item"
+      },
+      {
+        "connection_type": "output",
+        "type": "set",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "set_remove"
+  },
+  "dict_new": {
+    "arguments": [
+      {
+        "connection_type": "output",
+        "type": "dict",
+        "name": ""
+      }
+    ],
+    "inputs": [],
+    "outputs": [
+      0
+    ],
+    "node_type": "function",
+    "type": "dict_new"
+  },
+  "dict_set": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "dict",
+        "name": "d"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "key"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "value"
+      },
+      {
+        "connection_type": "output",
+        "type": "dict",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1,
+      2
+    ],
+    "outputs": [
+      3
+    ],
+    "node_type": "function",
+    "type": "dict_set"
+  },
+  "dict_get": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "dict",
+        "name": "d"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "key"
+      },
+      {
+        "connection_type": "output",
+        "type": "any",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "dict_get"
+  },
+  "dict_size": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "dict",
+        "name": "d"
+      },
+      {
+        "connection_type": "output",
+        "type": "int",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "function",
+    "type": "dict_size"
+  },
+  "dict_delete": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "dict",
+        "name": "d"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "key"
+      },
+      {
+        "connection_type": "output",
+        "type": "dict",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "dict_delete"
+  },
+  "PyPDEUnitGrid": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "x"
+      },
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "y"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PyPDEUnitGrid"
+  },
+  "PyPDEScalarField": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "grid"
+      },
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "vmin"
+      },
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "vmax"
+      }
+    ],
+    "inputs": [
+      0,
+      1,
+      2
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PyPDEScalarField"
+  },
+  "PyPDEFileStorage": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "str",
+        "name": "filename"
+      },
+      {
+        "connection_type": "input",
+        "type": "str",
+        "name": "write_mode"
+      },
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "interrupts"
+      }
+    ],
+    "inputs": [
+      0,
+      1,
+      2
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PyPDEFileStorage"
+  },
+  "PyPDEMovie": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "str",
+        "name": "filename"
+      },
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "framerate"
+      },
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "dpi"
+      },
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "bitrate"
+      }
+    ],
+    "inputs": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PyPDEMovie"
+  },
+  "PyPDEPlotTracker": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "movie"
+      },
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "interrupts"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PyPDEPlotTracker"
+  },
+  "PyPDEDiffusionPDE": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "diffusivity"
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PyPDEDiffusionPDE"
+  },
+  "PyPDEDiffusionPDE.solve": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "self"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "state"
+      },
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "t_range"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "storage"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "plot"
+      },
+      {
+        "connection_type": "output",
+        "type": "any",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "outputs": [
+      5
+    ],
+    "node_type": "method",
+    "type": "PyPDEDiffusionPDE.solve"
+  }
+}
