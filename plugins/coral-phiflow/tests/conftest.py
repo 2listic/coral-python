@@ -32,6 +32,27 @@ if not INSTALLED:
     ]
 
 
+@pytest.fixture(autouse=True, scope="session")
+def headless_matplotlib():
+    """Render into files, never into a window.
+
+    Nothing here asks for a window today — py-pde resolves ``show`` to False whenever a movie is
+    given, and phiflow only saves an animation. But the backend is chosen from the environment, so a
+    developer's desktop gets an interactive one and a headless machine gets ``agg``. Pinning ``Agg``
+    makes the two identical, so a node that one day calls ``plt.show()`` fails everywhere rather than
+    only where there is no display.
+
+    Imported here rather than at module scope: this conftest is imported even when the plugin is
+    absent, and matplotlib arrives with the plugin's dependencies, not the host's.
+    """
+    try:
+        import matplotlib
+    except ImportError:
+        return  # no plugin, nothing that plots
+
+    matplotlib.use("Agg", force=True)
+
+
 @pytest.fixture(autouse=True)
 def isolate_cwd(monkeypatch, tmp_path):
     """Run every test from a disposable working directory.
