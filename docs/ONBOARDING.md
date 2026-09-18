@@ -68,6 +68,7 @@ per plugin under `plugins/`, with a strict one-directional dependency rule:
         │  coral-plugin-math    -> MathPlugin                │   each declares itself under the
         │  coral-plugin-string  -> StringPlugin              │   entry-point group "coral.plugins",
         │  coral-plugin-phiflow -> PhiFlowPlugin             │   pointing at its Plugin class
+        │  coral-plugin-pypde   -> PyPDEPlugin               │
         └──────────────────────────▲─────────────────────────┘
                                    │ discover() / load(name) — lazy: list without importing;
                                    │                           import only the requested plugin
@@ -95,7 +96,7 @@ one — be found and loaded purely from its installed metadata.
 
 **The contract is an enforced ABC, not a convention.** `coral-core`'s `Plugin` uses `@abstractmethod`, so a
 plugin that forgets `get_functions()` or `get_classes()` cannot even be instantiated. There is no `name`
-method — the entry-point name (`math` / `string` / `phiflow`) *is* the plugin's identity, and it's the string
+method — the entry-point name (`math` / `string` / `phiflow` / `pypde`) *is* the plugin's identity, and it's the string
 the platform's `-p` contract passes.
 
 Inside the host, `registry.py` and `executor.py` **do not import each other.** Both import only from

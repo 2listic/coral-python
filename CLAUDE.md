@@ -21,7 +21,7 @@ The repo is a **uv workspace / monorepo**: a small set of independently installa
 the framework at the root (`coral-core/`, `coral-app/`) and one directory per plugin under `plugins/`.
 A minimal contract package (`coral-core`) defines a `Plugin` ABC; the host
 (`coral-app`) discovers and loads plugins at runtime via `importlib.metadata` entry points; each
-capability (`math`, `string`, `phiflow`) is its own `coral-plugin-*` distribution. See
+capability (`math`, `string`, `phiflow`, `pypde`) is its own `coral-plugin-*` distribution. See
 [Package layout](#package-layout) below.
 
 > For the narrative — goals, architecture rationale, the two contracts with the DealiiX platform, and how to
@@ -138,6 +138,7 @@ entry-point group):
 - `math` - Mathematical operations and Calculator class
 - `string` - StringProcessor class
 - `phiflow` - PhiFlow physics simulation wrappers
+- `pypde` - py-pde PDE-solver wrappers
 
 ### Running Tests
 
@@ -170,8 +171,8 @@ pytest coral-app/tests/test_graph.py::TestEdgeTypes  # a class, as usual
 Two markers survive, both about **cost** rather than about which plugin a test needs. They are
 independent properties, not a partition, so one test carries both:
 
-- `slow` — *costs real time*: the one phiflow simulation (~33s) and the wheel acceptance test.
-  Everything else is the fast lane.
+- `slow` — *costs real time*: the two simulations — phiflow's (~33s) and pypde's (~12s) — and the
+  wheel acceptance test. Everything else is the fast lane.
 - `network` — *needs the internet*: `tests/test_acceptance.py` only, which pip-installs wheels into a
   clean venv. It is 4s with a warm uv cache, but **~250s** whenever PyPI has published a `jax` newer
   than the workspace's pin — `uv pip install` resolves fresh and never reads `uv.lock`, so the cache
@@ -203,10 +204,10 @@ graph's plugin requirement is its directory and never something inferred at run 
 
 **Two rules worth knowing before adding a test:**
 
-- **No unmarked test may run a simulation.** Exactly one test in the repo runs PhiFlow's solver
-  (`plugins/coral-phiflow/tests/system/test_graphs_run.py`, marked `slow`). Every other
-  phiflow graph is *validated without being executed* — constructing a `Graph` runs all seven checks
-  and calls nothing, so the graph-JSON contract is guarded at ~0 ms per file.
+- **No unmarked test may run a simulation.** Exactly one test per solver does: phiflow's and pypde's,
+  each in its own package's `tests/system/test_graphs_run.py`, both marked `slow`. Every other
+  simulation graph is *validated without being executed* — constructing a `Graph` runs all seven
+  checks and calls nothing, so the graph-JSON contract is guarded at ~0 ms per file.
 - **The framework suites name no plugin.** `coral-app/tests/specimen.py` provides a designed
   plugin surface (`SpecimenPlugin`, `RivalPlugin`, and three clash plugins that exist to be refused),
   handed to the host by patching the one name→instance lookup. Enforced from outside by
@@ -252,7 +253,8 @@ coral-app/                         # the host: discovery, node types, graph, exe
 plugins/                           # the open set: a third-party plugin is a peer of these three
 ├── coral-math/                    # entry point `math`  -> coral_plugin_math:MathPlugin
 ├── coral-string/                  # entry point `string`-> coral_plugin_string:StringPlugin
-└── coral-phiflow/                 # entry point `phiflow` -> coral_plugin_phiflow:PhiFlowPlugin (owns phiflow/jax/h5py)
+├── coral-phiflow/                 # entry point `phiflow` -> coral_plugin_phiflow:PhiFlowPlugin (owns phiflow/jax/h5py)
+└── coral-pypde/                   # entry point `pypde` -> coral_plugin_pypde:PyPDEPlugin (owns py-pde/h5py)
 ```
 
 **A plugin has four names, and only the directory drops the word `plugin`** — worth knowing before
@@ -285,7 +287,7 @@ it finds them at runtime via entry-point discovery.
 2. **Plugins (`coral-plugin-*`)** — each subclasses `Plugin` and returns today's dict-shaped surface from
    `get_functions()` / `get_classes()`. Each declares itself under the `coral.plugins` entry-point group with its
    **class** as the target, e.g. `[project.entry-points."coral.plugins"] math = "coral_plugin_math:MathPlugin"`.
-   The entry-point **name** (`math` / `string` / `phiflow`) is the identity the platform's `-p` contract uses and
+   The entry-point **name** (`math` / `string` / `phiflow` / `pypde`) is the identity the platform's `-p` contract uses and
    must not change. `coral-plugin-phiflow` declares `phiflow`/`jax`/`h5py` as hard dependencies.
 
 3. **`coral-app`** — the host. Its `__init__.py` provides:
@@ -626,7 +628,7 @@ standard library's own `numbers` tower rather than a hand-written table.
 The check only sees what a node's author declares, so **annotation quality is the author's
 responsibility**. A *slot* below is one annotation the check can look at — every input and output of
 every node type, except a method's `self` (which the port table synthesises from the class). Across
-the three plugins and the host's builtins, 88 of 120 slots are checkable and 32 are `Any` — and every
+the four plugins and the host's builtins, 114 of 146 slots are checkable and 32 are `Any` — and every
 one of the 32 is in phiflow or in the builtins, where 9 are deliberate (see below):
 
 | source | slots | `Any` | checkable |
@@ -634,6 +636,7 @@ one of the 32 is in phiflow or in the builtins, where 9 are deliberate (see belo
 | math | 28 | 0 | 28 |
 | string | 8 | 0 | 8 |
 | phiflow | 48 | 23 | 25 |
+| pypde | 26 | 0 | 26 |
 | builtins (host) | 36 | 9 | 27 |
 
 So `phiflow_iterate` returning `Tuple[Any, Any, Any]` cannot be checked, and a grid wired where a
@@ -755,7 +758,7 @@ Runnable examples: `coral run coral-app/examples/collections/list.json` (also `s
   - Functions: Use simple names in the function map (e.g., `"add"`, `"math.sqrt"`)
   - Methods: Use fully qualified names (e.g., `"Calculator.add_to_value"`)
   - Classes: Class name becomes the `type` field for constructors (e.g., `"Calculator"`)
-  - Plugin entry-point names (`math` / `string` / `phiflow`) are the platform-facing identity — do not change them.
+  - Plugin entry-point names (`math` / `string` / `phiflow` / `pypde`) are the platform-facing identity — do not change them.
 - **Type hint requirement**: All functions/methods must have type hints for proper registry generation
 - **C extension limitation**: C extension classes (like `datetime`) only register constructors, not methods (due to `inspect.isfunction()` behavior) — and the constructor is a placeholder, `object.__init__`'s `*args`/`**kwargs` as two `any` ports, not the type's real arguments
 
