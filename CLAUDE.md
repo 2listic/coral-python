@@ -206,7 +206,7 @@ graph's plugin requirement is its directory and never something inferred at run 
 
 - **No unmarked test may run a simulation.** Exactly one test per solver does: phiflow's and pypde's,
   each in its own package's `tests/system/test_graphs_run.py`, both marked `slow`. Every other
-  simulation graph is *validated without being executed* — constructing a `Graph` runs all seven
+  simulation graph is *validated without being executed* — constructing a `Graph` runs all nine
   checks and calls nothing, so the graph-JSON contract is guarded at ~0 ms per file.
 - **The framework suites name no plugin.** `coral-app/tests/specimen.py` provides a designed
   plugin surface (`SpecimenPlugin`, `RivalPlugin`, and three clash plugins that exist to be refused),

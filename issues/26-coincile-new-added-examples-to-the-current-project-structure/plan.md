@@ -63,6 +63,10 @@ Three notes:
    Name `coral-plugin-pypde`, entry point `pypde = "coral_plugin_pypde:PyPDEPlugin"`,
    `dependencies = ["coral-core", "py-pde", "h5py"]`, `[dependency-groups] test = ["coral-app"]`. The
    `import pde` is unconditional — no `try/except AVAILABLE`.
+   Shipped as a **stub** first (both surface methods returning `{}`) so the distribution is
+   installable and discoverable before step 3 fills it. Cost of that split: the invariants suite is
+   red from here until step 5, because a plugin with no `tests/unit/` makes the direction rule
+   vacuous and `TestGuardsAreNotVacuous` says so.
 2. **Wire the workspace** — one line in the root `pyproject.toml`:
    `coral-plugin-pypde = { workspace = true }`. Nothing else: `members`, coverage `source` and
    `testpaths` are all globs that already match. Then `uv lock && uv sync`, and **read the `uv.lock`
@@ -86,8 +90,10 @@ Three notes:
        └── golden/node_types.pypde.json
    ```
 6. **Record the golden** — `coral -p "pypde" register --output=…`, inspected before it is committed.
-7. **Update the docs that enumerate plugins** — `CLAUDE.md` (package-layout tree + "Available
-   plugins"), `README.md:102`, `docs/ONBOARDING.md:69`.
+7. **Update the docs** — thirteen sites, not the three this plan first listed. Nine are
+   enumerations (`CLAUDE.md` ×5, `README.md` ×2, `docs/ONBOARDING.md` ×2); four are statements that
+   a fourth plugin makes *false*: the `slow` marker's description, the "exactly one test runs a
+   simulation" rule, the annotation-slot table, and README's "ffmpeg only for `phiflow`".
 8. **Verify** — `pytest plugins/coral-pypde/tests`, `pytest -m "not slow"`,
    `uv run pre-commit run --all-files`, and the subset-install check
    (`uv pip uninstall coral-plugin-pypde && pytest` → named skips, no errors).
@@ -116,3 +122,37 @@ Three signatures differ from what the old code assumed:
 - `FileStorage`'s `write_mode` default is `"truncate_once"`, and everything after `filename` is
   keyword-only.
 - `UnitGrid(shape)` takes a sequence, so the `(x, y)` wrapper is a real simplification.
+
+## Outcome
+
+All eight steps are done. The whole suite passes with no skips: **554 tests** — 545 in the fast lane
+(1.1s) and 9 marked `slow` (49.3s, of which pypde's simulation is ~12s).
+
+| | |
+| --- | --- |
+| node types | 6 constructors + 1 method |
+| example graph | 21 nodes, 20 edges |
+| this plugin's tests | 34 (29 fast, 5 slow) |
+| annotation slots | 26, none `Any` |
+
+Three things the plan did not anticipate:
+
+- **Step 7 was four times its stated size** — see the step itself.
+- **The wrapper types do not reach the editor.** `registry.py:python_type_to_string` knows the six
+  primitives and the three collection names; every other class renders as `any`. Decision 1 still
+  buys what it was argued for — refusal while the `Graph` is constructed, before the solver starts —
+  but the platform's editor sees `any` sockets and cannot refuse a mis-wiring itself. Pinned by
+  `test_a_wrapper_typed_socket_renders_any` so it cannot change unnoticed.
+- **A stub plugin leaves the invariants suite red** between steps 1 and 5.
+
+Cleanup done alongside, none of it in this plan:
+
+- `packages/` deleted — 13 stale `.pyc` files and nothing else, the husk of the pre-refactor layout.
+  Git ignored it only because everything inside happened to match `__pycache__/`, so a real file
+  dropped there would have been tracked.
+- `dist/` rebuilt — six current wheels; it held five and was missing pypde.
+- `coral-app/tests/graphs/network-collections-{list,set,dict}.json` deleted: byte-identical to the
+  three shipped examples, so every one was validated twice per run for no extra coverage. `GRAPHS`
+  went with them, from `host_suite.py` and `test_graphs_validate.py`.
+- "all seven checks" corrected to **nine** in five files. `Graph.__init__` runs nine: eight
+  `_check_*` methods plus `nodestatus.qualified_ids`, with cycles caught in `_build_order`.

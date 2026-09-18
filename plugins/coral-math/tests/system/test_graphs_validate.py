@@ -2,7 +2,7 @@
 
 The graph JSON is one half of the contract with the DealiiX platform, and three of the files here are
 real editor exports — the ground truth for what the editor actually produces. Validating one is free:
-constructing a ``Graph`` runs all seven checks and calls nothing. Executing one costs whatever the
+constructing a ``Graph`` runs all nine checks and calls nothing. Executing one costs whatever the
 graph costs.
 
 Keeping the two apart is what lets the format be pinned cheaply. For this plugin the difference is

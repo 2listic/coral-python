@@ -1,18 +1,18 @@
 """Every graph this package ships is **valid**, checked without executing it.
 
 The graph JSON is the other half of the contract with the DealiiX platform, and validating one is
-free: constructing a ``Graph`` runs all seven checks — declared nodes, known node types, contiguous
-``target_input``, arity, ``source_output`` range, edge type compatibility, acyclicity — and touches no
-callable. Executing one, by contrast, costs whatever the graph does.
+free: constructing a ``Graph`` runs all nine checks — declared nodes, no subgraph, unique
+``qualified_id``, known node types, contiguous ``target_input``, arity, ``source_output`` range, edge
+type compatibility, acyclicity — and touches no callable. Executing one, by contrast, costs whatever
+the graph does.
 
 Separating the two is what lets the format be pinned at ~0 ms per graph. The graphs here happen to be
-cheap to run as well (they are the host's own collection graphs, and ``test_examples.py`` runs the
-examples), but for a phiflow export the same guard is the difference between milliseconds and half a
-minute.
+cheap to run as well — they are the host's collection examples, which ``test_examples.py`` executes —
+but for a phiflow export the same guard is the difference between milliseconds and half a minute.
 
-Cases are discovered from disk: a graph added to ``graphs/`` or ``examples/`` is covered the day it
-lands. Nothing declares which plugins these need, because the owning directory already answers that —
-they are under ``coral-app/``, so they need **none**.
+Cases are discovered from disk: a graph added to ``examples/`` is covered the day it lands. Nothing
+declares which plugins these need, because the owning directory already answers that — they are
+under ``coral-app/``, so they need **none**.
 """
 
 from pathlib import Path
@@ -21,16 +21,12 @@ import pytest
 from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map
 from coral_app.graph import Graph
 from coral_app.nodeports import build_port_table
-from host_suite import EXAMPLES, GRAPHS
+from host_suite import EXAMPLES
 
 
 def shipped_graphs():
-    """Every graph JSON this package ships, as parametrised cases labelled by directory."""
-    cases = []
-    for directory in (GRAPHS, EXAMPLES):
-        for path in sorted(directory.rglob("*.json")):
-            cases.append(pytest.param(path, id=f"{directory.name}/{path.name}"))
-    return cases
+    """Every graph JSON this package ships, one parametrised case each."""
+    return [pytest.param(path, id=path.name) for path in sorted(EXAMPLES.rglob("*.json"))]
 
 
 @pytest.fixture(scope="module")
@@ -59,7 +55,7 @@ class TestShippedGraphsAreValid:
         assert sorted(graph.order) == sorted(graph.nodes)
 
     def test_some_graphs_were_found(self):
-        """GIVEN the discovery globs above
-        WHEN they run against this package
-        THEN they found graphs — an empty parametrisation would pass as zero silent cases."""
-        assert shipped_graphs(), f"no graphs found under {GRAPHS} or {EXAMPLES}"
+        """GIVEN the discovery glob above
+        WHEN it runs against this package
+        THEN it found graphs — an empty parametrisation would pass as zero silent cases."""
+        assert shipped_graphs(), f"no graphs found under {EXAMPLES}"
