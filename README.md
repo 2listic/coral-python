@@ -20,8 +20,9 @@ pinned in `uv.lock`.
 - [uv](https://github.com/astral-sh/uv) installed (uv manages the interpreter and the environment —
   do not use `pip` here)
 - `ffmpeg` installed and on `PATH` (e.g. `apt install ffmpeg` / `brew install ffmpeg`) — only if you
-  work with the `phiflow` plugin: required for `.mp4` export from the PhiFlow scripts and the
-  `phiflow_plot_and_save` workflow node, which call matplotlib's `anim.save(..., writer='ffmpeg')`.
+  work with the `phiflow` or `pypde` plugins: required for `.mp4` export from the PhiFlow scripts and
+  the `phiflow_plot_and_save` workflow node, which call matplotlib's `anim.save(..., writer='ffmpeg')`,
+  and for pypde's `PyPDEMovie`, which raises at construction when ffmpeg is missing.
   Not needed for `.gif` export.
 
 ```bash
@@ -82,7 +83,7 @@ directory handed to you, or one built as above. No `uv` required.
 
 ### Prerequisites
 - Python 3.12+ with `pip`
-- `ffmpeg` on `PATH`, as above, only if you use the `phiflow` plugin
+- `ffmpeg` on `PATH`, as above, only if you use the `phiflow` or `pypde` plugins
 
 ### Install with pip
 
@@ -101,6 +102,7 @@ pip install --find-links dist coral-app
 pip install --find-links dist coral-plugin-math
 pip install --find-links dist coral-plugin-string
 pip install --find-links dist coral-plugin-phiflow   # also pulls phiflow/jax/h5py from PyPI (heavy)
+pip install --find-links dist coral-plugin-pypde     # also pulls py-pde/numba/sympy/h5py from PyPI
 ```
 
 `coral-app` alone gives a working `coral` CLI with the built-in primitives; every `coral-plugin-*`
@@ -157,6 +159,7 @@ coral run workflow.json --touch-dir /tmp/coral-status
 - `phiflow` - PhiFlow physics simulation wrappers
 - `math` - Mathematical operations (`add`, `multiply`, `math.sqrt`, etc.) and `Calculator` class
 - `string` - String processing utilities (`StringProcessor` class)
+- `pypde` - py-pde PDE-solver wrappers (`PyPDEDiffusionPDE` and its grid, field, storage and movie)
 
 ### 2. Generating the Workflow Registry File
 

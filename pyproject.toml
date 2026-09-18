@@ -38,6 +38,7 @@ coral-app = { workspace = true }
 coral-plugin-math = { workspace = true }
 coral-plugin-string = { workspace = true }
 coral-plugin-phiflow = { workspace = true }
+coral-plugin-pypde = { workspace = true }
 
 # Formatter + linter config for the whole monorepo (issue #20). No package's own `pyproject.toml`
 # declares a `[tool.ruff]`, so ruff walks up to this file for every source file it visits —
