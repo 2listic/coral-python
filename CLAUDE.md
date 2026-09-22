@@ -50,8 +50,9 @@ them from the checkout, so development never uses `pip` and never installs a plu
 
 A pre-commit hook runs `ruff format` and `ruff check` on staged Python files; both read
 `[tool.ruff]` in the root `pyproject.toml` (pinned rule set `E4/E7/E9/F/I`, 100 columns, Markdown
-excluded). Install it once per clone with `uv run pre-commit install`. Tests are deliberately not in
-the hook (no runners yet).
+excluded). Install it once per clone with `uv run pre-commit install`. A third hook runs the fast
+test lane (`pytest -m "not slow"`, ~1.5s) on every commit, whatever is staged; it excludes the fluid
+simulation and the wheel acceptance test, which is also what keeps the hook offline.
 
 ```bash
 uv run pre-commit run --all-files   # everything the hook would do, over the whole repo
