@@ -42,9 +42,10 @@ Finally, install the git hook — once per clone:
 uv run pre-commit install
 ```
 
-Every commit then runs `ruff format` and `ruff check` on the staged Python files. A formatting
-failure rewrites the files: `git add -u` and commit again. Tests are not in the hook (no runners
-yet) — run `uv run pytest` yourself.
+Every commit then runs `ruff format` and `ruff check` on the staged Python files, plus the fast test
+lane (`pytest -m "not slow"`, ~1.5s) regardless of what is staged. A formatting failure rewrites the
+files: `git add -u` and commit again. The two tests the hook skips — the fluid simulation and the
+wheel acceptance test — are yours to run with `uv run pytest`.
 
 ### Managing Dependencies
 
