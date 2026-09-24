@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "coral-plugin-pypde"
+version = "0.0.0"
+description = "Coral plugin: py-pde PDE-solver wrappers."
+requires-python = ">=3.12"
+# This plugin owns py-pde and its compilation stack (numba, llvmlite, sympy). `h5py` is named
+# explicitly because py-pde keeps it behind an `io` extra while `PyPDEFileStorage` writes HDF5;
+# `py-pde[io]` would also pull pandas, ffmpeg-python and py-modelrunner for nothing. The movie
+# additionally needs the **ffmpeg binary**, which no Python dependency can express — py-pde raises
+# at `Movie` construction when it is missing.
+dependencies = ["coral-core", "py-pde", "h5py"]
+
+# The entry-point name is this plugin's identity to the host and to the platform's `-p` option.
+[project.entry-points."coral.plugins"]
+pypde = "coral_plugin_pypde:PyPDEPlugin"
+
+# Test-only, so the wheel still requires only `coral-core` and this plugin's real libraries.
+[dependency-groups]
+test = ["coral-app"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/coral_plugin_pypde"]

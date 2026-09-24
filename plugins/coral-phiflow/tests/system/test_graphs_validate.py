@@ -3,7 +3,7 @@
 This is the file the whole "validate without executing" idea was written for. Three of these graphs are
 real editor exports — including the largest one the platform has produced, 33 nodes and 45 edges — and
 until now they were read by *nothing* except tests that ran full fluid simulations to get at them,
-between 6 and 33 seconds each. Constructing a ``Graph`` runs all seven checks, calls no wrapper, and
+between 6 and 33 seconds each. Constructing a ``Graph`` runs all nine checks, calls no wrapper, and
 starts no solver.
 
 So the C0 contract is guarded here at ~0 ms per graph, and the simulations are free to be as few and as

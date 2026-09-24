@@ -9,8 +9,5 @@ parametrise graph files over) cannot be a fixture, so it lives here instead.
 
 from pathlib import Path
 
-#: Where the host suite's own graphs live.
-GRAPHS = Path(__file__).parent / "graphs"
-
 #: The examples this package ships — the collection graphs, which need no plugin.
 EXAMPLES = Path(__file__).parent.parent / "examples"
