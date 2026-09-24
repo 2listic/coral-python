@@ -1,0 +1,9 @@
+@MicheleMatteucci a few notes on how your `pypde-plugin` work (691bcf5) was ported, so nothing here is a surprise:
+
+1. **Example.** Your branch had no coral graph, so `plugins/coral-pypde/examples/pypde/diffusion.json` is a translation of `pypde/examples/myexample.py`: same concepts, same values. Outputs now go to the cwd (`diffusion.hdf5`, `diffusion.mp4`) instead of `pypde/examples/output/`, and the plot tracker's `interrupts` is an explicit port. The script itself was not carried over.
+2. **Wrappers pass themselves, no getters.** Nodes wire the wrapper instance directly (e.g. `PyPDEMovie` into `PyPDEPlotTracker`) instead of going through `get_movie`-style method nodes as in your version and in phiflow. That was always possible in coral; it just makes the graph shorter. Ports are annotated with the wrapper types, so the host type-checks each edge before the solver starts. The cost is some unwrapping in Python (`movie.movie`). Getters can be added back per class if a case needs the raw object, but that edge becomes `Any` and loses the check.
+3. **`solve` returns the final state.** It wraps py-pde's result back into a `PyPDEScalarField` via the private classmethod `_holding`. The public constructor stays the random initial condition, and the underscore keeps `_holding` out of the node registry.
+4. **The movie is now closed.** In the original `solve`, `isinstance(tracker, Movie)` was tested on the `PlotTracker`, so `save()` never ran and the mp4 was left incomplete (your script was fine: it calls `movie.save()` directly). Now `PyPDEPlotTracker` keeps a handle to its movie and `solve` calls `plot.movie.save()`.
+5. **Known limit.** Wrapper types are written to `node_types.json` as `any`, so the editor can't refuse a mis-wiring yet, only `coral run` does. Tracked in #44.
+
+Rationale in full: `issues/26-.../plan.md`, Decisions 1 and 7.

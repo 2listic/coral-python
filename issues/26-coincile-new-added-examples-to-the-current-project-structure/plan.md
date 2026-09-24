@@ -11,7 +11,7 @@ there is no graph — so this is a port *and* a first execution.
 
 | # | question | decision | why |
 | --- | --- | --- | --- |
-| 1 | node surface shape | wrapper classes whose annotations **name the wrapper types** | graph check 8 verifies every edge at t=0; `Any` everywhere (phiflow's bargain) would skip all of them |
+| 1 | node surface shape | nodes pass the **wrapper itself** (no getter nodes), and annotations **name the wrapper types** | two independent halves. Passing wrappers shortens the graph, at the cost of unwrapping in Python (`movie.movie`, `_holding`). Naming them lets graph check 8 verify every edge at t=0; `Any` everywhere (phiflow's bargain) would skip all of them |
 | 2 | how much of the example survives | **all 6 concepts**, movie included | the mp4 is what the author was demonstrating; ffmpeg is already required by phiflow's `slow` test, so it is not a new dependency |
 | 3 | how `solve` receives its trackers | **one typed port per tracker** | coral cannot type a list's *elements*, so routing trackers through `list` hands back exactly the checking decision 1 paid for |
 | 4 | the orphan `phiflow_write` commit | **out of scope** | no code dependency — `pypde_defs.py` imports only `pde`. It needs its own redesign: its three optional ports are dead under check 6 |
@@ -141,8 +141,10 @@ Three things the plan did not anticipate:
 - **The wrapper types do not reach the editor.** `registry.py:python_type_to_string` knows the six
   primitives and the three collection names; every other class renders as `any`. Decision 1 still
   buys what it was argued for — refusal while the `Graph` is constructed, before the solver starts —
-  but the platform's editor sees `any` sockets and cannot refuse a mis-wiring itself. Pinned by
-  `test_a_wrapper_typed_socket_renders_any` so it cannot change unnoticed.
+  but the editor sees `any` sockets and cannot refuse a mis-wiring. The limit is coral's registry,
+  not the editor: its `isTypeCompatible` matches unknown type names exactly, as it already does for
+  `list`. Anticipated by #34, tracked by #44. Pinned by `test_a_wrapper_typed_socket_renders_any`
+  so it cannot change unnoticed.
 - **A stub plugin leaves the invariants suite red** between steps 1 and 5.
 
 Cleanup done alongside, none of it in this plan:
