@@ -28,7 +28,7 @@ entry                         the shape it exists for
 ``PreciseAccumulator``        a *subclass*, which must be accepted where its base is expected
 ============================  =================================================================
 
-Four plugins expose it, and the split is driven entirely by what the host's merge rules need:
+Six plugins expose it, and the split is driven entirely by what the host's merge rules need:
 
 * :class:`SpecimenPlugin` — the whole surface above. A shape only needs to exist once.
 * :class:`RivalPlugin` — a second, *non-colliding* peer. Two plugins are needed to test that the
@@ -38,6 +38,8 @@ Four plugins expose it, and the split is driven entirely by what the host's merg
   class of its (``Accumulator``), and one of the *host's* builtins (``list_append``). All three must
   raise ``DuplicateNodeTypeError``. They exist only to be refused, and so are never merged with the
   others in a passing case.
+* :class:`CollectionClashPlugin` — declares a class keyed ``list``, a collection type name that no
+  node may claim. It must raise ``DuplicateNodeTypeError`` too.
 
 Nothing here is a distribution: no entry point, no ``pyproject.toml``. The suite hands these to the
 host by patching the one lookup that maps a plugin *name* to a plugin instance — see the
@@ -56,11 +58,13 @@ __all__ = [
     "FUNCTION_CLASH",
     "CLASS_CLASH",
     "BUILTIN_CLASH",
+    "COLLECTION_CLASH",
     "SpecimenPlugin",
     "RivalPlugin",
     "FunctionClashPlugin",
     "ClassClashPlugin",
     "BuiltinClashPlugin",
+    "CollectionClashPlugin",
     "Accumulator",
     "Gauge",
     "PreciseAccumulator",
@@ -273,6 +277,16 @@ class BuiltinClashPlugin(Plugin):
         return {}
 
 
+class CollectionClashPlugin(Plugin):
+    """Declares a class keyed ``list``, a collection type name; selecting it is refused."""
+
+    def get_functions(self) -> Dict[str, Any]:
+        return {}
+
+    def get_classes(self) -> Dict[str, Any]:
+        return {"list": Tally}
+
+
 #: The name each specimen plugin is selected by. Any string would do: these are keys into the
 #: lookup the ``specimen_plugins`` fixture patches in, not entry-point names, and no distribution
 #: declares them. They are deliberately unlike any real plugin's name.
@@ -281,6 +295,7 @@ RIVAL = "rival"
 FUNCTION_CLASH = "function-clash"
 CLASS_CLASH = "class-clash"
 BUILTIN_CLASH = "builtin-clash"
+COLLECTION_CLASH = "collection-clash"
 
 #: Every specimen plugin, by the name it is selected under.
 PLUGINS = {
@@ -289,4 +304,5 @@ PLUGINS = {
     FUNCTION_CLASH: FunctionClashPlugin,
     CLASS_CLASH: ClassClashPlugin,
     BUILTIN_CLASH: BuiltinClashPlugin,
+    COLLECTION_CLASH: CollectionClashPlugin,
 }

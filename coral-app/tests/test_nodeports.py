@@ -371,6 +371,37 @@ class TestDeclaredNameClashIsRefused:
         assert FUNCTION in message and CONSTRUCTOR in message
 
 
+class TestCollectionNamesAreReserved:
+    """``list``, ``set`` and ``dict`` are socket types that no node creates, so no node may claim one."""
+
+    def test_a_class_named_after_a_collection_raises(self):
+        """GIVEN a class keyed ``list``
+        WHEN the table is built
+        THEN DuplicateNodeTypeError is raised."""
+        with pytest.raises(DuplicateNodeTypeError):
+            build_port_table(class_map={"list": Widget})
+
+    def test_a_function_named_after_a_collection_raises(self):
+        """GIVEN a function keyed ``dict``
+        WHEN the table is built
+        THEN DuplicateNodeTypeError is raised."""
+        with pytest.raises(DuplicateNodeTypeError):
+            build_port_table(function_map={"dict": annotated})
+
+    def test_a_method_named_after_a_collection_is_accepted(self):
+        """GIVEN a class with a public method named ``list``
+        WHEN the table is built
+        THEN ``Shelf.list`` is a method entry — only a bare name can claim a type name."""
+
+        class Shelf:
+            def list(self) -> str:
+                return ""
+
+        table = build_port_table(class_map={"Shelf": Shelf})
+
+        assert table["Shelf.list"].kind == METHOD
+
+
 class TestTupleReturnAnnotations:
     """A tuple return must declare its elements.
 

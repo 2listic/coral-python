@@ -296,6 +296,17 @@ class TestPrimitiveEntries:
         with pytest.raises(DuplicateNodeTypeError):
             generate_registry(dict(BUILTIN_FUNCTIONS), list(PRIMITIVES_MAP), {"int": Widget})
 
+    def test_a_class_named_after_a_collection_is_refused(self):
+        """GIVEN a class keyed ``set``
+        WHEN the registry is generated
+        THEN DuplicateNodeTypeError is raised, as it is when a graph is run with the same class."""
+
+        class Widget:
+            pass
+
+        with pytest.raises(DuplicateNodeTypeError):
+            generate_registry(dict(BUILTIN_FUNCTIONS), list(PRIMITIVES_MAP), {"set": Widget})
+
 
 class TestBuiltinCollectionEntries:
     """The host's own collection nodes, as the platform sees them.

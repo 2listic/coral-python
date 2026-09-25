@@ -183,34 +183,33 @@ golden gains a `base`**. Only the specimen (`PreciseAccumulator`) does. Nothing 
 
 ### Step 1 — refuse node types named `list` / `set` / `dict` (D7)
 
-- [ ] O1 asked and decided: ______ (substeps below assume the recommendation)
-- [ ] 1.1 `nodeports.py` `build_port_table`: add `reserved: Iterable[str] = ()` (import `Iterable`
-      from `typing`); in `put`, a
-      non-method `node_type` in `reserved` raises
+- [x] O1 asked and decided: `nodeports.py` imports `COLLECTION_TYPES` and checks it itself — no
+      parameter. The rule holds for every caller, so no caller can forget it (the step 0 bug).
+- [x] 1.1 `nodeports.py` `build_port_table`: import `COLLECTION_TYPES` from `coral_app.primitives`;
+      in `put`, a `node_type` in `COLLECTION_TYPES` raises
       `DuplicateNodeTypeError(f"node type {node_type!r} is a reserved type name")`; docstring
-      (`Args`, `Raises`) updated.
-  - [ ] Check: `build_port_table(class_map={"list": X}, reserved={"list"})` raises; without
-        `reserved` it does not.
-- [ ] 1.2 `registry.py` `generate_registry`: pass `reserved=COLLECTION_TYPES` (import from `coral_app`).
-  - [ ] Check: `generate_registry(dict(BUILTIN_FUNCTIONS), list(PRIMITIVES_MAP), {"list": X})` raises
+      (`Raises`) updated.
+  - [x] Check: `build_port_table(class_map={"list": X})` raises.
+- [x] 1.2 (no code change: `generate_registry` goes through `build_port_table`)
+  - [x] Check: `generate_registry(dict(BUILTIN_FUNCTIONS), list(PRIMITIVES_MAP), {"list": X})` raises
         `DuplicateNodeTypeError`.
-- [ ] 1.3 `specimen.py`: add `CollectionClashPlugin` (`get_classes` → `{"list": Tally}`,
+- [x] 1.3 `specimen.py`: add `CollectionClashPlugin` (`get_classes` → `{"list": Tally}`,
       `get_functions` → `{}`), `COLLECTION_CLASH = "collection-clash"`; add both to `__all__` and to
       `PLUGINS`; update the module docstring (the plugin count and the list of clash plugins).
-  - [ ] Check: `uv run pytest tests -q` (invariants) green.
-- [ ] 1.4 `executor.py:64`: pass `reserved=COLLECTION_TYPES`.
-  - [ ] Check: `WorkflowExecutor(path, plugins=[COLLECTION_CLASH])` raises `DuplicateNodeTypeError`
+  - [x] Check: `uv run pytest tests -q` (invariants) green.
+- [x] 1.4 (no code change: the executor goes through `build_port_table`)
+  - [x] Check: `WorkflowExecutor(path, plugins=[COLLECTION_CLASH])` raises `DuplicateNodeTypeError`
         at construction.
-- [ ] 1.5 Tests (GWT docstrings):
-  - [ ] `test_nodeports.py`, duplicate-name class (~l.330): a class keyed `list` raises; a function
+- [x] 1.5 Tests (GWT docstrings):
+  - [x] `test_nodeports.py`, duplicate-name class (~l.330): a class keyed `list` raises; a function
         keyed `dict` raises; a method key (`Widget.list`-style) is not affected.
-  - [ ] `test_registry.py`: a class keyed `set` is refused by `generate_registry`.
-  - [ ] `test_executor.py` `TestConstruction`: `WorkflowExecutor(path, plugins=[COLLECTION_CLASH])`
+  - [x] `test_registry.py`: a class keyed `set` is refused by `generate_registry`.
+  - [x] `test_executor.py` `TestConstruction`: `WorkflowExecutor(path, plugins=[COLLECTION_CLASH])`
         raises `DuplicateNodeTypeError` (fixtures: `write_graph`, `specimen_plugins`; any valid
         graph, e.g. `graph({"0": {"type": "int", "value": 1}})` — the port table is built, and
         refused, before the graph is read).
-  - [ ] Check: each new test fails without 1.1, 1.2 and 1.4, and passes with them.
-- [ ] Step checks: fast lane green · ruff check clean · ruff format clean
+  - [x] Check: each new test fails without 1.1, and passes with it.
+- [x] Step checks: fast lane green · ruff check clean · ruff format clean
 - [ ] STOP — reported to the user, go-ahead received
 
 ### Step 2 — a registered class renders as its key (D1, D2, D3, D9)
