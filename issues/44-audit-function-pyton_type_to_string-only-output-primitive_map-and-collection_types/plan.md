@@ -325,12 +325,13 @@ Every wording is shown as a diff and approved by the user.
 
 ### Step 6 — final verification and handover
 
-- [ ] 6.1 `uv run pytest -q` all green; `uv run pre-commit run --all-files` clean.
-- [ ] 6.2 `git diff --stat main...` (plus `git status` for uncommitted work): only the files of
+- [x] 6.1 `uv run pytest -q` all green; `uv run pre-commit run --all-files` clean.
+- [x] 6.2 `git diff --stat main...` (plus `git status` for uncommitted work): only the files of
       §1.6 and this plan changed.
-- [ ] 6.3 Summary to the user: what changed, the 17 + 7 socket diffs, the specimen's `base`. **No
+      `questions.md` (earlier commit) and the two plugin tests of 4.3 are the only extra files.
+- [x] 6.3 Summary to the user: what changed, the 17 + 7 socket diffs, the specimen's `base`. **No
       commit.**
-- [ ] 6.4 Draft (do not post) the two follow-up issues of §6 for the user to review.
+- [x] 6.4 Draft (do not post) the two follow-up issues of §6 for the user to review.
 
 ---
 
