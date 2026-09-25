@@ -1,0 +1,62 @@
+{
+  "workflow": {
+    "nodes": {
+      "0": {
+        "qualified_id": "0",
+        "type": "math.sqrt",
+        "position": {
+          "x": 665.9375,
+          "y": 244
+        }
+      },
+      "1": {
+        "qualified_id": "1",
+        "type": "float",
+        "value": "2",
+        "position": {
+          "x": 357.15625,
+          "y": 247.5
+        }
+      },
+      "2": {
+        "qualified_id": "2",
+        "type": "math.sin",
+        "position": {
+          "x": 431.65625,
+          "y": 393
+        }
+      },
+      "3": {
+        "qualified_id": "3",
+        "type": "print_number",
+        "position": {
+          "x": 724.65625,
+          "y": 401
+        }
+      }
+    },
+    "edges": {
+      "0": {
+        "source": 1,
+        "target": 0,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "1": {
+        "source": 0,
+        "target": 2,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "2": {
+        "source": 2,
+        "target": 3,
+        "source_output": 0,
+        "target_input": 0
+      }
+    }
+  },
+  "version": 1,
+  "author": "dealiix-platform",
+  "date_time_utc": "2025-12-19T10:03:06.230Z"
+}

@@ -1,20 +1,24 @@
-"""Wheel/pip acceptance for the plugin modularization (issue #16, Step 3.4).
+"""Wheel/pip acceptance for the packaged plugin surface.
 
 The faithful end-user path, exercised end to end: build every workspace package into a wheel, then in
-a **clean** venv install them incrementally and prove the modularization's runtime promises hold when
-the packages are consumed as *installed distributions* (not the editable workspace the other tests
-use):
+a **clean** venv install them incrementally and prove the runtime promises hold when the packages are
+consumed as *installed distributions* (not the editable workspace the other tests use):
 
-* ``coral-app`` alone is a working host          -> the registry has only the 6 primitives;
+* ``coral-app`` alone is a working host          -> the registry has only the host's own two
+                                                    surfaces, the primitives and the builtins;
 * installing a plugin adds its nodes             -> ``+coral-plugin-math`` brings ``add``/``Calculator``;
 * plugins compose                                -> ``+coral-plugin-phiflow`` brings ``phiflow`` too;
 * discovery/load stay lazy                       -> ``load("math")`` never imports ``coral_plugin_phiflow``;
 * uninstalling a plugin removes its nodes        -> ``phiflow`` disappears from discovery.
 
-This is the one heavy test (``uv build`` + a throwaway venv + installs), so it is marked ``slow``:
-it runs with a plain ``pytest`` but can be skipped with ``-m "not slow"``. ``uv`` is used for the venv
-and installs so the phiflow stack (jax/h5py/phiflow) resolves from uv's existing cache instead of
-re-downloading from PyPI on every run. Skipped if ``uv`` is not on PATH.
+This is the one heavy test (``uv build`` + a throwaway venv + installs), and it is the only test in the
+repo that needs the internet — hence **both** markers, ``slow`` and ``network``: it runs with a plain
+``pytest`` and is skipped by either ``-m "not slow"`` or ``-m "not network"``. ``uv`` is used for the
+venv and installs so the phiflow stack (jax/h5py/phiflow) resolves from uv's existing cache instead of
+re-downloading from PyPI on every run — but that only holds while the cache happens to contain what a
+*fresh* resolution picks. ``uv pip install`` does not read ``uv.lock``, so once PyPI publishes a jax
+newer than the workspace's pin, this test downloads jax+jaxlib (~4 minutes here, against 4s warm) with
+no output, because :func:`_run` captures it. Skipped if ``uv`` is not on PATH.
 """
 
 import json
@@ -25,7 +29,7 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.slow
+pytestmark = [pytest.mark.slow, pytest.mark.network]
 
 UV = shutil.which("uv")
 
@@ -82,7 +86,17 @@ class _CleanEnv:
         self.coral = venv_dir / "bin" / "coral"
 
     def install(self, *packages: str) -> None:
-        """Install packages from the local wheelhouse (heavy deps come from uv's cache)."""
+        """Install packages from the local wheelhouse (heavy deps come from uv's cache).
+
+        ``--refresh-package`` is required for each workspace package, and only for those. A wheel is
+        cached under its name and version, and these versions never change while their *content*
+        does on every commit — so without it uv happily serves a previously cached ``coral_app``,
+        and the test then asserts against whatever build the cache last saw rather than the wheels
+        the ``wheelhouse`` fixture just built. Refreshing only the local names keeps the heavy
+        third-party stack (jax/h5py/phiflow) coming from the cache, which is why this test is
+        affordable at all.
+        """
+        refresh = [arg for package in packages for arg in ("--refresh-package", package)]
         _run(
             [
                 UV,
@@ -92,6 +106,7 @@ class _CleanEnv:
                 str(self.python),
                 "--find-links",
                 str(self.dist),
+                *refresh,
                 *packages,
             ]
         )
@@ -128,17 +143,22 @@ def clean_env(wheelhouse: Path, tmp_path: Path) -> _CleanEnv:
 def test_wheel_pip_acceptance(clean_env: _CleanEnv, tmp_path: Path):
     """GIVEN wheels for the host and every plugin,
     WHEN they are pip-installed one at a time into a clean venv,
-    THEN the host works alone (primitives only), each plugin adds exactly its own nodes, load stays
-         lazy across plugins, and uninstalling a plugin removes its nodes.
+    THEN the host works alone (its primitives and builtins), each plugin adds exactly its own nodes,
+         load stays lazy across plugins, and uninstalling a plugin removes its nodes.
     """
+    from coral_app import BUILTIN_FUNCTIONS, PRIMITIVES_MAP
+
     env = clean_env
 
-    # Host alone: a complete program with zero function/class plugins -> only the 6 primitives.
+    # Host alone: a complete program with zero plugins -> the primitives plus the builtins, which
+    # ship inside the coral-app wheel itself.
     env.install("coral-app")
     assert env.discovered() == []
     host_registry = env.registry(tmp_path)
-    assert len(host_registry) == 6
-    assert all(e["node_type"] == "primitive" for e in host_registry.values())
+    assert len(host_registry) == len(PRIMITIVES_MAP) + len(BUILTIN_FUNCTIONS)
+    assert all(e["node_type"] in ("primitive", "function") for e in host_registry.values())
+    assert set(BUILTIN_FUNCTIONS) <= set(host_registry)
+    assert host_registry["list_append"]["node_type"] == "function"
 
     # + math: its function and constructor nodes appear.
     env.install("coral-plugin-math")

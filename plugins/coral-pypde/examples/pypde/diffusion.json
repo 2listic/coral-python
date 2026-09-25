@@ -1,0 +1,49 @@
+{
+  "workflow": {
+    "nodes": {
+      "0":  { "qualified_id": "0",  "type": "int",   "value": "32" },
+      "1":  { "qualified_id": "1",  "type": "int",   "value": "32" },
+      "2":  { "qualified_id": "2",  "type": "PyPDEUnitGrid" },
+      "3":  { "qualified_id": "3",  "type": "float", "value": "0.2" },
+      "4":  { "qualified_id": "4",  "type": "float", "value": "0.3" },
+      "5":  { "qualified_id": "5",  "type": "PyPDEScalarField" },
+      "6":  { "qualified_id": "6",  "type": "str",   "value": "diffusion.hdf5" },
+      "7":  { "qualified_id": "7",  "type": "str",   "value": "truncate" },
+      "8":  { "qualified_id": "8",  "type": "float", "value": "1" },
+      "9":  { "qualified_id": "9",  "type": "PyPDEFileStorage" },
+      "10": { "qualified_id": "10", "type": "str",   "value": "diffusion.mp4" },
+      "11": { "qualified_id": "11", "type": "int",   "value": "3" },
+      "12": { "qualified_id": "12", "type": "int",   "value": "200" },
+      "13": { "qualified_id": "13", "type": "int",   "value": "6000" },
+      "14": { "qualified_id": "14", "type": "PyPDEMovie" },
+      "15": { "qualified_id": "15", "type": "float", "value": "1" },
+      "16": { "qualified_id": "16", "type": "PyPDEPlotTracker" },
+      "17": { "qualified_id": "17", "type": "float", "value": "0.1" },
+      "18": { "qualified_id": "18", "type": "PyPDEDiffusionPDE" },
+      "19": { "qualified_id": "19", "type": "int",   "value": "20" },
+      "20": { "qualified_id": "20", "type": "PyPDEDiffusionPDE.solve" }
+    },
+    "edges": {
+      "0":  { "source": 0,  "target": 2,  "source_output": 0, "target_input": 0 },
+      "1":  { "source": 1,  "target": 2,  "source_output": 0, "target_input": 1 },
+      "2":  { "source": 2,  "target": 5,  "source_output": 0, "target_input": 0 },
+      "3":  { "source": 3,  "target": 5,  "source_output": 0, "target_input": 1 },
+      "4":  { "source": 4,  "target": 5,  "source_output": 0, "target_input": 2 },
+      "5":  { "source": 6,  "target": 9,  "source_output": 0, "target_input": 0 },
+      "6":  { "source": 7,  "target": 9,  "source_output": 0, "target_input": 1 },
+      "7":  { "source": 8,  "target": 9,  "source_output": 0, "target_input": 2 },
+      "8":  { "source": 10, "target": 14, "source_output": 0, "target_input": 0 },
+      "9":  { "source": 11, "target": 14, "source_output": 0, "target_input": 1 },
+      "10": { "source": 12, "target": 14, "source_output": 0, "target_input": 2 },
+      "11": { "source": 13, "target": 14, "source_output": 0, "target_input": 3 },
+      "12": { "source": 14, "target": 16, "source_output": 0, "target_input": 0 },
+      "13": { "source": 15, "target": 16, "source_output": 0, "target_input": 1 },
+      "14": { "source": 17, "target": 18, "source_output": 0, "target_input": 0 },
+      "15": { "source": 18, "target": 20, "source_output": 0, "target_input": 0 },
+      "16": { "source": 5,  "target": 20, "source_output": 0, "target_input": 1 },
+      "17": { "source": 19, "target": 20, "source_output": 0, "target_input": 2 },
+      "18": { "source": 9,  "target": 20, "source_output": 0, "target_input": 3 },
+      "19": { "source": 16, "target": 20, "source_output": 0, "target_input": 4 }
+    }
+  }
+}

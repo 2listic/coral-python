@@ -1,0 +1,92 @@
+{
+  "workflow": {
+    "nodes": {
+      "0": {
+        "qualified_id": "0",
+        "type": "float",
+        "value": "3.0",
+        "position": {
+          "x": 304,
+          "y": 211.5
+        }
+      },
+      "1": {
+        "qualified_id": "1",
+        "type": "print_number",
+        "position": {
+          "x": 1296.4665983931754,
+          "y": 434.97657339760724
+        }
+      },
+      "2": {
+        "qualified_id": "2",
+        "type": "float",
+        "value": "2",
+        "position": {
+          "x": 333.5492862144865,
+          "y": 369.84117824551794
+        }
+      },
+      "3": {
+        "qualified_id": "3",
+        "type": "add",
+        "position": {
+          "x": 653.5527639131286,
+          "y": 237.56010539744705
+        }
+      },
+      "5": {
+        "qualified_id": "5",
+        "type": "float",
+        "value": "4",
+        "position": {
+          "x": 593.2481571735668,
+          "y": 508.9308357254747
+        }
+      },
+      "6": {
+        "qualified_id": "6",
+        "type": "multiply",
+        "position": {
+          "x": 965.7750020324723,
+          "y": 322.1810858223159
+        }
+      }
+    },
+    "edges": {
+      "0": {
+        "source": 0,
+        "target": 3,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "1": {
+        "source": 2,
+        "target": 3,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "2": {
+        "source": 3,
+        "target": 6,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "3": {
+        "source": 5,
+        "target": 6,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "4": {
+        "source": 6,
+        "target": 1,
+        "source_output": 0,
+        "target_input": 0
+      }
+    }
+  },
+  "version": 1,
+  "author": "dealiix-platform",
+  "date_time_utc": "2025-12-16T15:14:12.580Z"
+}

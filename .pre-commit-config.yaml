@@ -6,8 +6,9 @@
 # ruff honour the `extend-exclude` in pyproject.toml even for explicitly-passed paths, which is how
 # pre-commit invokes it.
 #
-# Tests are deliberately NOT wired in here: the project has no runners yet (see the issue). Run
-# them yourself with `uv run pytest`.
+# The test hook runs the fast lane only. Both costly markers stay out of a commit: `slow` is the
+# ~33s fluid simulation, and the wheel acceptance test carries `slow` *and* `network`, so excluding
+# `slow` is also what keeps the hook offline. The full suite is `uv run pytest`.
 #
 # Install with: uv run pre-commit install
 repos:
@@ -28,3 +29,14 @@ repos:
         language: system
         types_or: [python, pyi]
         require_serial: true
+
+      # Runs on every commit whatever is staged (`always_run`): a graph JSON, `pyproject.toml` or
+      # `pytest.ini` change can break a test exactly as a `.py` can. `-q` cancels the `-v` in
+      # pytest.ini -- pre-commit shows this output only on failure, and what one reads there is the
+      # tracebacks and the `-ra` summary, not a 500-line inventory of test names.
+      - id: pytest
+        name: pytest (fast lane)
+        entry: uv run --frozen pytest -m "not slow" -q
+        language: system
+        pass_filenames: false
+        always_run: true
