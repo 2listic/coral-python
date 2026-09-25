@@ -339,6 +339,103 @@ class TestClassSockets:
         ]
 
 
+class TestBase:
+    """A constructor whose class has a registered ancestor names it in ``base``: the key of the
+    first registered class in its MRO after itself."""
+
+    def test_a_subclass_names_its_base(self, registry):
+        """GIVEN the specimen subclass PreciseAccumulator(Accumulator), both registered
+        WHEN its constructor entry is read
+        THEN ``base`` is ``Accumulator``."""
+        assert registry["PreciseAccumulator"]["base"] == "Accumulator"
+
+    def test_a_class_with_no_registered_ancestor_has_no_base_key(self, registry):
+        """GIVEN classes whose only ancestor is ``object``
+        WHEN their constructor entries are read
+        THEN none carries a ``base`` key — absent, not null nor empty."""
+        assert "base" not in registry["Accumulator"]
+        assert "base" not in registry["Gauge"]
+
+    def test_the_nearest_registered_ancestor_is_named(self):
+        """GIVEN C(B(A)), all three registered
+        WHEN the registry is generated
+        THEN C's base is B, and B's is A."""
+
+        class A:
+            pass
+
+        class B(A):
+            pass
+
+        class C(B):
+            pass
+
+        registry = generate_registry({}, list(PRIMITIVES_MAP), {"A": A, "B": B, "C": C})
+
+        assert registry["C"]["base"] == "B"
+        assert registry["B"]["base"] == "A"
+
+    def test_an_unregistered_ancestor_is_skipped(self):
+        """GIVEN C(B(A)) with only A and C registered
+        WHEN the registry is generated
+        THEN C's base is A: B has no node, so it cannot be named."""
+
+        class A:
+            pass
+
+        class B(A):
+            pass
+
+        class C(B):
+            pass
+
+        registry = generate_registry({}, list(PRIMITIVES_MAP), {"A": A, "C": C})
+
+        assert registry["C"]["base"] == "A"
+
+    def test_multiple_inheritance_names_the_first_parent_in_mro_order(self):
+        """GIVEN D(A, B), all three registered
+        WHEN the registry is generated
+        THEN D's base is A alone."""
+
+        class A:
+            pass
+
+        class B:
+            pass
+
+        class D(A, B):
+            pass
+
+        registry = generate_registry({}, list(PRIMITIVES_MAP), {"A": A, "B": B, "D": D})
+
+        assert registry["D"]["base"] == "A"
+
+    def test_base_is_the_ancestor_key_not_its_name(self):
+        """GIVEN a base class registered under a key other than its ``__name__``
+        WHEN the registry is generated
+        THEN the subclass's base is that key."""
+
+        class A:
+            pass
+
+        class B(A):
+            pass
+
+        registry = generate_registry({}, list(PRIMITIVES_MAP), {"Root": A, "B": B})
+
+        assert registry["B"]["base"] == "Root"
+
+    def test_method_entries_never_carry_base(self, registry):
+        """GIVEN the specimen, whose subclass has methods of its own and inherited ones
+        WHEN the method entries are read
+        THEN none carries a ``base`` key: only a constructor entry does."""
+        methods = [entry for entry in registry.values() if entry["node_type"] == "method"]
+
+        assert methods
+        assert all("base" not in entry for entry in methods)
+
+
 class TestPrimitiveEntries:
     """Primitives are always present, and are the one kind carrying a `value`."""
 

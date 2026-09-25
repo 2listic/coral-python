@@ -77,22 +77,35 @@ def _add_function_node(
 
 
 def _add_constructor(
-    registry: Dict, class_name: str, ports: NodePorts, class_names: Mapping[type, str]
+    registry: Dict,
+    class_name: str,
+    cls: type,
+    ports: NodePorts,
+    class_names: Mapping[type, str],
 ) -> None:
     """Add a constructor node to the registry, keyed by the class name.
 
     The instance a constructor produces is written as ``outputs: [-1]`` with no output argument —
     the file format's convention for "one unnamed output".
+
+    A class with a registered ancestor also carries ``"base"``: the key of the first registered
+    class in its MRO after itself, so an unregistered class in between is skipped. The front end
+    types the constructor's output as ``base`` when there is one. Only one ancestor is named, so
+    under multiple inheritance a second registered parent is not recorded.
     """
     arguments, inputs = _number_inputs(ports, class_names)
 
-    registry[class_name] = {
+    entry = {
         "arguments": arguments,
         "inputs": inputs,
         "outputs": [-1],
         "node_type": "constructor",
         "type": class_name,
     }
+    base = next((class_names[c] for c in cls.__mro__[1:] if c in class_names), None)
+    if base is not None:
+        entry["base"] = base
+    registry[class_name] = entry
 
 
 def _add_methods(
@@ -136,7 +149,8 @@ def generate_registry(
     come from the port table, which the executor reads too.
 
     A socket typed with a registered class carries the class's key in ``class_map``, the same
-    string its constructor entry is keyed by. Any other class is ``"any"``.
+    string its constructor entry is keyed by. Any other class is ``"any"``. A constructor whose
+    class has a registered ancestor also carries ``"base"``, that ancestor's key.
 
     Args:
         function_map: Mapping of function name -> callable.
@@ -189,7 +203,9 @@ def generate_registry(
     # Add class constructors and methods
     if class_map:
         for class_name in class_map:
-            _add_constructor(registry, class_name, port_table[class_name], class_names)
+            _add_constructor(
+                registry, class_name, class_map[class_name], port_table[class_name], class_names
+            )
 
         for class_name in class_map:
             _add_methods(registry, class_name, port_table, class_names)

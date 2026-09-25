@@ -250,26 +250,26 @@ golden gains a `base`**. Only the specimen (`PreciseAccumulator`) does. Nothing 
   - [x] O2's behaviour (in `test_nodeports.py`, where the rule lives).
 - [x] Step checks: fast lane — the **only** failures are the five golden byte tests (format + four
       plugins; fixed in step 4) · ruff check clean · ruff format clean
-- [ ] STOP — reported to the user, go-ahead received
+- [x] STOP — reported to the user, go-ahead received
 
 ### Step 3 — emit `base` (D4, D5, D6)
 
-- [ ] O3 asked and decided: ______
-- [ ] 3.1 `registry.py` `_add_constructor`: receive the class (`class_map[class_name]`) and
+- [x] O3 asked and decided: `"base"` goes last, after `"type"` — existing bytes do not move.
+- [x] 3.1 `registry.py` `_add_constructor`: receive the class (`class_map[class_name]`) and
       `class_names`; `base = next((class_names[c] for c in cls.__mro__[1:] if c in class_names), None)`;
       if not `None`, add `"base": base` at the O3 position. Docstring: what `base` is, that the front
       end reads it.
-  - [ ] Check: specimen `PreciseAccumulator` has `"base": "Accumulator"`; `Accumulator`, `Gauge`,
+  - [x] Check: specimen `PreciseAccumulator` has `"base": "Accumulator"`; `Accumulator`, `Gauge`,
         `Tally` have no `base` key.
-- [ ] 3.2 Tests in `test_registry.py` (GWT), local classes where the specimen lacks the shape:
-  - [ ] `PreciseAccumulator` carries `"base": "Accumulator"`.
-  - [ ] a class with no registered ancestor has no `base` key (not `null`, not `""`).
-  - [ ] three levels `C(B(A))`, all registered: `C`'s base is `B`, `B`'s is `A`.
-  - [ ] unregistered middle, `C(B(A))` with only `A` and `C` registered: `C`'s base is `A`.
-  - [ ] multiple inheritance `D(A, B)`, both registered: `base` is `A` (MRO order).
-  - [ ] `base` is the **key**, not `__name__`.
-  - [ ] method entries never carry `base`.
-- [ ] Step checks: fast lane — again only the five golden byte tests fail · ruff check clean · ruff
+- [x] 3.2 Tests in `test_registry.py` (GWT), local classes where the specimen lacks the shape:
+  - [x] `PreciseAccumulator` carries `"base": "Accumulator"`.
+  - [x] a class with no registered ancestor has no `base` key (not `null`, not `""`).
+  - [x] three levels `C(B(A))`, all registered: `C`'s base is `B`, `B`'s is `A`.
+  - [x] unregistered middle, `C(B(A))` with only `A` and `C` registered: `C`'s base is `A`.
+  - [x] multiple inheritance `D(A, B)`, both registered: `base` is `A` (MRO order).
+  - [x] `base` is the **key**, not `__name__`.
+  - [x] method entries never carry `base`.
+- [x] Step checks: fast lane — again only the five golden byte tests fail · ruff check clean · ruff
       format clean
 - [ ] STOP — reported to the user, go-ahead received
 
