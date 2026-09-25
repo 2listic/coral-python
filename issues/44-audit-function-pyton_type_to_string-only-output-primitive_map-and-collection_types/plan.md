@@ -210,41 +210,45 @@ golden gains a `base`**. Only the specimen (`PreciseAccumulator`) does. Nothing 
         refused, before the graph is read).
   - [x] Check: each new test fails without 1.1, and passes with it.
 - [x] Step checks: fast lane green · ruff check clean · ruff format clean
-- [ ] STOP — reported to the user, go-ahead received
+- [x] STOP — reported to the user, go-ahead received
 
 ### Step 2 — a registered class renders as its key (D1, D2, D3, D9)
 
-- [ ] O2 asked and decided: ______
-- [ ] 2.1 `registry.py` `python_type_to_string(py_type, class_names: Mapping[type, str] = None)`
+- [x] O2 asked and decided: refused with `DuplicateNodeTypeError` naming both keys, in
+      `build_port_table` — every map passes through it, so `register` and `run` both refuse.
+- [x] 2.0 `nodeports.py` `build_port_table`: the O2 refusal; the two tests that register `Widget`
+      under two keys (`test_methods_of_lists_one_class`,
+      `test_a_constructor_wins_over_a_method_of_the_same_key`) get a class of their own.
+- [x] 2.1 `registry.py` `python_type_to_string(py_type, class_names: Mapping[type, str] = None)`
       (add `Mapping` to the `typing` import):
       after the `TYPE_NAMES` lookup, `if class_names and py_type in class_names: return
       class_names[py_type]`; final fallback stays `"any"`. Docstring rewritten: the three sources
       (primitives, collections, registered classes); anything else, generics included, is `"any"`.
-  - [ ] Check: `python_type_to_string(X, {X: "X"}) == "X"`; `python_type_to_string(X) == "any"`;
+  - [x] Check: `python_type_to_string(X, {X: "X"}) == "X"`; `python_type_to_string(X) == "any"`;
         `python_type_to_string(List[X], {X: "X"}) == "any"`.
-- [ ] 2.2 Thread `class_names` through `_create_input_argument`, `_create_output_argument`,
+- [x] 2.2 Thread `class_names` through `_create_input_argument`, `_create_output_argument`,
       `_number_inputs`, `_number_outputs`, `_add_function_node`, `_add_constructor`, `_add_methods`.
-  - [ ] Check: `grep -n "python_type_to_string(" coral-app/src/coral_app/registry.py` shows no call
+  - [x] Check: `grep -n "python_type_to_string(" coral-app/src/coral_app/registry.py` shows no call
         without `class_names`.
-- [ ] 2.3 `generate_registry`: build `class_names = {cls: name for name, cls in (class_map or {}).items()}`
-      once; apply O2; pass it down. Docstring updated (class sockets carry the class key).
-  - [ ] Check: on the specimen, `Accumulator.add`'s `self` is `"Accumulator"`.
-- [ ] 2.4 Existing tests whose statement becomes false:
-  - [ ] `test_registry.py::TestConstructorAndMethodEntries::test_a_method_takes_the_instance_at_port_zero`:
+- [x] 2.3 `generate_registry`: build `class_names = {cls: name for name, cls in (class_map or {}).items()}`
+      once; pass it down. Docstring updated (class sockets carry the class key).
+  - [x] Check: on the specimen, `Accumulator.add`'s `self` is `"Accumulator"`.
+- [x] 2.4 Existing tests whose statement becomes false:
+  - [x] `test_registry.py::TestConstructorAndMethodEntries::test_a_method_takes_the_instance_at_port_zero`:
         `self` is `"Accumulator"`; docstring rewritten (it says the format has no name for a class).
-  - [ ] `test_registry.py::TestPythonTypeToString::test_an_unknown_class_is_any`: assertion kept;
+  - [x] `test_registry.py::TestPythonTypeToString::test_an_unknown_class_is_any`: assertion kept;
         docstring → "a class not registered by any selected plugin".
-- [ ] 2.5 New tests in `test_registry.py` (GWT):
-  - [ ] a registered class renders as its key.
-  - [ ] a registered class inside `List[...]` / `Optional[...]` stays `"any"`.
-  - [ ] a class registered under a key different from its `__name__` renders as the **key**.
-  - [ ] a subclass's inherited method has `self` = the **subclass's** key
+- [x] 2.5 New tests in `test_registry.py` (GWT):
+  - [x] a registered class renders as its key.
+  - [x] a registered class inside `List[...]` / `Optional[...]` stays `"any"`.
+  - [x] a class registered under a key different from its `__name__` renders as the **key**.
+  - [x] a subclass's inherited method has `self` = the **subclass's** key
         (`PreciseAccumulator.add` → `"PreciseAccumulator"`).
-  - [ ] a parameter annotated with a registered class carries its key (local classes via
+  - [x] a parameter annotated with a registered class carries its key (local classes via
         `generate_registry`; do not grow the specimen for it).
-  - [ ] a return annotated with a registered class carries its key (same).
-  - [ ] O2's behaviour.
-- [ ] Step checks: fast lane — the **only** failures are the five golden byte tests (format + four
+  - [x] a return annotated with a registered class carries its key (same).
+  - [x] O2's behaviour (in `test_nodeports.py`, where the rule lives).
+- [x] Step checks: fast lane — the **only** failures are the five golden byte tests (format + four
       plugins; fixed in step 4) · ruff check clean · ruff format clean
 - [ ] STOP — reported to the user, go-ahead received
 

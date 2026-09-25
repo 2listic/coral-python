@@ -288,7 +288,12 @@ class TestMethodEnumeration:
         """GIVEN a table built from two classes
         WHEN one class's methods are requested
         THEN only that class's fully qualified method keys come back."""
-        table = build_port_table(class_map={"Widget": Widget, "Other": Widget})
+
+        class Other:
+            def resize(self, factor: float) -> float:
+                return factor
+
+        table = build_port_table(class_map={"Widget": Widget, "Other": Other})
 
         assert methods_of(table, "Widget") == [
             "Widget.describe",
@@ -321,7 +326,11 @@ class TestPrecedence:
         """GIVEN a class keyed ``Widget.resize`` alongside the class ``Widget``
         WHEN the table is built
         THEN the constructor keeps the key, and nothing is refused."""
-        table = build_port_table(class_map={"Widget.resize": Widget, "Widget": Widget})
+
+        class Resizer:
+            pass
+
+        table = build_port_table(class_map={"Widget.resize": Resizer, "Widget": Widget})
 
         assert table["Widget.resize"].kind == CONSTRUCTOR
 
@@ -400,6 +409,20 @@ class TestCollectionNamesAreReserved:
         table = build_port_table(class_map={"Shelf": Shelf})
 
         assert table["Shelf.list"].kind == METHOD
+
+
+class TestAClassHasOneKey:
+    """A class is named by its key, so one registered under two keys is refused."""
+
+    def test_a_class_under_two_keys_raises(self):
+        """GIVEN one class registered under the keys ``First`` and ``Second``
+        WHEN the table is built
+        THEN DuplicateNodeTypeError is raised, and the message names both keys."""
+        with pytest.raises(DuplicateNodeTypeError) as raised:
+            build_port_table(class_map={"First": Widget, "Second": Widget})
+
+        message = str(raised.value)
+        assert "'First'" in message and "'Second'" in message
 
 
 class TestTupleReturnAnnotations:

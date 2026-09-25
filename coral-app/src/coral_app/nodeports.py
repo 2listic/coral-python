@@ -204,6 +204,8 @@ def build_port_table(
             of the same name is *not* an error: see ``put`` below. Also raised for a node type named
             after a collection type (``list``, ``set``, ``dict``): those names are socket types with
             no node behind them, and a node claiming one would be indistinguishable from them.
+            Also raised for one class registered under two keys: a class is named by its key, so
+            it would have two names.
         ValueError: if any callable returns a tuple without declaring its elements — see
             :func:`_outputs_from_return`. This fires while the table is built, so a badly annotated
             function in an installed plugin fails the host rather than yielding a wrong registry.
@@ -240,7 +242,15 @@ def build_port_table(
     for func_name, func in (function_map or {}).items():
         put(func_name, _function_ports(func, func_name))
 
+    # One class, one key: the key is the class's name wherever the class types a port.
+    registered_as: Dict[type, str] = {}
     for class_name, cls in (class_map or {}).items():
+        if cls in registered_as:
+            raise DuplicateNodeTypeError(
+                f"class {cls.__name__!r} is registered as both {registered_as[cls]!r} and "
+                f"{class_name!r}"
+            )
+        registered_as[cls] = class_name
         put(class_name, _constructor_ports(cls))
 
     for class_name, cls in (class_map or {}).items():

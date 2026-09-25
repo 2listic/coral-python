@@ -12,7 +12,7 @@ anyone can see what changed.
 
 import json
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, Optional
 
 import pytest
 from coral_app import BUILTIN_FUNCTIONS, PRIMITIVES_MAP, build_class_map, build_function_map
@@ -83,14 +83,36 @@ class TestPythonTypeToString:
         assert python_type_to_string(inspect.Signature.empty) == "any"
 
     def test_an_unknown_class_is_any(self):
-        """GIVEN a class the format has no name for
+        """GIVEN a class not registered by any selected plugin
         WHEN it is rendered
-        THEN it is 'any' — an instance socket carries no class name in this format."""
+        THEN it is 'any' — no node could produce it, so there is no name to give it."""
 
         class Custom:
             pass
 
         assert python_type_to_string(Custom) == "any"
+
+    def test_a_registered_class_is_its_key(self):
+        """GIVEN a class and a lookup naming it
+        WHEN it is rendered with that lookup
+        THEN it is the name the lookup gives."""
+
+        class Custom:
+            pass
+
+        assert python_type_to_string(Custom, {Custom: "Custom"}) == "Custom"
+
+    def test_a_registered_class_inside_a_generic_is_any(self):
+        """GIVEN a registered class wrapped in List[...] or Optional[...]
+        WHEN each is rendered with the lookup
+        THEN both are 'any': only the bare class has a name."""
+
+        class Custom:
+            pass
+
+        names = {Custom: "Custom"}
+        assert python_type_to_string(List[Custom], names) == "any"
+        assert python_type_to_string(Optional[Custom], names) == "any"
 
 
 class TestEveryEntryIsWellFormed:
@@ -226,14 +248,11 @@ class TestConstructorAndMethodEntries:
     def test_a_method_takes_the_instance_at_port_zero(self, registry):
         """GIVEN a method with one parameter
         WHEN its entry is read
-        THEN port 0 is the instance and the parameter follows.
-
-        The instance socket renders as 'any': the format has no name for a class, which is why an
-        instance edge is checked by the *graph* against annotations rather than by the editor."""
+        THEN port 0 is the instance, typed with the class's key, and the parameter follows."""
         entry = registry["Accumulator.add"]
 
         assert inputs_of(entry) == [
-            {"connection_type": "input", "type": "any", "name": "self"},
+            {"connection_type": "input", "type": "Accumulator", "name": "self"},
             {"connection_type": "input", "type": "float", "name": "amount"},
         ]
         assert entry["outputs"] == [2]
@@ -259,6 +278,65 @@ class TestConstructorAndMethodEntries:
         assert registry["PreciseAccumulator"]["node_type"] == "constructor"
         assert registry["PreciseAccumulator.rounded"]["node_type"] == "method"
         assert registry["PreciseAccumulator.add"]["node_type"] == "method"
+
+
+class TestClassSockets:
+    """A socket typed with a registered class carries the class's key: the string the front end
+    also gives the instance that class's constructor produces, so the two match."""
+
+    def test_the_key_is_used_not_the_class_name(self):
+        """GIVEN a class registered under a key other than its ``__name__``
+        WHEN the registry is generated
+        THEN its instance port carries the key, which is what names its constructor entry."""
+
+        class Custom:
+            def ping(self) -> int:
+                return 0
+
+        registry = generate_registry({}, list(PRIMITIVES_MAP), {"Renamed": Custom})
+
+        assert inputs_of(registry["Renamed.ping"])[0]["type"] == "Renamed"
+
+    def test_an_inherited_method_takes_the_subclass_at_port_zero(self, registry):
+        """GIVEN a subclass whose method is inherited from its base
+        WHEN its entry is read
+        THEN the instance port carries the subclass's key, not the base's."""
+        assert inputs_of(registry["PreciseAccumulator.add"])[0]["type"] == "PreciseAccumulator"
+
+    def test_a_parameter_annotated_with_a_registered_class_carries_its_key(self):
+        """GIVEN a constructor taking an instance of another registered class
+        WHEN the registry is generated
+        THEN that input is typed with the other class's key."""
+
+        class Engine:
+            pass
+
+        class Car:
+            def __init__(self, engine: Engine):
+                self.engine = engine
+
+        registry = generate_registry({}, list(PRIMITIVES_MAP), {"Engine": Engine, "Car": Car})
+
+        assert inputs_of(registry["Car"]) == [
+            {"connection_type": "input", "type": "Engine", "name": "engine"}
+        ]
+
+    def test_a_return_annotated_with_a_registered_class_carries_its_key(self):
+        """GIVEN a function returning an instance of a registered class
+        WHEN the registry is generated
+        THEN its output is typed with the class's key."""
+
+        class Engine:
+            pass
+
+        def build() -> Engine:
+            return Engine()
+
+        registry = generate_registry({"build": build}, list(PRIMITIVES_MAP), {"Engine": Engine})
+
+        assert outputs_of(registry["build"]) == [
+            {"connection_type": "output", "type": "Engine", "name": ""}
+        ]
 
 
 class TestPrimitiveEntries:
