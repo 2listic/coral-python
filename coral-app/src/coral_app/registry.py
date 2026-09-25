@@ -137,8 +137,13 @@ def generate_registry(
 
     # One entry per node type, describing its connections. Note the emission loops below iterate the
     # *maps*, never the table: the key order of `node_types.json` is part of the contract, and the
-    # table is only ever a lookup.
-    port_table = build_port_table(function_map=function_map, class_map=class_map)
+    # table is only ever a lookup. The primitives go in too, so that a function or class named after
+    # one is refused here exactly as it is when a graph is run.
+    port_table = build_port_table(
+        function_map=function_map,
+        class_map=class_map,
+        primitives={name: PRIMITIVES_MAP[name] for name in primitives},
+    )
 
     # Add primitive types, keyed by the primitive type name. Primitives take no inputs, but the
     # empty `arguments` list is required: the platform's registry validator skips any entry lacking

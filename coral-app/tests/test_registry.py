@@ -16,6 +16,7 @@ from typing import Any, List
 
 import pytest
 from coral_app import BUILTIN_FUNCTIONS, PRIMITIVES_MAP, build_class_map, build_function_map
+from coral_app.errors import DuplicateNodeTypeError
 from coral_app.registry import generate_registry, python_type_to_string, save_registry_to_file
 from specimen import RIVAL, SPECIMEN
 
@@ -283,6 +284,17 @@ class TestPrimitiveEntries:
         WHEN the registry is generated
         THEN every primitive type name has an entry: they are the host's, not a plugin's."""
         assert set(PRIMITIVES_MAP) <= set(registry)
+
+    def test_a_class_named_after_a_primitive_is_refused(self):
+        """GIVEN a class keyed ``int``
+        WHEN the registry is generated
+        THEN DuplicateNodeTypeError is raised, as it is when a graph is run with the same class."""
+
+        class Widget:
+            pass
+
+        with pytest.raises(DuplicateNodeTypeError):
+            generate_registry(dict(BUILTIN_FUNCTIONS), list(PRIMITIVES_MAP), {"int": Widget})
 
 
 class TestBuiltinCollectionEntries:
