@@ -27,6 +27,9 @@ actually been run and passed.
 8. Vocabulary: **front end** = dealiiX-platform (TypeScript); **back end** = coral-python, or the
    C++ `2listic/coral`. The word "editor" is banned — it is ambiguous (the C++ repo's local directory
    is called `coral-editor`).
+9. Under `coral-core/tests` and `coral-app/tests`, never write a string literal equal to a plugin
+   name (`"math"`, `"string"`, `"phiflow"`, `"pypde"`) — not even in a docstring: the invariants
+   (`tests/invariants/test_source_rules.py`) fail on it.
 
 Checks available at any time (no approval needed):
 
@@ -170,7 +173,7 @@ golden gains a `base`**. Only the specimen (`PreciseAccumulator`) does. Nothing 
 
 ## 5. Steps
 
-### Step 0 — `register` refuses what `run` refuses (D8) — DONE
+### Step 0 — `register` refuses what `run` refuses (D8) — DONE, committed in `65b75b2`
 
 - [x] 0.1 `registry.py` `generate_registry`: `build_port_table(..., primitives={name: PRIMITIVES_MAP[name] for name in primitives})`; comment extended.
 - [x] 0.2 `test_registry.py`: import `DuplicateNodeTypeError`; new test
@@ -181,7 +184,8 @@ golden gains a `base`**. Only the specimen (`PreciseAccumulator`) does. Nothing 
 ### Step 1 — refuse node types named `list` / `set` / `dict` (D7)
 
 - [ ] O1 asked and decided: ______ (substeps below assume the recommendation)
-- [ ] 1.1 `nodeports.py` `build_port_table`: add `reserved: Iterable[str] = ()`; in `put`, a
+- [ ] 1.1 `nodeports.py` `build_port_table`: add `reserved: Iterable[str] = ()` (import `Iterable`
+      from `typing`); in `put`, a
       non-method `node_type` in `reserved` raises
       `DuplicateNodeTypeError(f"node type {node_type!r} is a reserved type name")`; docstring
       (`Args`, `Raises`) updated.
@@ -190,26 +194,30 @@ golden gains a `base`**. Only the specimen (`PreciseAccumulator`) does. Nothing 
 - [ ] 1.2 `registry.py` `generate_registry`: pass `reserved=COLLECTION_TYPES` (import from `coral_app`).
   - [ ] Check: `generate_registry(dict(BUILTIN_FUNCTIONS), list(PRIMITIVES_MAP), {"list": X})` raises
         `DuplicateNodeTypeError`.
-- [ ] 1.3 `executor.py:64`: pass `reserved=COLLECTION_TYPES`.
-  - [ ] Check: a `WorkflowExecutor` whose plugin declares a class `list` raises at construction.
-- [ ] 1.4 `specimen.py`: add `CollectionClashPlugin` (`get_classes` → `{"list": Tally}`,
+- [ ] 1.3 `specimen.py`: add `CollectionClashPlugin` (`get_classes` → `{"list": Tally}`,
       `get_functions` → `{}`), `COLLECTION_CLASH = "collection-clash"`; add both to `__all__` and to
       `PLUGINS`; update the module docstring (the plugin count and the list of clash plugins).
   - [ ] Check: `uv run pytest tests -q` (invariants) green.
+- [ ] 1.4 `executor.py:64`: pass `reserved=COLLECTION_TYPES`.
+  - [ ] Check: `WorkflowExecutor(path, plugins=[COLLECTION_CLASH])` raises `DuplicateNodeTypeError`
+        at construction.
 - [ ] 1.5 Tests (GWT docstrings):
   - [ ] `test_nodeports.py`, duplicate-name class (~l.330): a class keyed `list` raises; a function
         keyed `dict` raises; a method key (`Widget.list`-style) is not affected.
   - [ ] `test_registry.py`: a class keyed `set` is refused by `generate_registry`.
   - [ ] `test_executor.py` `TestConstruction`: `WorkflowExecutor(path, plugins=[COLLECTION_CLASH])`
-        raises `DuplicateNodeTypeError` (fixtures: `write_graph`, `specimen_plugins`).
-  - [ ] Check: each new test fails without 1.1–1.3 and passes with them.
+        raises `DuplicateNodeTypeError` (fixtures: `write_graph`, `specimen_plugins`; any valid
+        graph, e.g. `graph({"0": {"type": "int", "value": 1}})` — the port table is built, and
+        refused, before the graph is read).
+  - [ ] Check: each new test fails without 1.1, 1.2 and 1.4, and passes with them.
 - [ ] Step checks: fast lane green · ruff check clean · ruff format clean
 - [ ] STOP — reported to the user, go-ahead received
 
 ### Step 2 — a registered class renders as its key (D1, D2, D3, D9)
 
 - [ ] O2 asked and decided: ______
-- [ ] 2.1 `registry.py` `python_type_to_string(py_type, class_names: Mapping[type, str] = None)`:
+- [ ] 2.1 `registry.py` `python_type_to_string(py_type, class_names: Mapping[type, str] = None)`
+      (add `Mapping` to the `typing` import):
       after the `TYPE_NAMES` lookup, `if class_names and py_type in class_names: return
       class_names[py_type]`; final fallback stays `"any"`. Docstring rewritten: the three sources
       (primitives, collections, registered classes); anything else, generics included, is `"any"`.
@@ -308,7 +316,8 @@ Every wording is shown as a diff and approved by the user.
 ### Step 6 — final verification and handover
 
 - [ ] 6.1 `uv run pytest -q` all green; `uv run pre-commit run --all-files` clean.
-- [ ] 6.2 `git status` + `git diff --stat`: only the files of §1.6 (and this plan) changed.
+- [ ] 6.2 `git diff --stat main...` (plus `git status` for uncommitted work): only the files of
+      §1.6 and this plan changed.
 - [ ] 6.3 Summary to the user: what changed, the 17 + 7 socket diffs, the specimen's `base`. **No
       commit.**
 - [ ] 6.4 Draft (do not post) the two follow-up issues of §6 for the user to review.
