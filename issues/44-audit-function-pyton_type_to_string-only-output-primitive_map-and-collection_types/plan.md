@@ -305,19 +305,22 @@ commands were verified to reproduce the current goldens byte-for-byte before any
 
 Every wording is shown as a diff and approved by the user.
 
-- [ ] 5.1 `CLAUDE.md`:
-  - [ ] *Registry Files* (~l.378): a registered class's socket `type` is its class key; constructor
+- [x] 5.1 `CLAUDE.md`:
+  - [x] *Registry Files* (~l.378): a registered class's socket `type` is its class key; constructor
         entries may carry `base` (nearest registered ancestor); front-end dependency
         (dealiiX-platform#224); multiple inheritance = first parent only.
-  - [ ] *Key Constraints → Type system*: registered classes as the third source of socket type names.
-  - [ ] *Type Hint Requirements* (~l.896): a class annotation renders as its key only if registered,
+  - [x] *Key Constraints → Type system*: registered classes as the third source of socket type names.
+  - [x] *Type Hint Requirements* (~l.896): a class annotation renders as its key only if registered,
         else `"any"`; generics stay `"any"`.
-  - [ ] `grep -n '"any"' CLAUDE.md`: any other statement made false is listed to the user.
-- [ ] 5.2 `docs/ONBOARDING.md`: l.175–182; l.500–506 ("Richer type system", now partly done);
+  - [x] `grep -n '"any"' CLAUDE.md`: any other statement made false is listed to the user.
+        Also extended (approved): the `nodeports.py` description and Data Flow stage 3 now name
+        the two new refusals.
+- [x] 5.2 `docs/ONBOARDING.md`: l.175–182; l.500–506 ("Richer type system", now partly done);
       l.630–637 ("Lossy type system", already stale: says six types).
-- [ ] 5.3 `README.md`, `tests/README.md`: grep for statements about class sockets; report (probably
+- [x] 5.3 `README.md`, `tests/README.md`: grep for statements about class sockets; report (probably
       none).
-- [ ] Step checks: every wording approved · `uv run pytest -q tests` green
+      Result: nothing to change.
+- [x] Step checks: every wording approved · `uv run pytest -q tests` green
 - [ ] STOP — reported to the user, go-ahead received
 
 ### Step 6 — final verification and handover
