@@ -278,23 +278,27 @@ golden gains a `base`**. Only the specimen (`PreciseAccumulator`) does. Nothing 
 Run from the workspace root. Show each golden's `git diff` to the user before keeping it. Both
 commands were verified to reproduce the current goldens byte-for-byte before any change.
 
-- [ ] 4.1 Format golden:
+- [x] 4.1 Format golden:
       ```bash
       uv run python -c "import sys; sys.path.insert(0, 'coral-app/tests'); import coral_app, specimen; coral_app.load = lambda n: specimen.PLUGINS[n](); from coral_app.registry import save_registry_to_file; save_registry_to_file('coral-app/tests/golden/node_types.format.json', plugins=[specimen.SPECIMEN, specimen.RIVAL])"
       ```
-  - [ ] Check: the diff is exactly the 7 specimen `self` sockets `"any"` → class key, plus one
+  - [x] Check: the diff is exactly the 7 specimen `self` sockets `"any"` → class key, plus one
         `"base": "Accumulator"` on `PreciseAccumulator`. Nothing else.
-- [ ] 4.2 Plugin goldens:
+- [x] 4.2 Plugin goldens:
       ```bash
       uv run coral -p math    register --output=plugins/coral-math/tests/system/golden/node_types.math.json
       uv run coral -p string  register --output=plugins/coral-string/tests/system/golden/node_types.string.json
       uv run coral -p phiflow register --output=plugins/coral-phiflow/tests/system/golden/node_types.phiflow.json
       uv run coral -p pypde   register --output=plugins/coral-pypde/tests/system/golden/node_types.pypde.json
       ```
-  - [ ] Check: the changed `"type"` lines are exactly the 17 of §1.2 (math 3 / string 2 / phiflow 5 /
+  - [x] Check: the changed `"type"` lines are exactly the 17 of §1.2 (math 3 / string 2 / phiflow 5 /
         pypde 7), all `"any"` → a class key; **no** `base` anywhere; no other line changes. Anything
         else is a bug: stop and report.
-- [ ] Step checks: `uv run pytest -q` (full suite, slow included) green · ruff clean
+- [x] 4.3 Plugin tests that read the golden and asserted the old `"any"`:
+      `coral-string` `test_the_method_nodes_carry_the_instance_at_port_zero`;
+      `coral-pypde` `test_a_wrapper_typed_socket_renders_any` (renamed
+      `test_a_wrapper_typed_socket_carries_the_wrapper_key`).
+- [x] Step checks: `uv run pytest -q` (full suite, slow included) green · ruff clean
 - [ ] STOP — reported to the user, go-ahead received
 
 ### Step 5 — documentation

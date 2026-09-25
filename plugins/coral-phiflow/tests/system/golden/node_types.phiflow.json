@@ -739,7 +739,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PhiFlowBox",
         "name": "self"
       },
       {
@@ -761,7 +761,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PhiFlowSphere",
         "name": "self"
       },
       {
@@ -783,7 +783,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PhiFlowStaggeredGrid",
         "name": "self"
       },
       {
@@ -805,7 +805,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PhiFlowCenteredGrid",
         "name": "self"
       },
       {
@@ -827,7 +827,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PhiFlowCuboid",
         "name": "self"
       },
       {

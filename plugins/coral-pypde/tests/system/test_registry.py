@@ -85,25 +85,23 @@ class TestTheGoldenDescribesThisPlugin:
         assert names == ["self", "state", "t_range", "storage", "plot"]
         assert entry["outputs"] == [5]
 
-    def test_a_wrapper_typed_socket_renders_any(self, registry):
+    def test_a_wrapper_typed_socket_carries_the_wrapper_key(self, registry):
         """GIVEN the solver's ports, annotated with this plugin's own wrapper classes
         WHEN their socket types are read
-        THEN they are ``any``, while the plain ``int`` port keeps its name.
+        THEN each carries its wrapper's class key, and the plain ``int`` port keeps its name.
 
-        Neither a defect in this plugin nor something it can fix: the registry's type table knows the
-        six primitives and the three collection names, and every other class falls through to
-        ``any``. Worth pinning because of what follows — the editor cannot refuse a grid wired where
-        a field belongs, while the host's edge check, which reads the annotations rather than this
-        file, refuses it before the solver starts."""
+        Worth pinning because of what follows: the front end can now refuse a grid wired where a
+        field belongs, as the host's edge check, which reads the annotations rather than this file,
+        already does before the solver starts."""
         arguments = {
             arg["name"]: arg["type"]
             for arg in registry["PyPDEDiffusionPDE.solve"]["arguments"]
             if arg["name"]
         }
 
-        assert arguments["state"] == "any"
-        assert arguments["storage"] == "any"
-        assert arguments["plot"] == "any"
+        assert arguments["state"] == "PyPDEScalarField"
+        assert arguments["storage"] == "PyPDEFileStorage"
+        assert arguments["plot"] == "PyPDEPlotTracker"
         assert arguments["t_range"] == "int"
 
     def test_the_golden_holds_no_foreign_plugin_entry(self, registry):
