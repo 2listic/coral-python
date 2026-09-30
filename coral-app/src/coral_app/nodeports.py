@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Mapping, Tuple, get_args, get_origin
 
 from coral_app.errors import DuplicateNodeTypeError
+from coral_app.primitives import COLLECTION_TYPES
 
 __all__ = [
     "CONSTRUCTOR",
@@ -200,7 +201,11 @@ def build_port_table(
         DuplicateNodeTypeError: if one name is claimed by two declared node types — a primitive, a
             function and a constructor all key the table by a bare name, and this is the only place
             the three surfaces meet. A ``Class.method`` key colliding with a function or constructor
-            of the same name is *not* an error: see ``put`` below.
+            of the same name is *not* an error: see ``put`` below. Also raised for a node type named
+            after a collection type (``list``, ``set``, ``dict``): those names are socket types with
+            no node behind them, and a node claiming one would be indistinguishable from them.
+            Also raised for one class registered under two keys: a class is named by its key, so
+            it would have two names.
         ValueError: if any callable returns a tuple without declaring its elements — see
             :func:`_outputs_from_return`. This fires while the table is built, so a badly annotated
             function in an installed plugin fails the host rather than yielding a wrong registry.
@@ -208,6 +213,11 @@ def build_port_table(
     table: Dict[str, NodePorts] = {}
 
     def put(node_type: str, ports: NodePorts) -> None:
+        # A collection type name is a socket type that no node creates, so no node may claim it. A
+        # method key always carries a dot, so it can never match.
+        if node_type in COLLECTION_TYPES:
+            raise DuplicateNodeTypeError(f"node type {node_type!r} is a reserved type name")
+
         # A collision between two *declared* node types — primitive, function or constructor — is a
         # bad configuration and is refused: a graph names only the node type, so whichever entry won
         # would decide what the graph computes while the JSON looks identical. Stage 1 cannot catch
@@ -232,7 +242,15 @@ def build_port_table(
     for func_name, func in (function_map or {}).items():
         put(func_name, _function_ports(func, func_name))
 
+    # One class, one key: the key is the class's name wherever the class types a port.
+    registered_as: Dict[type, str] = {}
     for class_name, cls in (class_map or {}).items():
+        if cls in registered_as:
+            raise DuplicateNodeTypeError(
+                f"class {cls.__name__!r} is registered as both {registered_as[cls]!r} and "
+                f"{class_name!r}"
+            )
+        registered_as[cls] = class_name
         put(class_name, _constructor_ports(cls))
 
     for class_name, cls in (class_map or {}).items():

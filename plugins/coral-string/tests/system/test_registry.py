@@ -102,13 +102,13 @@ class TestTheGoldenDescribesThisPlugin:
     def test_the_method_nodes_carry_the_instance_at_port_zero(self, registry):
         """GIVEN this plugin's two methods
         WHEN their golden entries are read
-        THEN each has the instance as its first input, named `self`.
+        THEN each has the instance as its first input, named `self` and typed with the class key.
 
         That convention is the host's, but it is visible in *this* file, which is what the editor
         reads to draw the node — so it is worth pinning where the content lives."""
         for key in ("StringProcessor.concatenate", "StringProcessor.repeat"):
             first = registry[key]["arguments"][0]
-            assert first == {"connection_type": "input", "type": "any", "name": "self"}
+            assert first == {"connection_type": "input", "type": "StringProcessor", "name": "self"}
 
     def test_the_golden_holds_no_foreign_plugin_entry(self, registry):
         """GIVEN the golden for this plugin alone

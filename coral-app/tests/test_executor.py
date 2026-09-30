@@ -10,9 +10,10 @@ success cases are about values.
 """
 
 import pytest
+from coral_app.errors import DuplicateNodeTypeError
 from coral_app.executor import WorkflowExecutor
 from coral_app.nodestatus import FAILED, RUNNING, SUCCEEDED
-from specimen import SPECIMEN, Accumulator
+from specimen import COLLECTION_CLASH, SPECIMEN, Accumulator
 
 
 def graph(nodes: dict, edges: dict = None) -> dict:
@@ -74,6 +75,15 @@ class TestConstruction:
 
         with pytest.raises(ValueError):
             WorkflowExecutor(str(path), plugins=[SPECIMEN])
+
+    def test_a_node_type_named_after_a_collection_is_refused(self, write_graph, specimen_plugins):
+        """GIVEN a plugin declaring a class keyed ``list``
+        WHEN the executor is constructed
+        THEN DuplicateNodeTypeError is raised, before the graph is read."""
+        path = write_graph(graph({"0": {"type": "int", "value": 1}}))
+
+        with pytest.raises(DuplicateNodeTypeError):
+            WorkflowExecutor(str(path), plugins=[COLLECTION_CLASH])
 
 
 class TestPrimitiveNodes:

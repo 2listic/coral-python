@@ -174,7 +174,10 @@ type), or a method (`_method_ports`). It walks `sig.parameters` (ordered, each c
 `(name, annotation)` per input, one annotation per output. `registry.py` then renders those annotations through
 `python_type_to_string`, which maps each against `TYPE_NAMES` — the six primitive node types (`int`, `float`,
 `str`, `bool`, `any`, `none`) plus the three collections (`list`, `set`, `dict`), which are socket type names
-without being node types. Three behaviours fall out of this:
+without being node types — and then against the **registered classes**, each written as its key in the class
+map (`Calculator`), the same string its constructor entry is keyed by. A class no selected plugin registers,
+and any parameterised generic (`List[int]`, `Optional[Calculator]`), is `"any"`. Three behaviours fall out of
+this:
 
 - A **missing parameter** annotation becomes `"any"` — usable, just loosely typed.
 - A **missing return** annotation produces **no output socket at all** (`_outputs_from_return` returns `[]`),
@@ -430,7 +433,7 @@ return value it calls `inspect.signature(func)` and converts the annotation to a
 string via `python_type_to_string`:
 
 ```python
-def python_type_to_string(py_type) -> str:
+def python_type_to_string(py_type, class_names=None) -> str:
     # Handle empty/missing annotations
     if py_type is inspect.Signature.empty or py_type is None:
         return _TYPE_NAME_OF[Any]
@@ -498,12 +501,13 @@ assumptions — if you touch this boundary, update both and re-run the full suit
 
 ### Concrete extension points
 
-- **Richer type system.** Nine type names round-trip through the registry: the six `PRIMITIVES_MAP`
-  node types plus `list`/`set`/`dict` from `COLLECTION_TYPES` (issue #25, which also demonstrated that a
-  type name need not be a node type). Every other annotation — a domain class, a parameterised generic
-  like `List[int]`, a non-primitive tuple element — still collapses to `"any"`. A richer scheme (e.g.
-  registering domain class names as their own protocol types, the way method `self` arguments already
-  use the class name) would give more precise sockets and better validation on the canvas.
+- **Richer type system (partly done).** The registry writes the six `PRIMITIVES_MAP` node types,
+  `list`/`set`/`dict` from `COLLECTION_TYPES` (issue #25, which also demonstrated that a type name need
+  not be a node type) and, since issue #44, every **registered class** under its class-map key, with
+  `base` on a subclass's constructor. What still collapses to `"any"` is an unregistered class and every
+  parameterised generic (`List[int]`, `Optional[X]`): precise generic sockets need one canonical spelling
+  and new compatibility rules in both the front end and graph check 8. Multiple inheritance is recorded
+  as its first registered parent only.
 - **Lazy plugin import (done).** Entry-point discovery already imports only the plugins named in
   `-p`: `discover()` enumerates names without importing, and `load(name)` imports just that one. An
   unselected `phiflow` never triggers the PhiFlow/JAX import chain. (This was a weakness of the old
@@ -630,8 +634,10 @@ preference here, they are the only thing that works.
 
 **Weaknesses**
 
-- **Lossy type system** — only six primitive types round-trip through the registry; everything
-  else becomes `"any"`, which weakens connection validation on the canvas.
+- **Lossy type system** — primitives, collections and registered classes round-trip through the
+  registry; unregistered classes and every parameterised generic (`List[int]`) become `"any"`, which
+  weakens connection validation on the canvas. Subclass instances also need front-end support
+  (dealiiX-platform#224) to be accepted where their own type is expected.
 - **Annotation asymmetry** — a missing parameter annotation becomes `"any"` (still usable), but a
   missing return annotation produces *no output socket* (the node becomes a dead end). Easy to trip
   over when writing a new wrapper.

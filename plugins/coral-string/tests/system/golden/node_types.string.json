@@ -458,7 +458,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "StringProcessor",
         "name": "self"
       },
       {
@@ -486,7 +486,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "StringProcessor",
         "name": "self"
       },
       {

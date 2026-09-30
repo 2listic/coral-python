@@ -449,7 +449,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PyPDEUnitGrid",
         "name": "grid"
       },
       {
@@ -542,7 +542,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PyPDEMovie",
         "name": "movie"
       },
       {
@@ -582,12 +582,12 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PyPDEDiffusionPDE",
         "name": "self"
       },
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PyPDEScalarField",
         "name": "state"
       },
       {
@@ -597,17 +597,17 @@
       },
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PyPDEFileStorage",
         "name": "storage"
       },
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PyPDEPlotTracker",
         "name": "plot"
       },
       {
         "connection_type": "output",
-        "type": "any",
+        "type": "PyPDEScalarField",
         "name": ""
       }
     ],

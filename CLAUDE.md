@@ -324,7 +324,8 @@ it finds them at runtime via entry-point discovery.
      method's port 0 is its instance (`("self", cls)`); a missing annotation is normalised to `Any`.
      `methods_of(port_table, class_name)` lists a class's `Class.method` entries. Also the only place
      the three node surfaces meet, so it is where **one name declared as two kinds** — a primitive and
-     a function, a function and a class — raises `DuplicateNodeTypeError`. A collision with a
+     a function, a function and a class — raises `DuplicateNodeTypeError`. It raises the same for a
+     node type named `list` / `set` / `dict`, and for one class registered under two keys. A collision with a
      `Class.method` key is *not* refused: that key is derived from a class, not declared by anyone, so
      a function named `math.sqrt` keeps its name against a class `math` with a `sqrt` method.
    - **`graph.py`** (stage 3): `Graph(nodes, edges, port_table)` and
@@ -385,6 +386,16 @@ Edge format:
   - `inputs`: List of input indices
   - `outputs`: List of output indices (or `[-1]` for constructors/primitives)
   - `node_type`: "primitive", "function", "constructor", or "method"
+  - `base` (constructors only, optional): the key of the class's nearest registered ancestor — the
+    first class in its MRO, after itself, that the class map holds. Absent when there is none.
+- **A socket's `type`** is one of the nine names in `TYPE_NAMES`, or — for a class the class map
+  holds — that class's **key**, the same string its constructor entry is keyed by. Anything else
+  is `"any"`: a class no selected plugin registers, and every parameterised generic (`List[int]`,
+  `Optional[X]`), even around a registered class.
+- **Subclasses depend on the front end.** It types a constructor's output as `base ?? type` and
+  matches types by exact string, so a subclass instance is accepted where its base is expected but
+  refused where its *own* type is (dealiiX-platform#224 asks it to walk `base` instead). `base`
+  names one ancestor: under multiple inheritance a second registered parent is not recorded.
 
 ### Data Flow
 
@@ -413,7 +424,8 @@ Edge format:
    primitives plus the 15 builtins.
 3. **Describe node types**: `build_port_table()` turns the maps into one entry per node type — and
    raises `DuplicateNodeTypeError` if one name is declared as two kinds, the duplicate stage 2 sees
-   because it holds all three surfaces at once. Each entry lists the node type's input parameters and
+   because it holds all three surfaces at once (and if a node type is named after a collection, or
+   one class is registered under two keys). Each entry lists the node type's input parameters and
    its outputs. Stages 4 and 5 both read it; neither introspects again.
 4. **Read, validate and order the graph**: `Graph.from_file()` loads `workflow.nodes` /
    `workflow.edges`, runs every check in [Graph validation](#graph-validation), and orders the nodes
@@ -713,7 +725,11 @@ Runnable examples: `coral run coral-app/examples/collections/list.json` (also `s
   is built by `list_new()` / `set_new()` / `dict_new()`, so `{"type": "list"}` in a graph is an unknown
   node type and graph check 4 rejects it. `TYPE_NAMES` is their union and is what `registry.py` renders
   from. Consequence to know: `"list"` is the first socket type string with no matching `registry[...]`
-  key — see [Built-in collection nodes](#built-in-collection-nodes)
+  key — see [Built-in collection nodes](#built-in-collection-nodes). So no node type may be named
+  `list` / `set` / `dict`: `build_port_table` refuses one with `DuplicateNodeTypeError`. The third
+  source of socket type names is the **registered classes**, written as their class-map key (see
+  *Registry Files*); a class registered under two keys is refused the same way, since it would have
+  two names
 - **Node ids are decimal integers**, and the loader enforces it: node keys, edge keys and both
   endpoints of every edge go through `graph.py:_read_id`, which raises `ValueError` while the `Graph`
   is being constructed. The protocol keys nodes by integer and three platform mechanisms rest on it:
@@ -894,6 +910,8 @@ The registry system requires explicit type hints:
 - Use `Any` from `typing` for flexible types (note: has issues with `function-schema` library)
 - Return type `None` indicates no output
 - Missing type hints default to `"any"` in registry
+- A class annotation renders as the class's key only if a selected plugin registers that class;
+  otherwise it is `"any"`. Generics (`List[X]`, `Optional[X]`) are always `"any"`
 - A **tuple return must declare its elements**: `Tuple[float, str]` is two output ports. Bare `Tuple`,
   `Tuple[()]` and `Tuple[Any, ...]` are rejected by `build_port_table` with a `ValueError` naming the
   function — the first two would yield *zero* ports, and the variadic form has no static arity and
