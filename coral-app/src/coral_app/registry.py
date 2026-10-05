@@ -88,11 +88,10 @@ def _add_constructor(
     The instance a constructor produces is written as ``outputs: [-1]`` with no output argument —
     the file format's convention for "one unnamed output".
 
-    The entry also carries ``"bases"``, the keys of every registered ancestor in MRO order,
-    nearest first, and ``"derived"``, the keys of every registered descendant in class-map
-    order; each is omitted when empty. Only class-map keys are listed: an unregistered class in
-    between is skipped (its own ancestors are still found), and a type-name ancestor such as
-    ``float`` is never listed.
+    The entry also carries ``"bases"``, the keys of every registered ancestor in MRO order, and
+    ``"derived"``, the keys of every registered descendant in class-map order; each is omitted
+    when empty. Only class-map keys are listed: an unregistered class in between is skipped (its
+    own ancestors are still found), and a type-name ancestor such as ``float`` is never listed.
     """
     arguments, inputs = _number_inputs(ports, class_names)
 

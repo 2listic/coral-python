@@ -33,8 +33,8 @@ emits
    `"derived"` (all registered descendants); each key omitted when its list is empty. `"base"` is
    no longer written. Key order in the entry: `…, "type", "bases", "derived"` (where `base` sits
    today).
-2. **Order** (C++ treats the lists as sets; our goldens are byte-compared): `bases` in MRO order,
-   nearest first; `derived` in class-map order.
+2. **Order** (C++ treats the lists as sets; our goldens are byte-compared): `bases` in MRO order;
+   `derived` in class-map order.
 3. **Only class-map keys** are listed, as for `base` today:
    - an unregistered class in between is skipped; its ancestors are still found;
    - a type-name ancestor is not listed (`class MyFloat(float)` has no `bases`), though check 8

@@ -386,9 +386,10 @@ Edge format:
   - `inputs`: List of input indices
   - `outputs`: List of output indices (or `[-1]` for constructors/primitives)
   - `node_type`: "primitive", "function", "constructor", or "method"
-  - `bases` (constructors only, optional): the keys of every registered ancestor, in MRO order,
-    nearest first. An unregistered class in between is skipped (its ancestors are still found); a
-    type-name ancestor (`float`) is never listed. Absent when empty.
+  - `bases` (constructors only, optional): the keys of every registered ancestor, in MRO order
+    (so under multiple inheritance a parent may follow a grandparent). An unregistered class in
+    between is skipped (its ancestors are still found); a type-name ancestor (`float`) is never
+    listed. Absent when empty.
   - `derived` (constructors only, optional): the keys of every registered descendant, in class-map
     order. Absent when empty. Both lists depend on the `-p` selection.
 - **A socket's `type`** is one of the nine names in `TYPE_NAMES`, or — for a class the class map

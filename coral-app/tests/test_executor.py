@@ -490,6 +490,30 @@ class TestMethodNodes:
         with pytest.raises(ValueError, match="Accumulator"):
             WorkflowExecutor(str(path), plugins=[SPECIMEN])
 
+    def test_a_sibling_parent_never_reaches_execution(self, write_graph, specimen_plugins):
+        """GIVEN a Resettable — Ledger's second parent, unrelated to Accumulator — wired into
+             port 0 of an Accumulator method
+        WHEN the executor is merely constructed
+        THEN it is refused: sharing a subclass does not make two classes related."""
+        path = write_graph(
+            graph(
+                {
+                    "0": {"qualified_id": "level", "type": "float", "value": 1.0},
+                    "1": {"qualified_id": "resettable", "type": "Resettable"},
+                    "2": {"qualified_id": "amount", "type": "float", "value": 2.0},
+                    "3": {"qualified_id": "add", "type": "Accumulator.add"},
+                },
+                {
+                    "0": edge("0", "1", 0),
+                    "1": edge("1", "3", 0),
+                    "2": edge("2", "3", 1),
+                },
+            )
+        )
+
+        with pytest.raises(ValueError, match=r"feeds Resettable .* expects Accumulator"):
+            WorkflowExecutor(str(path), plugins=[SPECIMEN])
+
     def test_a_value_the_edge_check_cannot_judge_is_rejected_at_run_time(self, run):
         """GIVEN a float reaching a method's port 0 through a function annotated `Any`
         WHEN the workflow is executed
