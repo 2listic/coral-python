@@ -26,6 +26,8 @@ entry                         the shape it exists for
 ``Accumulator``               a class: constructor, methods, the instance at method port 0
 ``Gauge``                     an *unrelated* class, so a wrong instance can be rejected
 ``PreciseAccumulator``        a *subclass*, which must be accepted where its base is expected
+``Resettable``                a second parent for ``Ledger``, unrelated to ``Accumulator``
+``Ledger``                    a subclass of both: a chain and a second parent at once
 ============================  =================================================================
 
 Six plugins expose it, and the split is driven entirely by what the host's merge rules need:
@@ -68,6 +70,8 @@ __all__ = [
     "Accumulator",
     "Gauge",
     "PreciseAccumulator",
+    "Resettable",
+    "Ledger",
     "Tally",
 ]
 
@@ -190,6 +194,22 @@ class PreciseAccumulator(Accumulator):
         return round(self.start, self.digits)
 
 
+class Resettable:
+    """A second parent for :class:`Ledger`, unrelated to :class:`Accumulator`."""
+
+    def __init__(self, level: float):
+        self.level = level
+
+    def reset(self) -> float:
+        """Return a constant: on a :class:`Ledger` this class's ``__init__`` never runs."""
+        return 0.0
+
+
+class Ledger(PreciseAccumulator, Resettable):
+    """A chain and a second parent at once, MRO ``Ledger, PreciseAccumulator, Accumulator,
+    Resettable``: it must be accepted wherever any of them is expected."""
+
+
 class Tally:
     """:class:`RivalPlugin`'s own class, so the second plugin contributes a constructor too."""
 
@@ -224,6 +244,8 @@ class SpecimenPlugin(Plugin):
             "Accumulator": Accumulator,
             "Gauge": Gauge,
             "PreciseAccumulator": PreciseAccumulator,
+            "Resettable": Resettable,
+            "Ledger": Ledger,
         }
 
 

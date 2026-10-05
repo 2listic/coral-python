@@ -88,10 +88,11 @@ def _add_constructor(
     The instance a constructor produces is written as ``outputs: [-1]`` with no output argument —
     the file format's convention for "one unnamed output".
 
-    A class with a registered ancestor also carries ``"base"``: the key of the first registered
-    class in its MRO after itself, so an unregistered class in between is skipped. The front end
-    types the constructor's output as ``base`` when there is one. Only one ancestor is named, so
-    under multiple inheritance a second registered parent is not recorded.
+    The entry also carries ``"bases"``, the keys of every registered ancestor in MRO order,
+    nearest first, and ``"derived"``, the keys of every registered descendant in class-map
+    order; each is omitted when empty. Only class-map keys are listed: an unregistered class in
+    between is skipped (its own ancestors are still found), and a type-name ancestor such as
+    ``float`` is never listed.
     """
     arguments, inputs = _number_inputs(ports, class_names)
 
@@ -102,9 +103,12 @@ def _add_constructor(
         "node_type": "constructor",
         "type": class_name,
     }
-    base = next((class_names[c] for c in cls.__mro__[1:] if c in class_names), None)
-    if base is not None:
-        entry["base"] = base
+    bases = [class_names[c] for c in cls.__mro__[1:] if c in class_names]
+    derived = [name for other, name in class_names.items() if cls in other.__mro__[1:]]
+    if bases:
+        entry["bases"] = bases
+    if derived:
+        entry["derived"] = derived
     registry[class_name] = entry
 
 
@@ -150,7 +154,8 @@ def generate_registry(
 
     A socket typed with a registered class carries the class's key in ``class_map``, the same
     string its constructor entry is keyed by. Any other class is ``"any"``. A constructor whose
-    class has a registered ancestor also carries ``"base"``, that ancestor's key.
+    class has registered ancestors or descendants also carries ``"bases"`` / ``"derived"``, their
+    keys.
 
     Args:
         function_map: Mapping of function name -> callable.

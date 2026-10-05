@@ -723,7 +723,11 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "Accumulator"
+    "type": "Accumulator",
+    "derived": [
+      "PreciseAccumulator",
+      "Ledger"
+    ]
   },
   "Gauge": {
     "arguments": [
@@ -764,7 +768,60 @@
     ],
     "node_type": "constructor",
     "type": "PreciseAccumulator",
-    "base": "Accumulator"
+    "bases": [
+      "Accumulator"
+    ],
+    "derived": [
+      "Ledger"
+    ]
+  },
+  "Resettable": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "level"
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "Resettable",
+    "derived": [
+      "Ledger"
+    ]
+  },
+  "Ledger": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "start"
+      },
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "digits"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "Ledger",
+    "bases": [
+      "PreciseAccumulator",
+      "Accumulator",
+      "Resettable"
+    ]
   },
   "Tally": {
     "arguments": [
@@ -926,6 +983,122 @@
     ],
     "node_type": "method",
     "type": "PreciseAccumulator.total"
+  },
+  "Resettable.reset": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Resettable",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Resettable.reset"
+  },
+  "Ledger.add": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Ledger",
+        "name": "self"
+      },
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "amount"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "method",
+    "type": "Ledger.add"
+  },
+  "Ledger.reset": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Ledger",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Ledger.reset"
+  },
+  "Ledger.rounded": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Ledger",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Ledger.rounded"
+  },
+  "Ledger.total": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Ledger",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Ledger.total"
   },
   "Tally.bump": {
     "arguments": [

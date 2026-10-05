@@ -423,6 +423,49 @@ class TestMethodNodes:
 
         assert results["4"] == 3.0
 
+    def test_a_grandchild_instance_is_accepted(self, run):
+        """GIVEN a Ledger — Accumulator's grandchild through PreciseAccumulator — wired into port 0
+             of an Accumulator method
+        WHEN the workflow is executed
+        THEN it runs: `isinstance` walks the whole chain."""
+        results = run(
+            {
+                "0": {"qualified_id": "start", "type": "float", "value": 1.0},
+                "1": {"qualified_id": "digits", "type": "int", "value": 2},
+                "2": {"qualified_id": "ledger", "type": "Ledger"},
+                "3": {"qualified_id": "amount", "type": "float", "value": 2.0},
+                "4": {"qualified_id": "add", "type": "Accumulator.add"},
+            },
+            {
+                "0": edge("0", "2", 0),
+                "1": edge("1", "2", 1),
+                "2": edge("2", "4", 0),
+                "3": edge("3", "4", 1),
+            },
+        )
+
+        assert results["4"] == 3.0
+
+    def test_an_instance_of_a_non_first_parent_is_accepted(self, run):
+        """GIVEN a Ledger wired into port 0 of a method of Resettable, its second parent
+        WHEN the workflow is executed
+        THEN it runs."""
+        results = run(
+            {
+                "0": {"qualified_id": "start", "type": "float", "value": 1.0},
+                "1": {"qualified_id": "digits", "type": "int", "value": 2},
+                "2": {"qualified_id": "ledger", "type": "Ledger"},
+                "3": {"qualified_id": "reset", "type": "Resettable.reset"},
+            },
+            {
+                "0": edge("0", "2", 0),
+                "1": edge("1", "2", 1),
+                "2": edge("2", "3", 0),
+            },
+        )
+
+        assert results["3"] == 0.0
+
     def test_an_unrelated_class_never_reaches_execution(self, write_graph, specimen_plugins):
         """GIVEN an unrelated class's instance wired into port 0 of a method
         WHEN the executor is merely constructed

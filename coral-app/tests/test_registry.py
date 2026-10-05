@@ -339,64 +339,37 @@ class TestClassSockets:
         ]
 
 
-class TestBase:
-    """A constructor whose class has a registered ancestor names it in ``base``: the key of the
-    first registered class in its MRO after itself."""
+class TestBases:
+    """A constructor names its registered ancestors in ``bases`` (MRO order, nearest first) and
+    its registered descendants in ``derived`` (class-map order); each key is absent when empty."""
 
-    def test_a_subclass_names_its_base(self, registry):
-        """GIVEN the specimen subclass PreciseAccumulator(Accumulator), both registered
-        WHEN its constructor entry is read
-        THEN ``base`` is ``Accumulator``."""
-        assert registry["PreciseAccumulator"]["base"] == "Accumulator"
+    def test_bases_follow_the_mro(self, registry):
+        """GIVEN the specimen Ledger(PreciseAccumulator, Resettable), PreciseAccumulator(Accumulator)
+        WHEN Ledger's constructor entry is read
+        THEN ``bases`` lists the chain before the second parent, as the MRO does."""
+        assert registry["Ledger"]["bases"] == ["PreciseAccumulator", "Accumulator", "Resettable"]
 
-    def test_a_class_with_no_registered_ancestor_has_no_base_key(self, registry):
-        """GIVEN classes whose only ancestor is ``object``
+    def test_derived_lists_every_registered_descendant(self, registry):
+        """GIVEN the specimen hierarchy
+        WHEN the constructor entries are read
+        THEN each class's ``derived`` lists its direct and indirect subclasses."""
+        assert registry["Accumulator"]["derived"] == ["PreciseAccumulator", "Ledger"]
+        assert registry["PreciseAccumulator"]["derived"] == ["Ledger"]
+        assert registry["Resettable"]["derived"] == ["Ledger"]
+
+    def test_empty_lists_are_absent(self, registry):
+        """GIVEN classes with no registered ancestor, or no registered descendant
         WHEN their constructor entries are read
-        THEN none carries a ``base`` key — absent, not null nor empty."""
-        assert "base" not in registry["Accumulator"]
-        assert "base" not in registry["Gauge"]
+        THEN the corresponding key is absent — not null nor empty."""
+        assert "bases" not in registry["Accumulator"]
+        assert "bases" not in registry["Gauge"]
+        assert "derived" not in registry["Ledger"]
+        assert "derived" not in registry["Gauge"]
 
-    def test_the_nearest_registered_ancestor_is_named(self):
-        """GIVEN C(B(A)), all three registered
-        WHEN the registry is generated
-        THEN C's base is B, and B's is A."""
-
-        class A:
-            pass
-
-        class B(A):
-            pass
-
-        class C(B):
-            pass
-
-        registry = generate_registry({}, list(PRIMITIVES_MAP), {"A": A, "B": B, "C": C})
-
-        assert registry["C"]["base"] == "B"
-        assert registry["B"]["base"] == "A"
-
-    def test_an_unregistered_ancestor_is_skipped(self):
-        """GIVEN C(B(A)) with only A and C registered
-        WHEN the registry is generated
-        THEN C's base is A: B has no node, so it cannot be named."""
-
-        class A:
-            pass
-
-        class B(A):
-            pass
-
-        class C(B):
-            pass
-
-        registry = generate_registry({}, list(PRIMITIVES_MAP), {"A": A, "C": C})
-
-        assert registry["C"]["base"] == "A"
-
-    def test_multiple_inheritance_names_the_first_parent_in_mro_order(self):
+    def test_multiple_parents_are_all_listed(self):
         """GIVEN D(A, B), all three registered
         WHEN the registry is generated
-        THEN D's base is A alone."""
+        THEN D's bases are A and B, in declaration order."""
 
         class A:
             pass
@@ -409,12 +382,52 @@ class TestBase:
 
         registry = generate_registry({}, list(PRIMITIVES_MAP), {"A": A, "B": B, "D": D})
 
-        assert registry["D"]["base"] == "A"
+        assert registry["D"]["bases"] == ["A", "B"]
 
-    def test_base_is_the_ancestor_key_not_its_name(self):
+    def test_a_diamond_lists_the_shared_ancestor_once(self):
+        """GIVEN D(B, C) with B(A) and C(A), all registered
+        WHEN the registry is generated
+        THEN D's bases are B, C, A — A once, last, as in the MRO."""
+
+        class A:
+            pass
+
+        class B(A):
+            pass
+
+        class C(A):
+            pass
+
+        class D(B, C):
+            pass
+
+        registry = generate_registry({}, list(PRIMITIVES_MAP), {"A": A, "B": B, "C": C, "D": D})
+
+        assert registry["D"]["bases"] == ["B", "C", "A"]
+
+    def test_an_unregistered_intermediate_is_skipped(self):
+        """GIVEN C(B(A)) with only A and C registered
+        WHEN the registry is generated
+        THEN C's bases are [A] and A's derived is [C]: B has no node, but A is still found."""
+
+        class A:
+            pass
+
+        class B(A):
+            pass
+
+        class C(B):
+            pass
+
+        registry = generate_registry({}, list(PRIMITIVES_MAP), {"A": A, "C": C})
+
+        assert registry["C"]["bases"] == ["A"]
+        assert registry["A"]["derived"] == ["C"]
+
+    def test_lists_carry_keys_not_names(self):
         """GIVEN a base class registered under a key other than its ``__name__``
         WHEN the registry is generated
-        THEN the subclass's base is that key."""
+        THEN both lists use that key."""
 
         class A:
             pass
@@ -424,16 +437,49 @@ class TestBase:
 
         registry = generate_registry({}, list(PRIMITIVES_MAP), {"Root": A, "B": B})
 
-        assert registry["B"]["base"] == "Root"
+        assert registry["B"]["bases"] == ["Root"]
+        assert registry["Root"]["derived"] == ["B"]
 
-    def test_method_entries_never_carry_base(self, registry):
-        """GIVEN the specimen, whose subclass has methods of its own and inherited ones
-        WHEN the method entries are read
-        THEN none carries a ``base`` key: only a constructor entry does."""
+    def test_derived_follows_class_map_order(self):
+        """GIVEN B(A) and C(A), registered in the order A, C, B
+        WHEN the registry is generated
+        THEN A's derived is [C, B]: class-map order, not definition order."""
+
+        class A:
+            pass
+
+        class B(A):
+            pass
+
+        class C(A):
+            pass
+
+        registry = generate_registry({}, list(PRIMITIVES_MAP), {"A": A, "C": C, "B": B})
+
+        assert registry["A"]["derived"] == ["C", "B"]
+
+    def test_a_type_name_ancestor_is_not_listed(self):
+        """GIVEN MyFloat(float), registered alone
+        WHEN the registry is generated
+        THEN it has no ``bases``: ``float`` is a type name, not a class-map key."""
+
+        class MyFloat(float):
+            pass
+
+        registry = generate_registry({}, list(PRIMITIVES_MAP), {"MyFloat": MyFloat})
+
+        assert "bases" not in registry["MyFloat"]
+
+    def test_no_entry_carries_base_and_no_method_carries_the_lists(self, registry):
+        """GIVEN the specimen, whose subclasses have methods of their own and inherited ones
+        WHEN every entry is read
+        THEN none carries the former ``base`` key, and no method entry carries ``bases`` or
+        ``derived``: only a constructor entry does."""
         methods = [entry for entry in registry.values() if entry["node_type"] == "method"]
 
         assert methods
-        assert all("base" not in entry for entry in methods)
+        assert all("base" not in entry for entry in registry.values())
+        assert all("bases" not in entry and "derived" not in entry for entry in methods)
 
 
 class TestPrimitiveEntries:
@@ -675,9 +721,15 @@ class TestFormatGolden:
     a plugin adding a function cannot move these bytes, and a format change shows up as a diff here
     rather than in three plugin packages at once.
 
-    Regenerate deliberately, never to make a failure go away::
+    Regenerate deliberately, never to make a failure go away (from the repo root, dedented)::
 
-        uv run python -c "..."   # see the command in the test below
+        uv run python -c "
+        import sys; sys.path.insert(0, 'coral-app/tests')
+        import coral_app, specimen
+        coral_app.load = lambda n: specimen.PLUGINS[n]()
+        from coral_app.registry import save_registry_to_file
+        save_registry_to_file('coral-app/tests/golden/node_types.format.json',
+                              plugins=[specimen.SPECIMEN, specimen.RIVAL])"
     """
 
     def test_the_registry_for_the_specimen_plugins_matches_the_golden(

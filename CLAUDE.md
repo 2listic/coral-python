@@ -386,16 +386,21 @@ Edge format:
   - `inputs`: List of input indices
   - `outputs`: List of output indices (or `[-1]` for constructors/primitives)
   - `node_type`: "primitive", "function", "constructor", or "method"
-  - `base` (constructors only, optional): the key of the class's nearest registered ancestor — the
-    first class in its MRO, after itself, that the class map holds. Absent when there is none.
+  - `bases` (constructors only, optional): the keys of every registered ancestor, in MRO order,
+    nearest first. An unregistered class in between is skipped (its ancestors are still found); a
+    type-name ancestor (`float`) is never listed. Absent when empty.
+  - `derived` (constructors only, optional): the keys of every registered descendant, in class-map
+    order. Absent when empty. Both lists depend on the `-p` selection.
 - **A socket's `type`** is one of the nine names in `TYPE_NAMES`, or — for a class the class map
   holds — that class's **key**, the same string its constructor entry is keyed by. Anything else
   is `"any"`: a class no selected plugin registers, and every parameterised generic (`List[int]`,
   `Optional[X]`), even around a registered class.
 - **Subclasses depend on the front end.** It types a constructor's output as `base ?? type` and
-  matches types by exact string, so a subclass instance is accepted where its base is expected but
-  refused where its *own* type is (dealiiX-platform#224 asks it to walk `base` instead). `base`
-  names one ancestor: under multiple inheritance a second registered parent is not recorded.
+  matches types by exact string. `base` is no longer written, so until the front end adopts the
+  planned rule `{type} ∪ bases ∪ {base}`, a subclass instance is refused where its base is
+  expected — a known regression, shared with the C++ backend. Validation and execution are
+  unaffected: check 8 uses `issubclass` and the executor `isinstance`, so every registered
+  ancestor is accepted there.
 
 ### Data Flow
 

@@ -45,6 +45,9 @@ emits
 5. **Editor regression accepted**, as in C++: the front end types a constructor's output as
    `base ?? type`; without `base` a subclass is refused where its base is expected, until it
    adopts the planned rule `{type} ∪ bases ∪ {base}`.
+6. **`derived` mirrors `bases`**: both are read from the MRO (`cls in other.__mro__[1:]`), not
+   from `issubclass`, so `A` is in `B.derived` iff `B` is in `A.bases`. An ABC's virtual subclass
+   (`B.register(A)`) is therefore in neither list, though check 8 accepts it.
 
 ## Not carried over from C++
 `register_base` API, casters, entry split, idempotence (Python class syntax declares the
