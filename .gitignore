@@ -8,7 +8,11 @@ __pycache__/
 
 data
 
+# misc files
+*~
+
 # Simulation artifacts (e.g. simulation.mp4) written by workflow runs.
 # Tests redirect these into a temp dir (see tests/conftest.py::isolate_cwd).
 *.mp4
 *.gif
+*.hdf5
