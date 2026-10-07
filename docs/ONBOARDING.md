@@ -171,7 +171,9 @@ explains why most libraries need a wrapper.
 (`_function_ports`), a constructor (`_constructor_ports`, falling back to `cls.__init__` for a C extension
 type), or a method (`_method_ports`). It walks `sig.parameters` (ordered, each carrying a `.annotation`) plus
 `sig.return_annotation`, and stores the result as that node type's **port table** entry: one
-`(name, annotation)` per input, one annotation per output. `registry.py` then renders those annotations through
+`Port(name, annotation)` per input and per output — an input named by its parameter, an output by
+`@outputs` when the callable declares names, else `""` (Python gives a return value no name).
+`registry.py` then renders those annotations through
 `python_type_to_string`, which maps each against `TYPE_NAMES` — the six primitive node types (`int`, `float`,
 `str`, `bool`, `any`, `none`) plus the three collections (`list`, `set`, `dict`), which are socket type names
 without being node types — and then against the **registered classes**, each written as its key in the class
@@ -269,8 +271,8 @@ executor reads the answer back as `graph.ports_of(node_id).kind` and never re-de
 
 Two things worth being precise about:
 
-- The port table records a node type's **argument shape** too, not just its kind: one `(name, annotation)` per
-  input port, one annotation per output. So nothing downstream introspects a second time — the executor binds
+- The port table records a node type's **argument shape** too, not just its kind: one `Port(name, annotation)`
+  per input port and per output port. So nothing downstream introspects a second time — the executor binds
   a node's inputs with a plain positional call (`target(*arguments)`, no `inspect` import at all), because the
   values arrive in port order, which *is* parameter order.
 - Cost is paid per node *type* at startup rather than per node at run time, and lookups during the walk are
