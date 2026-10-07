@@ -760,8 +760,7 @@ Runnable examples: `coral run coral-app/examples/collections/list.json` (also `s
   flattened subgraph would legitimately carry `12_3`. Consequence for test data: node ids carry no
   meaning, so where a node's role matters it belongs in the node's optional `name` (see
   [Workflow JSON Structure](#workflow-json-structure)), which the JSON carries and the editor
-  shows. Some plugin tests still keep it in a `NODES` map beside the graph's test — a
-  hand-maintained copy that drifts from the file when the graph is renumbered
+  shows, and a test looks the node up by it (`node_named` in the plugin's `<n>_suite.py`)
 - **No cycles**: Workflow graphs must be acyclic (DAG) — `graph.py` raises `ValueError` naming the
   cycle path, using `graphlib.TopologicalSorter` (stdlib, `{node: predecessors}`)
 - **Validate before executing**: every defect — identity, wiring, typing, ordering — raises while the `Graph` is being constructed, so
