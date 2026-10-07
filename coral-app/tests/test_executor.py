@@ -297,8 +297,9 @@ class TestOutputArity:
         with pytest.raises(ValueError) as error:
             run({"0": {"qualified_id": "short", "type": "short_triple"}})
 
-        assert "Node 0 (short_triple) declares 3 outputs but returned a tuple of 2" in str(
-            error.value
+        assert (
+            "Node '0' of type 'short_triple' declares 3 outputs but returned a tuple of 2"
+            in str(error.value)
         )
 
     def test_it_fires_at_the_producer_not_at_a_consumer(self, run):
@@ -317,7 +318,7 @@ class TestOutputArity:
                 {"0": edge("0", "1", 0)},
             )
 
-        assert "Node 0 (short_triple)" in str(error.value)
+        assert "Node '0' of type 'short_triple'" in str(error.value)
 
     def test_a_non_tuple_result_raises_naming_its_type(self, run):
         """GIVEN a function declaring two outputs that returns a plain int
@@ -326,7 +327,9 @@ class TestOutputArity:
         with pytest.raises(ValueError) as error:
             run({"0": {"qualified_id": "scalar", "type": "not_a_tuple"}})
 
-        assert "Node 0 (not_a_tuple) declares 2 outputs but returned int" in str(error.value)
+        assert "Node '0' of type 'not_a_tuple' declares 2 outputs but returned int" in str(
+            error.value
+        )
 
 
 class TestConstructorNodes:

@@ -192,6 +192,21 @@ class Graph:
         """The node's incoming edges, sorted by ``target_input`` — i.e. in parameter order."""
         return self._incoming[node_id]
 
+    def name_of(self, node_id: str) -> Optional[str]:
+        """The node's ``name``, or ``None`` when it has none.
+
+        A name is an optional caption the editor shows and the reference backend logs. It is not
+        unique and addresses nothing — the id does that — so it is never validated: anything but a
+        non-empty string counts as no name, rather than failing a graph over a label.
+        """
+        name = self.node(node_id).get("name")
+        return name if isinstance(name, str) and name else None
+
+    def describe(self, node_id: str) -> str:
+        """The node as messages name it: its id, followed by its name when it has one."""
+        name = self.name_of(node_id)
+        return f"{node_id!r}" if name is None else f"{node_id!r} ({name!r})"
+
     # Validation. Each method is one of the checks, run in the order listed in __init__ — where
     # check 3, the qualified ids, is `nodestatus.qualified_ids` rather than a method here.
 
@@ -227,21 +242,21 @@ class Graph:
             nested = isinstance(value, Mapping) and "workflow" in value
             if nested or node.get("node_type") == "network":
                 raise ValueError(
-                    f"Node {node_id!r} carries a nested workflow (a subnetwork node); nested "
-                    f"subgraphs are not supported. Node ids repeat across nesting levels, so such "
-                    f"a graph cannot be read as one flat set of nodes"
+                    f"Node {self.describe(node_id)} carries a nested workflow (a subnetwork "
+                    f"node); nested subgraphs are not supported. Node ids repeat across nesting "
+                    f"levels, so such a graph cannot be read as one flat set of nodes"
                 )
 
     def _check_node_types_are_known(self) -> None:
         """Every node's ``type`` must have a port-table entry."""
         for node_id, node in self.nodes.items():
             if "type" not in node:
-                raise ValueError(f"Node {node_id!r} declares no 'type'")
+                raise ValueError(f"Node {self.describe(node_id)} declares no 'type'")
             node_type = node["type"]
             if node_type not in self.port_table:
                 raise ValueError(
-                    f"Node {node_id!r} has unknown type {node_type!r}: not a loaded primitive, "
-                    f"function, class, or method"
+                    f"Node {self.describe(node_id)} has unknown type {node_type!r}: not a "
+                    f"loaded primitive, function, class, or method"
                 )
 
     def _check_input_ports_are_contiguous(self) -> None:
@@ -254,7 +269,7 @@ class Graph:
             ports = [edge.target_input for edge in incoming]
             if sorted(ports) != list(range(len(ports))):
                 raise ValueError(
-                    f"Node {node_id!r} of type {self.nodes[node_id]['type']!r} has "
+                    f"Node {self.describe(node_id)} of type {self.nodes[node_id]['type']!r} has "
                     f"{len(ports)} incoming edges on input ports {sorted(ports)}; "
                     f"expected exactly {list(range(len(ports)))} — a port is duplicated "
                     f"or out of range"
@@ -271,8 +286,8 @@ class Graph:
             if len(incoming) != expected:
                 node_type = self.nodes[node_id]["type"]
                 raise ValueError(
-                    f"Node {node_id!r} of type {node_type!r} expects {expected} inputs "
-                    f"but received {len(incoming)}"
+                    f"Node {self.describe(node_id)} of type {node_type!r} expects {expected} "
+                    f"inputs but received {len(incoming)}"
                 )
 
     def _check_output_ports_exist(self) -> None:
@@ -289,8 +304,8 @@ class Graph:
 
             if not outputs:
                 raise ValueError(
-                    f"Edge {edge.id!r} reads an output of node {edge.source!r}, but its type "
-                    f"{source_type!r} returns nothing"
+                    f"Edge {edge.id!r} reads an output of node {self.describe(edge.source)}, "
+                    f"but its type {source_type!r} returns nothing"
                 )
 
             if len(outputs) == 1:
@@ -303,8 +318,8 @@ class Graph:
             if not valid:
                 raise ValueError(
                     f"Edge {edge.id!r} reads output {edge.source_output!r} of node "
-                    f"{edge.source!r}, but its type {source_type!r} has {len(outputs)} "
-                    f"output(s) — valid: {allowed}"
+                    f"{self.describe(edge.source)}, but its type {source_type!r} has "
+                    f"{len(outputs)} output(s) — valid: {allowed}"
                 )
 
     def _check_edge_types(self) -> None:
@@ -324,8 +339,8 @@ class Graph:
             if not _is_compatible(source_annotation, target_annotation):
                 raise ValueError(
                     f"Edge {edge.id!r} feeds {_name(source_annotation)} from node "
-                    f"{edge.source!r} into parameter {target_name!r} of node {edge.target!r}, "
-                    f"which expects {_name(target_annotation)}"
+                    f"{self.describe(edge.source)} into parameter {target_name!r} of node "
+                    f"{self.describe(edge.target)}, which expects {_name(target_annotation)}"
                 )
 
     def _output_annotation(self, edge: Edge):

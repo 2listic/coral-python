@@ -82,11 +82,15 @@ class WorkflowExecutor:
             ports = self.graph.ports_of(node_id)
             kind = ports.kind
             qualified_id = self.graph.qualified_ids[node_id]
+            # The reference backend's shape, `node [qid]: name (type)`; an unnamed node drops
+            # `: name` rather than printing an empty one or inventing a name nobody wrote.
+            name = self.graph.name_of(node_id)
+            label = f"{node_id} [{qualified_id}]" + (f": {name}" if name else "")
 
             # The pair of lines is printed whatever the flag says, which is how a failing node is
             # named: the exception itself is propagated untouched, so its message must not have to
             # carry the node id.
-            print(f"Start running node {node_id} [{qualified_id}] (type = {node['type']})")
+            print(f"Start running node {label} (type = {node['type']})")
 
             status = self.status.node(qualified_id) if self.status else nullcontext()
             with status:
@@ -100,20 +104,22 @@ class WorkflowExecutor:
                     # Inputs arrive in port order, which is parameter order, so a positional call
                     # binds them correctly — no need to look at the callable's signature.
                     result = target(*arguments)
-                    self._check_output_arity(node_id, node["type"], ports, result)
+                    self._check_output_arity(
+                        self.graph.describe(node_id), node["type"], ports, result
+                    )
                     self.results[node_id] = result
 
                     if kind == CONSTRUCTOR:
                         print(f"{node_id} (constructor {node['type']}) = {self.results[node_id]}")
 
-            print(f"Node {node_id} [{qualified_id}] (type = {node['type']}) run")
+            print(f"Node {label} (type = {node['type']}) run")
             print()
 
         print("All nodes executed successfully!")
         return self.results
 
     @staticmethod
-    def _check_output_arity(node_id: str, node_type: str, ports, result) -> None:
+    def _check_output_arity(node: str, node_type: str, ports, result) -> None:
         """A node declaring more than one output must return a tuple of exactly that many.
 
         The port table's output arity comes from a return annotation, which is a *claim* by the
@@ -139,13 +145,13 @@ class WorkflowExecutor:
 
         if not isinstance(result, tuple):
             raise ValueError(
-                f"Node {node_id} ({node_type}) declares {expected} outputs but returned "
+                f"Node {node} of type {node_type!r} declares {expected} outputs but returned "
                 f"{type(result).__name__}"
             )
 
         if len(result) != expected:
             raise ValueError(
-                f"Node {node_id} ({node_type}) declares {expected} outputs but returned "
+                f"Node {node} of type {node_type!r} declares {expected} outputs but returned "
                 f"a tuple of {len(result)}"
             )
 
@@ -212,8 +218,8 @@ class WorkflowExecutor:
             # than about wiring: port 0 must really hold an instance of the class.
             if not isinstance(instance, self.class_map[class_name]):
                 raise ValueError(
-                    f"Method node {node_id} expected instance of {class_name}, "
-                    f"got {type(instance).__name__}"
+                    f"Method node {self.graph.describe(node_id)} expected instance of "
+                    f"{class_name}, got {type(instance).__name__}"
                 )
 
             return getattr(instance, method_name), values[1:]
