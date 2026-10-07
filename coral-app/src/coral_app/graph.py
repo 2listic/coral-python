@@ -334,13 +334,13 @@ class Graph:
             ports = self.ports_of(edge.target)
             # `target_input` is a safe index here: checks 5 and 6 established that this node's
             # incoming edges occupy exactly ports 0..n-1 for its type's n inputs.
-            target_name, target_annotation = ports.inputs[edge.target_input]
+            target = ports.inputs[edge.target_input]
 
-            if not _is_compatible(source_annotation, target_annotation):
+            if not _is_compatible(source_annotation, target.annotation):
                 raise ValueError(
                     f"Edge {edge.id!r} feeds {_name(source_annotation)} from node "
-                    f"{self.describe(edge.source)} into parameter {target_name!r} of node "
-                    f"{self.describe(edge.target)}, which expects {_name(target_annotation)}"
+                    f"{self.describe(edge.source)} into parameter {target.name!r} of node "
+                    f"{self.describe(edge.target)}, which expects {_name(target.annotation)}"
                 )
 
     def _output_annotation(self, edge: Edge):
@@ -348,8 +348,8 @@ class Graph:
         outputs = self.ports_of(edge.source).outputs
         if len(outputs) == 1:
             # `None` (key omitted) and -1 both mean "the only output".
-            return outputs[0]
-        return outputs[edge.source_output]
+            return outputs[0].annotation
+        return outputs[edge.source_output].annotation
 
     def _build_order(self) -> List[str]:
         """Execution order, predecessors first.
