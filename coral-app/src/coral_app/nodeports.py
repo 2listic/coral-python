@@ -14,7 +14,7 @@ This module knows callables. It does not know what a graph, an edge, or a regist
 
 import inspect
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Mapping, Tuple, get_args, get_origin
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Tuple, get_args, get_origin
 
 from coral_app.errors import DuplicateNodeTypeError
 from coral_app.primitives import COLLECTION_TYPES
@@ -62,6 +62,11 @@ def _annotation(param: inspect.Parameter):
     if param.annotation is inspect.Signature.empty:
         return Any
     return param.annotation
+
+
+def _input_ports(params: Iterable[inspect.Parameter]) -> List[Tuple[str, Any]]:
+    """One ``(name, annotation)`` per parameter, in order; a missing annotation becomes ``Any``."""
+    return [(param.name, _annotation(param)) for param in params]
 
 
 def _outputs_from_return(return_annotation, node_type: str) -> List[Any]:
@@ -130,7 +135,7 @@ def _function_ports(func: Callable, node_type: str) -> NodePorts:
     sig = inspect.signature(func)
     return NodePorts(
         kind=FUNCTION,
-        inputs=[(name, _annotation(param)) for name, param in sig.parameters.items()],
+        inputs=_input_ports(sig.parameters.values()),
         outputs=_outputs_from_return(sig.return_annotation, node_type),
     )
 
@@ -148,17 +153,17 @@ def _constructor_ports(cls: type) -> NodePorts:
     class is the way to expose such a type properly.
     """
     try:
-        params = list(inspect.signature(cls).parameters.items())
+        params = inspect.signature(cls).parameters.values()
     except (ValueError, TypeError):
         params = [
-            (name, param)
-            for name, param in inspect.signature(cls.__init__).parameters.items()
-            if name != "self"
+            param
+            for param in inspect.signature(cls.__init__).parameters.values()
+            if param.name != "self"
         ]
 
     return NodePorts(
         kind=CONSTRUCTOR,
-        inputs=[(name, _annotation(param)) for name, param in params],
+        inputs=_input_ports(params),
         outputs=[cls],
     )
 
@@ -170,12 +175,11 @@ def _method_ports(cls: type, method_name: str, node_type: str) -> NodePorts:
     it is re-emitted here annotated with ``cls`` so an edge feeding it can be type-checked.
     """
     sig = inspect.signature(getattr(cls, method_name))
-    inputs = [("self", cls)]
-    inputs.extend(
-        (name, _annotation(param)) for name, param in sig.parameters.items() if name != "self"
-    )
+    others = (param for param in sig.parameters.values() if param.name != "self")
     return NodePorts(
-        kind=METHOD, inputs=inputs, outputs=_outputs_from_return(sig.return_annotation, node_type)
+        kind=METHOD,
+        inputs=[("self", cls), *_input_ports(others)],
+        outputs=_outputs_from_return(sig.return_annotation, node_type),
     )
 
 
