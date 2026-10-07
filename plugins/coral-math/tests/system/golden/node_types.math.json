@@ -239,17 +239,17 @@
       {
         "connection_type": "output",
         "type": "float",
-        "name": ""
+        "name": "sum"
       },
       {
         "connection_type": "output",
         "type": "float",
-        "name": ""
+        "name": "product"
       },
       {
         "connection_type": "output",
         "type": "float",
-        "name": ""
+        "name": "difference"
       }
     ],
     "inputs": [
