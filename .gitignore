@@ -10,3 +10,6 @@ __pycache__/
 # Tests redirect these into a temp dir (see tests/conftest.py::isolate_cwd).
 *.mp4
 *.gif
+*.succeeded
+*.running
+*.failed
