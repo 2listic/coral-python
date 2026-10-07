@@ -331,8 +331,9 @@ it finds them at runtime via entry-point discovery.
    - **`graph.py`** (stage 3): `Graph(nodes, edges, port_table)` and
      `Graph.from_file(path, port_table)`. **Constructing one validates it** — see
      [Graph validation](#graph-validation). Exposes `.order`, `.node(id)`, `.ports_of(id)`,
-     `.inputs_of(id)` (incoming edges sorted by `target_input`, built once) and `.qualified_ids`
-     (node id -> qualified id, validated as check 3). Takes the port table as plain data, so it
+     `.inputs_of(id)` (incoming edges sorted by `target_input`, built once), `.qualified_ids`
+     (node id -> qualified id, validated as check 3), `.name_of(id)` and `.describe(id)` (see
+     [Workflow JSON Structure](#workflow-json-structure)). Takes the port table as plain data, so it
      imports neither `inspect` nor any plugin machinery, and its tests need no plugin installed;
      the one host module it imports is `nodestatus`, for check 3's rules.
    - **`registry.py`** (stage 5): `generate_registry()` renders the port table into the platform's
@@ -371,6 +372,12 @@ omitted from the shapes below, which show only what decides a node's kind:
 - Function: `{"type": "<func_name>"}`
 - Constructor: `{"type": "<ClassName>"}`
 - Method: `{"type": "<ClassName>.<method_name>"}`
+
+A node may also carry an optional **`name`**: a caption, not an address. The editor shows it as
+the node's headline and the reference backend logs it; ids address, names describe. It is not
+unique and never validated — anything but a non-empty string counts as no name
+(`Graph.name_of`), so a graph never fails over it. It appears in the per-node log lines and, via
+`Graph.describe` (`'2'`, or `'2' ('with_five')`), in every error that names a declared node.
 
 Edge format:
 - `{"source": "<source_id>", "target": "<target_id>", "source_output": <idx>, "target_input": <idx>}`
@@ -491,9 +498,11 @@ an under-declared node cannot slip through by nobody reading its last output. Th
 function whose annotation is wrong, not the graph that believed it:
 
 ```
-Node 3 (phiflow_iterate) declares 3 outputs but returned a tuple of 2
-Node 3 (phiflow_iterate) declares 3 outputs but returned int
+Node '3' of type 'phiflow_iterate' declares 3 outputs but returned a tuple of 2
+Node '3' of type 'phiflow_iterate' declares 3 outputs but returned int
 ```
+
+A named node adds its name after the id: `Node '3' ('step') of type 'phiflow_iterate' …`.
 
 Only n > 1 is checkable. At n == 1 a returned tuple is legitimate — that is the `-> tuple` case — so
 there is nothing to compare; at n == 0 the value is unreachable anyway, since check 7 rejects every
@@ -567,15 +576,18 @@ stale timeline of an earlier job.
 a `runtime_error` wrapping the node id; we do not, because the `try/except` only exists when a touch
 directory was configured, so wrapping would make a diagnostic's *shape* depend on `--touch-dir`. The
 node id reaches the log the other way, unconditionally: `execute()` prints
-`Start running node N [qid] (type = T)` before each node and `Node N [qid] (type = T) run` after it,
-mirroring C++'s `slog_info` pair, so a traceback is always bracketed by lines naming the node.
+`Start running node N [qid]: name (type = T)` before each node and
+`Node N [qid]: name (type = T) run` after it, mirroring C++'s `slog_info` pair, so a traceback is
+always bracketed by lines naming the node. An unnamed node drops `: name` — where C++ prints an
+empty one — rather than inventing a name nobody wrote.
 
 ### Graph validation
 
 **The graph is fully validated before execution starts.** Constructing a `Graph` runs every check
 below; a graph that constructs is a graph that can be executed. Because `WorkflowExecutor.__init__`
 builds one, a defect surfaces there — never after a long PhiFlow run has already started. Each
-failure raises `ValueError` naming the offending node or edge (edges by their key in the graph JSON).
+failure raises `ValueError` naming the offending node or edge (edges by their key in the graph JSON,
+nodes by their id followed by their `name` when they have one).
 
 In order — one item per check, as `Graph.__init__` runs them:
 
@@ -746,9 +758,10 @@ Runnable examples: `coral run coral-app/examples/collections/list.json` (also `s
   object keys are strings. Note what is *not* required: a `qualified_id` need only be unique and
   filename-safe (check 3), not equal to its node id — the reference backend requires no more, and a
   flattened subgraph would legitimately carry `12_3`. Consequence for test data: node ids carry no
-  meaning, so where a graph's node names matter to an assertion they live in a `NODES` map beside
-  that graph's own test, or in each node's `qualified_id` — never in the JSON, which has no field
-  for them
+  meaning, so where a node's role matters it belongs in the node's optional `name` (see
+  [Workflow JSON Structure](#workflow-json-structure)), which the JSON carries and the editor
+  shows. Some plugin tests still keep it in a `NODES` map beside the graph's test — a
+  hand-maintained copy that drifts from the file when the graph is renumbered
 - **No cycles**: Workflow graphs must be acyclic (DAG) — `graph.py` raises `ValueError` naming the
   cycle path, using `graphlib.TopologicalSorter` (stdlib, `{node: predecessors}`)
 - **Validate before executing**: every defect — identity, wiring, typing, ordering — raises while the `Graph` is being constructed, so
