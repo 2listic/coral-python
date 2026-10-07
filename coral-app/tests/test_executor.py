@@ -331,6 +331,13 @@ class TestOutputArity:
             error.value
         )
 
+    def test_a_named_node_is_named_in_the_error(self, run):
+        """GIVEN an over-declaring node that declares a name
+        WHEN the graph is executed
+        THEN the error carries the name beside the id."""
+        with pytest.raises(ValueError, match=r"Node '0' \('solver'\) of type 'short_triple'"):
+            run({"0": {"qualified_id": "short", "type": "short_triple", "name": "solver"}})
+
 
 class TestConstructorNodes:
     """A constructor node instantiates its class."""
@@ -527,6 +534,30 @@ class TestExecutionOrder:
         WHEN it is executed
         THEN the results are empty and no error is raised."""
         assert run({}) == {}
+
+
+class TestLog:
+    """The pair of lines bracketing each node, in the reference backend's shape."""
+
+    def test_a_named_node_is_logged_with_its_name(self, run, capsys):
+        """GIVEN a node declaring a name
+        WHEN the graph is executed
+        THEN both lines carry the name after the qualified id."""
+        run({"0": {"qualified_id": "q", "type": "int", "value": 1, "name": "count"}})
+
+        out = capsys.readouterr().out
+        assert "Start running node 0 [q]: count (type = int)" in out
+        assert "Node 0 [q]: count (type = int) run" in out
+
+    def test_an_unnamed_node_is_logged_without_one(self, run, capsys):
+        """GIVEN a node with no name
+        WHEN the graph is executed
+        THEN neither line carries one — no empty ``: ``, no invented name."""
+        run({"0": {"qualified_id": "q", "type": "int", "value": 1}})
+
+        out = capsys.readouterr().out
+        assert "Start running node 0 [q] (type = int)" in out
+        assert "Node 0 [q] (type = int) run" in out
 
 
 class TestStatusMarkers:

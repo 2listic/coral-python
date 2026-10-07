@@ -1,17 +1,17 @@
 {
   "workflow": {
     "nodes": {
-      "0": { "qualified_id": "0", "type": "int", "value": "5" },
-      "1": { "qualified_id": "1", "type": "int", "value": "7" },
-      "2": { "qualified_id": "2", "type": "int", "value": "5" },
-      "3": { "qualified_id": "3", "type": "int", "value": "0" },
-      "4": { "qualified_id": "4", "type": "set_new" },
-      "5": { "qualified_id": "5", "type": "set_add" },
-      "6": { "qualified_id": "6", "type": "set_add" },
-      "7": { "qualified_id": "7", "type": "set_add" },
-      "8": { "qualified_id": "8", "type": "set_size" },
-      "9": { "qualified_id": "9", "type": "set_to_list" },
-      "10": { "qualified_id": "10", "type": "list_get" }
+      "0": { "qualified_id": "0", "type": "int", "value": "5", "name": "five" },
+      "1": { "qualified_id": "1", "type": "int", "value": "7", "name": "seven" },
+      "2": { "qualified_id": "2", "type": "int", "value": "5", "name": "five_again" },
+      "3": { "qualified_id": "3", "type": "int", "value": "0", "name": "index_0" },
+      "4": { "qualified_id": "4", "type": "set_new", "name": "empty" },
+      "5": { "qualified_id": "5", "type": "set_add", "name": "with_five" },
+      "6": { "qualified_id": "6", "type": "set_add", "name": "with_seven" },
+      "7": { "qualified_id": "7", "type": "set_add", "name": "five_added_twice" },
+      "8": { "qualified_id": "8", "type": "set_size", "name": "size" },
+      "9": { "qualified_id": "9", "type": "set_to_list", "name": "sorted" },
+      "10": { "qualified_id": "10", "type": "list_get", "name": "smallest" }
     },
     "edges": {
       "0": { "source": 4, "target": 5, "source_output": 0, "target_input": 0 },
