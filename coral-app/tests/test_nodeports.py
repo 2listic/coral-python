@@ -15,9 +15,11 @@ from coral_app.nodeports import (
     FUNCTION,
     METHOD,
     PRIMITIVE,
+    Port,
     build_port_table,
     methods_of,
 )
+from coral_core import outputs
 
 
 def annotated(a: int, b: str) -> float:
@@ -142,7 +144,7 @@ class TestInputs:
         THEN its inputs are its parameters, in declaration order, with their annotations."""
         table = build_port_table(function_map={"annotated": annotated})
 
-        assert table["annotated"].inputs == [("a", int), ("b", str)]
+        assert table["annotated"].inputs == [Port("a", int), Port("b", str)]
 
     def test_constructor_inputs_omit_self(self):
         """GIVEN a class
@@ -150,7 +152,7 @@ class TestInputs:
         THEN the inputs are the ``__init__`` parameters without ``self``."""
         table = build_port_table(class_map={"Widget": Widget})
 
-        assert table["Widget"].inputs == [("size", float), ("label", str)]
+        assert table["Widget"].inputs == [Port("size", float), Port("label", str)]
 
     def test_method_input_zero_is_the_instance(self):
         """GIVEN a class method
@@ -158,7 +160,7 @@ class TestInputs:
         THEN port 0 is ``self``, annotated with the class, and the parameters follow."""
         table = build_port_table(class_map={"Widget": Widget})
 
-        assert table["Widget.resize"].inputs == [("self", Widget), ("factor", float)]
+        assert table["Widget.resize"].inputs == [Port("self", Widget), Port("factor", float)]
 
     def test_method_with_no_parameters_has_only_the_instance(self):
         """GIVEN a method taking nothing but ``self``
@@ -166,7 +168,7 @@ class TestInputs:
         THEN it has exactly one input, the instance."""
         table = build_port_table(class_map={"Widget": Widget})
 
-        assert table["Widget.describe"].inputs == [("self", Widget)]
+        assert table["Widget.describe"].inputs == [Port("self", Widget)]
 
     def test_primitive_has_no_inputs(self):
         """GIVEN a primitive type
@@ -182,8 +184,8 @@ class TestInputs:
         THEN the annotation is ``Any``, not ``Signature.empty``."""
         table = build_port_table(function_map={"unannotated": unannotated})
 
-        assert table["unannotated"].inputs == [("x", Any)]
-        assert table["unannotated"].inputs[0][1] is not inspect.Signature.empty
+        assert table["unannotated"].inputs == [Port("x", Any)]
+        assert table["unannotated"].inputs[0].annotation is not inspect.Signature.empty
 
 
 class TestOutputs:
@@ -195,7 +197,7 @@ class TestOutputs:
         THEN it has a single output carrying the return annotation."""
         table = build_port_table(function_map={"annotated": annotated})
 
-        assert table["annotated"].outputs == [float]
+        assert table["annotated"].outputs == [Port("", float)]
 
     def test_tuple_return_gives_one_output_per_element(self):
         """GIVEN a function annotated ``Tuple[float, str, bool]``
@@ -203,7 +205,7 @@ class TestOutputs:
         THEN it has three outputs, one per element, in order."""
         table = build_port_table(function_map={"returns_triple": returns_triple})
 
-        assert table["returns_triple"].outputs == [float, str, bool]
+        assert table["returns_triple"].outputs == [Port("", float), Port("", str), Port("", bool)]
 
     def test_none_return_gives_no_outputs(self):
         """GIVEN a function annotated ``-> None``
@@ -227,7 +229,7 @@ class TestOutputs:
         THEN it has one output, annotated with the class itself."""
         table = build_port_table(class_map={"Widget": Widget})
 
-        assert table["Widget"].outputs == [Widget]
+        assert table["Widget"].outputs == [Port("", Widget)]
 
     def test_primitive_outputs_its_own_type(self):
         """GIVEN a primitive type
@@ -235,8 +237,8 @@ class TestOutputs:
         THEN it has one output, annotated with that type."""
         table = build_port_table(primitives=PRIMITIVES)
 
-        assert table["int"].outputs == [int]
-        assert table["any"].outputs == [Any]
+        assert table["int"].outputs == [Port("", int)]
+        assert table["any"].outputs == [Port("", Any)]
 
 
 class TestMethodEnumeration:
@@ -270,7 +272,7 @@ class TestMethodEnumeration:
         table = build_port_table(class_map={"Widget": Widget})
 
         assert table["Widget.helper"].kind == METHOD
-        assert table["Widget.helper"].inputs == [("self", Widget), ("x", int)]
+        assert table["Widget.helper"].inputs == [Port("self", Widget), Port("x", int)]
 
     def test_c_extension_class_registers_a_constructor_and_no_methods(self):
         """GIVEN a C extension class, whose methods are not ``inspect.isfunction``
@@ -320,7 +322,7 @@ class TestPrecedence:
         )
 
         assert table["Widget.resize"].kind == FUNCTION
-        assert table["Widget.resize"].inputs == [("a", int), ("b", str)]
+        assert table["Widget.resize"].inputs == [Port("a", int), Port("b", str)]
 
     def test_a_constructor_wins_over_a_method_of_the_same_key(self):
         """GIVEN a class keyed ``Widget.resize`` alongside the class ``Widget``
@@ -439,7 +441,7 @@ class TestTupleReturnAnnotations:
         THEN it has one output port per declared element."""
         table = build_port_table(function_map={"returns_triple": returns_triple})
 
-        assert table["returns_triple"].outputs == [float, str, bool]
+        assert table["returns_triple"].outputs == [Port("", float), Port("", str), Port("", bool)]
 
     def test_plain_tuple_is_a_single_output(self):
         """GIVEN a function annotated with plain ``tuple`` rather than ``Tuple[...]``
@@ -450,7 +452,7 @@ class TestTupleReturnAnnotations:
         tuple, which the executor must pass on whole instead of indexing into."""
         table = build_port_table(function_map={"pair": returns_bare_tuple})
 
-        assert table["pair"].outputs == [tuple]
+        assert table["pair"].outputs == [Port("", tuple)]
 
     @pytest.mark.parametrize(
         "func",
@@ -483,3 +485,121 @@ class TestTupleReturnAnnotations:
 
         with pytest.raises(ValueError, match="'Broken.compute'"):
             build_port_table(class_map={"Broken": Broken})
+
+
+class TestOutputNames:
+    """``@outputs`` names a callable's outputs; the annotation alone decides how many there are.
+
+    The decorator checks the names on their own when it is applied. Whether there is one name per
+    output depends on the return annotation, which only the port table reads — so that check, and the
+    refusal of a marked ``__init__``, live here.
+    """
+
+    def test_a_function_s_names_reach_its_outputs(self):
+        """GIVEN a function returning three values, decorated with three names
+        WHEN the table is built
+        THEN each output port carries its name, in order, next to its annotation."""
+
+        @outputs("value", "text", "flag")
+        def triple(x: float) -> Tuple[float, str, bool]:
+            return x, "", False
+
+        table = build_port_table(function_map={"triple": triple})
+
+        assert table["triple"].outputs == [
+            Port("value", float),
+            Port("text", str),
+            Port("flag", bool),
+        ]
+
+    def test_a_method_s_name_reaches_its_output(self):
+        """GIVEN a method decorated with one name
+        WHEN the table is built
+        THEN its single output port carries it."""
+
+        class Meter:
+            @outputs("reading")
+            def read(self) -> float:
+                return 0.0
+
+        table = build_port_table(class_map={"Meter": Meter})
+
+        assert table["Meter.read"].outputs == [Port("reading", float)]
+
+    def test_an_inherited_method_keeps_its_base_s_names(self):
+        """GIVEN a subclass inheriting a decorated method
+        WHEN the table is built
+        THEN the subclass's entry carries the same names — it is the same function."""
+
+        class Meter:
+            @outputs("reading")
+            def read(self) -> float:
+                return 0.0
+
+        class FineMeter(Meter):
+            pass
+
+        table = build_port_table(class_map={"Meter": Meter, "FineMeter": FineMeter})
+
+        assert table["FineMeter.read"].outputs == [Port("reading", float)]
+
+    def test_an_undecorated_callable_s_outputs_are_unnamed(self):
+        """GIVEN a function returning three values and no @outputs
+        WHEN the table is built
+        THEN every output's name is "" — no placeholder is invented."""
+        table = build_port_table(function_map={"returns_triple": returns_triple})
+
+        assert [port.name for port in table["returns_triple"].outputs] == ["", "", ""]
+
+    def test_too_few_names_are_refused(self):
+        """GIVEN a function returning three values, decorated with two names
+        WHEN the table is built
+        THEN ValueError names the node type."""
+
+        @outputs("value", "text")
+        def triple(x: float) -> Tuple[float, str, bool]:
+            return x, "", False
+
+        with pytest.raises(ValueError, match="'offender'"):
+            build_port_table(function_map={"offender": triple})
+
+    def test_names_on_a_callable_returning_nothing_are_refused(self):
+        """GIVEN a function annotated ``-> None``, decorated with a name
+        WHEN the table is built
+        THEN ValueError: there is no output to carry the name."""
+
+        @outputs("result")
+        def record(x: float) -> None:
+            pass
+
+        with pytest.raises(ValueError, match="declares 0"):
+            build_port_table(function_map={"record": record})
+
+    def test_a_marked_init_is_refused(self):
+        """GIVEN a class whose ``__init__`` carries @outputs
+        WHEN the table is built
+        THEN ValueError names the class: a constructor's output cannot be named."""
+
+        class Labelled:
+            @outputs("instance")
+            def __init__(self, size: float):
+                self.size = size
+
+        with pytest.raises(ValueError, match="'Labelled'"):
+            build_port_table(class_map={"Labelled": Labelled})
+
+    def test_an_inherited_marked_init_is_refused_too(self):
+        """GIVEN a subclass inheriting a marked ``__init__``
+        WHEN the table is built from the subclass alone
+        THEN ValueError — the subclass's constructor is that same function."""
+
+        class Labelled:
+            @outputs("instance")
+            def __init__(self, size: float):
+                self.size = size
+
+        class Derived(Labelled):
+            pass
+
+        with pytest.raises(ValueError, match="'Derived'"):
+            build_port_table(class_map={"Derived": Derived})

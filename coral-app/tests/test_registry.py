@@ -280,6 +280,32 @@ class TestConstructorAndMethodEntries:
         assert registry["PreciseAccumulator.add"]["node_type"] == "method"
 
 
+class TestOutputNames:
+    """An output's ``name`` is what ``@outputs`` declared, or ``""``; the editor shows it as the label."""
+
+    def test_a_function_s_declared_names_are_written(self, registry):
+        """GIVEN a specimen function decorated with three output names
+        WHEN its entry is read
+        THEN each output argument carries its name, in order."""
+        names = [arg["name"] for arg in outputs_of(registry["split_triple"])]
+
+        assert names == ["value", "text", "positive"]
+
+    def test_a_method_s_declared_name_is_written(self, registry):
+        """GIVEN a specimen method decorated with one output name
+        WHEN its entry is read
+        THEN its output argument carries it."""
+        assert [arg["name"] for arg in outputs_of(registry["Accumulator.add"])] == ["total"]
+
+    def test_an_inherited_method_writes_its_base_s_names(self, registry):
+        """GIVEN a subclass inheriting a decorated method
+        WHEN the subclass's method entry is read
+        THEN it carries the same name as the base's."""
+        names = [arg["name"] for arg in outputs_of(registry["PreciseAccumulator.add"])]
+
+        assert names == ["total"]
+
+
 class TestClassSockets:
     """A socket typed with a registered class carries the class's key: the string the front end
     also gives the instance that class's constructor produces, so the two match."""
