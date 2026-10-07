@@ -11,20 +11,20 @@ suite does for its own. The node type is ``print_text``, this plugin's own name 
 import pytest
 from coral_app.executor import WorkflowExecutor
 from coral_plugin_string import StringProcessor
-from string_suite import PLUGIN_NAME
+from string_suite import PLUGIN_NAME, node_named
 
 #: Hello-world through this plugin: a prefix and a text into StringProcessor, then printed.
 #:
-#: The protocol keys nodes by integer, so the ids carry no meaning; each node's ``qualified_id``
-#: keeps the name it plays, and `NODES` below maps that name back to the id the assertions need.
+#: The protocol keys nodes by integer, so the ids carry no meaning; each node's ``name`` carries
+#: the role it plays, and the assertions look nodes up by it.
 GRAPH = {
     "workflow": {
         "nodes": {
-            "0": {"qualified_id": "prefix", "type": "str", "value": "Hello, "},
-            "1": {"qualified_id": "text", "type": "str", "value": "world"},
-            "2": {"qualified_id": "sp", "type": "StringProcessor"},
-            "3": {"qualified_id": "cat", "type": "StringProcessor.concatenate"},
-            "4": {"qualified_id": "out", "type": "print_text"},
+            "0": {"qualified_id": "0", "type": "str", "value": "Hello, ", "name": "prefix"},
+            "1": {"qualified_id": "1", "type": "str", "value": "world", "name": "text"},
+            "2": {"qualified_id": "2", "type": "StringProcessor", "name": "sp"},
+            "3": {"qualified_id": "3", "type": "StringProcessor.concatenate", "name": "cat"},
+            "4": {"qualified_id": "4", "type": "print_text", "name": "out"},
         },
         "edges": {
             # the prefix feeds the constructor
@@ -38,48 +38,46 @@ GRAPH = {
     }
 }
 
-#: Each node of ``GRAPH`` by the name it plays — its ``qualified_id``, which the ids themselves
-#: cannot carry. Maintained by hand alongside the graph above: renumber one without the other and
-#: the assertions move to the wrong nodes.
-NODES = {"prefix": "0", "text": "1", "sp": "2", "cat": "3", "out": "4"}
-
 
 class TestTheStringGraph:
     """Constructor, method and printer, wired together and executed."""
 
     @pytest.fixture
-    def results(self, write_graph):
-        """Execute the graph with this plugin selected."""
+    def result(self, write_graph):
+        """Execute the graph with this plugin selected, returning a lookup from a node's ``name``
+        to its result."""
         path = write_graph(GRAPH)
-        return WorkflowExecutor(str(path), plugins=[PLUGIN_NAME]).execute()
+        executor = WorkflowExecutor(str(path), plugins=[PLUGIN_NAME])
+        executor.execute()
+        return lambda name: executor.results[node_named(executor.graph, name)]
 
-    def test_the_primitives_carry_their_strings(self, results):
+    def test_the_primitives_carry_their_strings(self, result):
         """GIVEN two `str` primitives
         WHEN the graph is executed
         THEN each holds its literal, whitespace included."""
-        assert results[NODES["prefix"]] == "Hello, "
-        assert results[NODES["text"]] == "world"
+        assert result("prefix") == "Hello, "
+        assert result("text") == "world"
 
-    def test_the_constructor_holds_the_prefix(self, results):
+    def test_the_constructor_holds_the_prefix(self, result):
         """GIVEN the prefix wired into StringProcessor's only input
         WHEN the graph is executed
         THEN the constructor node holds an instance carrying it."""
-        assert isinstance(results[NODES["sp"]], StringProcessor)
-        assert results[NODES["sp"]].prefix == "Hello, "
+        assert isinstance(result("sp"), StringProcessor)
+        assert result("sp").prefix == "Hello, "
 
-    def test_the_method_node_concatenates(self, results):
+    def test_the_method_node_concatenates(self, result):
         """GIVEN the instance on port 0 and the text on port 1
         WHEN the graph is executed
         THEN the method node holds the concatenation, in prefix-then-text order.
 
         The port order is the assertion: swapped, this would be "worldHello, "."""
-        assert results[NODES["cat"]] == "Hello, world"
+        assert result("cat") == "Hello, world"
 
-    def test_the_printer_returns_none(self, results):
+    def test_the_printer_returns_none(self, result):
         """GIVEN print_text at the end
         WHEN the graph is executed
         THEN its result is None — it has no outputs, so nothing may follow it."""
-        assert results[NODES["out"]] is None
+        assert result("out") is None
 
     def test_the_user_visible_output(self, write_graph, capsys):
         """GIVEN the graph

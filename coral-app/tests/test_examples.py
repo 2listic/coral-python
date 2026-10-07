@@ -47,3 +47,14 @@ def test_examples_were_found():
     WHEN it runs against this package
     THEN it found example graphs, so this module is not silently covering nothing."""
     assert example_graphs(), f"no example graphs discovered under {EXAMPLES}"
+
+
+def test_a_named_example_logs_its_names(capsys):
+    """GIVEN ``set.json``, whose nodes each declare a name
+    WHEN it is executed with no plugin selected
+    THEN the names read from the file reach the log beside the ids."""
+    WorkflowExecutor(str(EXAMPLES / "collections" / "set.json"), plugins=[]).execute()
+
+    out = capsys.readouterr().out
+    assert "Start running node 4 [4]: empty (type = set_new)" in out
+    assert "Start running node 10 [10]: smallest (type = list_get)" in out

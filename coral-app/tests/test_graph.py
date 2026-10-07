@@ -965,3 +965,80 @@ class TestLookups:
 
         assert graph.order == ["0", "1"]
         assert graph.edges[0].id == "0"
+
+
+class TestNames:
+    """A node's optional ``name``: a caption that describes a node, never an address.
+
+    Nothing about it is validated — it is not unique, and anything but a non-empty string counts as
+    no name — so a graph never fails over it. What it changes is how messages name a node.
+    """
+
+    def test_a_declared_name_is_returned(self):
+        """GIVEN a node declaring a name
+        WHEN its name is requested
+        THEN the name comes back."""
+        graph = build({"0": {"type": "int", "value": 1, "name": "count"}}, {})
+
+        assert graph.name_of("0") == "count"
+
+    @pytest.mark.parametrize(
+        "extra",
+        [{}, {"name": ""}, {"name": 42}, {"name": None}],
+        ids=["absent", "empty", "number", "null"],
+    )
+    def test_anything_but_a_non_empty_string_is_no_name(self, extra):
+        """GIVEN a node whose name is absent, empty, or not a string
+        WHEN the graph is built and the node's name requested
+        THEN the graph constructs and the node has no name."""
+        graph = build({"0": {"type": "int", "value": 1, **extra}}, {})
+
+        assert graph.name_of("0") is None
+
+    def test_two_nodes_may_share_a_name(self):
+        """GIVEN two nodes declaring the same name
+        WHEN the graph is built
+        THEN it constructs — only ids must be unique, a name is a caption."""
+        nodes = {
+            "0": {"type": "int", "value": 1, "name": "same"},
+            "1": {"type": "int", "value": 2, "name": "same"},
+        }
+
+        assert build(nodes, {}).order == ["0", "1"]
+
+    def test_an_unnamed_node_is_described_by_its_id(self):
+        """GIVEN a node with no name
+        WHEN it is described
+        THEN the description is its quoted id alone."""
+        assert build({"0": {"type": "int", "value": 1}}, {}).describe("0") == "'0'"
+
+    def test_a_named_node_is_described_by_id_and_name(self):
+        """GIVEN a node declaring a name
+        WHEN it is described
+        THEN the description is its quoted id followed by its quoted name."""
+        graph = build({"0": {"type": "int", "value": 1, "name": "count"}}, {})
+
+        assert graph.describe("0") == "'0' ('count')"
+
+    def test_a_node_error_names_the_node(self):
+        """GIVEN a named two-input node with only one edge
+        WHEN the graph is built
+        THEN the error carries the node's name beside its id."""
+        nodes = {"0": {"type": "float", "value": 1.0}, "1": {"type": "add", "name": "total"}}
+
+        with pytest.raises(ValueError, match=r"Node '1' \('total'\) of type 'add' expects 2"):
+            build(nodes, {"0": edge("0", "1", 0)})
+
+    def test_an_edge_error_names_both_endpoints(self):
+        """GIVEN a named str primitive wired into a named float parameter
+        WHEN the graph is built
+        THEN the error carries both nodes' names beside their ids."""
+        nodes = {
+            "0": {"type": "str", "value": "x", "name": "word"},
+            "1": {"type": "sqrt", "name": "root"},
+        }
+
+        with pytest.raises(
+            ValueError, match=r"from node '0' \('word'\) into parameter 'x' of node '1' \('root'\)"
+        ):
+            build(nodes, {"0": edge("0", "1", 0)})

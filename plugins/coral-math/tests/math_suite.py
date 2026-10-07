@@ -39,3 +39,15 @@ GRAPHS = Path(__file__).parent / "graphs"
 
 #: This plugin's recorded ``node_types.json`` slice.
 GOLDEN = Path(__file__).parent / "system" / "golden" / f"node_types.{PLUGIN_NAME}.json"
+
+
+def node_named(graph, name: str) -> str:
+    """The id of the one node in ``graph`` declaring ``name``.
+
+    A name is a caption, not an address, and nothing makes it unique; so a test that looks a node
+    up by one asserts there is exactly one. A renamed or duplicated name fails here rather than
+    letting an assertion read the wrong node.
+    """
+    matches = [node_id for node_id in graph.nodes if graph.name_of(node_id) == name]
+    assert len(matches) == 1, f"expected one node named {name!r}, found {matches}"
+    return matches[0]

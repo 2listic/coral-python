@@ -12,17 +12,13 @@ import numpy
 import pytest
 from coral_app.executor import WorkflowExecutor
 from coral_plugin_pypde import PyPDEScalarField
-from pypde_suite import EXAMPLES, PLUGIN_NAME
+from pypde_suite import EXAMPLES, PLUGIN_NAME, node_named
 
 #: The example a user is told to run: `coral -p "pypde" run examples/pypde/diffusion.json`.
 EXAMPLE = EXAMPLES / "pypde" / "diffusion.json"
 
 #: What the graph's two sinks are wired to write, relative to the working directory.
 OUTPUT_FILES = ("diffusion.hdf5", "diffusion.mp4")
-
-#: The graph's node ids for the initial condition and the solver — the JSON has no field for a
-#: name, so the two the assertions need are pinned here beside them.
-NODES = {"initial_state": "5", "solve": "20"}
 
 
 @pytest.mark.slow
@@ -68,8 +64,8 @@ class TestTheShippedExampleRuns:
         rather than the input state being mutated and passed back."""
         executor, _ = executed
 
-        final = executor.results[NODES["solve"]]
-        initial = executor.results[NODES["initial_state"]]
+        final = executor.results[node_named(executor.graph, "solve")]
+        initial = executor.results[node_named(executor.graph, "initial_state")]
 
         assert isinstance(final, PyPDEScalarField)
         assert final is not initial
@@ -80,8 +76,8 @@ class TestTheShippedExampleRuns:
         THEN they differ — the solver did work, rather than handing back what it was given."""
         executor, _ = executed
 
-        final = executor.results[NODES["solve"]]
-        initial = executor.results[NODES["initial_state"]]
+        final = executor.results[node_named(executor.graph, "solve")]
+        initial = executor.results[node_named(executor.graph, "initial_state")]
 
         assert not numpy.array_equal(final.field.data, initial.field.data)
 
