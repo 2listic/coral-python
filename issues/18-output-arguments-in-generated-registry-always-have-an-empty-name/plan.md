@@ -103,6 +103,29 @@ it.
       (an output's `name`), *Type Hint Requirements* and *Adding a New Plugin* (`@outputs`).
 - [ ] `docs/ONBOARDING.md`: lines 174 and 272 describe the port table's old shape.
 
+### Step 7 — the wheel acceptance test served a stale `coral-core`
+
+Found by the slow lane after Step 6, not part of the issue itself.
+`tests/test_acceptance.py::test_wheel_pip_acceptance` failed with
+`ImportError: cannot import name 'output_names' from 'coral_core'`: the throwaway venv got the new
+`coral-app` next to an old `coral-core`.
+
+- Cause: uv caches a `--find-links` wheel under its name, version **and path**. Versions are static
+  while content changes, and pytest's `pytest-<N>` numbering restarts from 0 after a reboot, so a
+  run can reuse an earlier boot's wheelhouse path and be served that run's wheel.
+  `_CleanEnv.install()` passed `--refresh-package` only for the packages it named, and
+  `coral-core` is never named — it arrives as a dependency of `coral-app`. This step is the first
+  change to `coral-core`'s code since that refresh was written, which is why it had never shown.
+- Reproduced on purpose: an old `coral-core` (built from `0b1ac9f`) installed from
+  `pytest-1/wheelhouse0/` to seed the cache, then the directory deleted → the next run reused that
+  path and failed with the same `ImportError`; a run at an unseeded path passed.
+- [x] Fix: `install()` refreshes every wheel in the wheelhouse, its name taken from the filename,
+      not only the named packages. Re-run at the stale-cached path: passed. `pytest -m slow`:
+      9 passed.
+- Unexplained: right after the first failure, two re-runs failed in ~0.5s with their output not
+  captured. They have not recurred since. If they do, capture the output to a file (`_run()` puts
+  the failing `uv` command and its stderr in the report).
+
 ## What does not change
 
 - The executor, and wiring: `source_output` stays positional; names are for display only.

@@ -88,15 +88,20 @@ class _CleanEnv:
     def install(self, *packages: str) -> None:
         """Install packages from the local wheelhouse (heavy deps come from uv's cache).
 
-        ``--refresh-package`` is required for each workspace package, and only for those. A wheel is
-        cached under its name and version, and these versions never change while their *content*
-        does on every commit — so without it uv happily serves a previously cached ``coral_app``,
-        and the test then asserts against whatever build the cache last saw rather than the wheels
-        the ``wheelhouse`` fixture just built. Refreshing only the local names keeps the heavy
-        third-party stack (jax/h5py/phiflow) coming from the cache, which is why this test is
+        ``--refresh-package`` is required for every wheel in the wheelhouse, and only for those. A
+        local wheel is cached under its name, version and path. These versions never change while
+        their *content* does on every commit, and the path repeats too, because pytest numbers its
+        temp directories from 0 again after a reboot — so without it uv happily serves a previously
+        cached ``coral_core``, and the test then asserts against whatever build the cache last saw
+        rather than the wheels the ``wheelhouse`` fixture just built. Every wheel is refreshed, not
+        only the packages named here: a dependency such as ``coral-core`` is installed without
+        being named, and is served stale just the same. Refreshing only the local wheels keeps the
+        heavy third-party stack (jax/h5py/phiflow) coming from the cache, which is why this test is
         affordable at all.
         """
-        refresh = [arg for package in packages for arg in ("--refresh-package", package)]
+        # A wheel's filename starts with its distribution name: coral_core-0.0.0-py3-none-any.whl.
+        local = sorted(wheel.name.split("-")[0] for wheel in self.dist.glob("*.whl"))
+        refresh = [arg for package in local for arg in ("--refresh-package", package)]
         _run(
             [
                 UV,
