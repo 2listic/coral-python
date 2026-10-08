@@ -13,7 +13,8 @@ entry                         the shape it exists for
 ============================  =================================================================
 ``add_pair``                  two typed inputs, one output — the workhorse
 ``to_label``                  a type change across an edge (int -> str)
-``split_triple``              three outputs, so ``source_output`` selection has something to pick
+``split_triple``              three outputs, so ``source_output`` selection has something to pick;
+                              named with ``@outputs``
 ``pair``                      a bare ``tuple`` return: **one** output port, passed on whole
 ``short_triple``              declares three outputs, returns two — an annotation that lies
 ``not_a_tuple``               declares two outputs, returns no tuple at all
@@ -23,7 +24,8 @@ entry                         the shape it exists for
 ``anything``                  an explicit ``Any`` on both sides
 ``specimen.ratio``            a dotted function name, and an **asymmetric** one
 ``shared_label``              a name a clash plugin also declares (duplicate-name refusal)
-``Accumulator``               a class: constructor, methods, the instance at method port 0
+``Accumulator``               a class: constructor, methods, the instance at method port 0; ``add``
+                              names its output with ``@outputs``, which ``PreciseAccumulator`` inherits
 ``Gauge``                     an *unrelated* class, so a wrong instance can be rejected
 ``PreciseAccumulator``        a *subclass*, which must be accepted where its base is expected
 ``Resettable``                a second parent for ``Ledger``, unrelated to ``Accumulator``
@@ -51,7 +53,7 @@ port table, the registry, graph validation, execution) is production code.
 
 from typing import Any, Dict, Tuple
 
-from coral_core import Plugin
+from coral_core import Plugin, outputs
 
 __all__ = [
     "PLUGINS",
@@ -86,6 +88,7 @@ def to_label(value: int) -> str:
     return f"#{value}"
 
 
+@outputs("value", "text", "positive")
 def split_triple(value: float) -> Tuple[float, str, bool]:
     """Return three values, so a downstream edge must choose one with ``source_output``."""
     return value, f"{value}", value > 0.0
@@ -160,6 +163,7 @@ class Accumulator:
     def __init__(self, start: float):
         self.start = start
 
+    @outputs("total")
     def add(self, amount: float) -> float:
         """The instance arrives at port 0; ``amount`` is port 1."""
         return self.start + amount

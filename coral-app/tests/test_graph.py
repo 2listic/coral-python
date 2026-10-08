@@ -42,6 +42,7 @@ from coral_app.nodeports import (
     METHOD,
     PRIMITIVE,
     NodePorts,
+    Port,
     build_port_table,
 )
 
@@ -49,9 +50,17 @@ from coral_app.nodeports import (
 class Widget:
     """A plugin-supplied class."""
 
+    def __init__(self, size: float): ...
+
+    def resize(self, f: float) -> float:
+        """A stub: ``Graph`` only reads the ``Widget.resize`` port-table entry, never this."""
+        ...
+
 
 class Gadget:
     """An unrelated plugin-supplied class."""
+
+    def __init__(self, size: float): ...
 
 
 class Sprocket(Widget):
@@ -61,42 +70,58 @@ class Sprocket(Widget):
 class Cog:
     """Another class unrelated to Widget: Gear's second parent."""
 
+    def __init__(self, size: float): ...
+
+    def spin(self) -> float:
+        """A stub: ``Graph`` only reads the ``Cog.spin`` port-table entry, never this."""
+        ...
+
 
 class Gear(Sprocket, Cog):
     """A Widget through a chain, and a Cog through a second parent."""
 
 
+def ports(kind, inputs=(), outputs=()) -> NodePorts:
+    """A port-table entry from ``(name, annotation)`` inputs and bare output annotations.
+
+    Outputs are left unnamed: ``Graph`` never reads an output's name.
+    """
+    return NodePorts(
+        kind=kind,
+        inputs=[Port(name, annotation) for name, annotation in inputs],
+        outputs=[Port("", annotation) for annotation in outputs],
+    )
+
+
 PORT_TABLE = {
-    "int": NodePorts(kind=PRIMITIVE, outputs=[int]),
-    "float": NodePorts(kind=PRIMITIVE, outputs=[float]),
-    "str": NodePorts(kind=PRIMITIVE, outputs=[str]),
-    "bool": NodePorts(kind=PRIMITIVE, outputs=[bool]),
-    "any": NodePorts(kind=PRIMITIVE, outputs=[Any]),
-    "none": NodePorts(kind=PRIMITIVE, outputs=[type(None)]),
-    "add": NodePorts(kind=FUNCTION, inputs=[("a", float), ("b", float)], outputs=[float]),
-    "sqrt": NodePorts(kind=FUNCTION, inputs=[("x", float)], outputs=[float]),
-    "label": NodePorts(kind=FUNCTION, inputs=[("text", str)], outputs=[str]),
-    "show": NodePorts(kind=FUNCTION, inputs=[("value", float)], outputs=[]),
-    "split": NodePorts(kind=FUNCTION, inputs=[("x", float)], outputs=[float, str, bool]),
-    "anything": NodePorts(kind=FUNCTION, inputs=[("value", Any)], outputs=[Any]),
-    "Widget": NodePorts(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Widget]),
-    "Widget.resize": NodePorts(
-        kind=METHOD, inputs=[("self", Widget), ("f", float)], outputs=[float]
-    ),
-    "Gadget": NodePorts(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Gadget]),
-    "Sprocket": NodePorts(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Sprocket]),
-    "Cog": NodePorts(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Cog]),
-    "Cog.spin": NodePorts(kind=METHOD, inputs=[("self", Cog)], outputs=[float]),
-    "Gear": NodePorts(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Gear]),
+    "int": ports(kind=PRIMITIVE, outputs=[int]),
+    "float": ports(kind=PRIMITIVE, outputs=[float]),
+    "str": ports(kind=PRIMITIVE, outputs=[str]),
+    "bool": ports(kind=PRIMITIVE, outputs=[bool]),
+    "any": ports(kind=PRIMITIVE, outputs=[Any]),
+    "none": ports(kind=PRIMITIVE, outputs=[type(None)]),
+    "add": ports(kind=FUNCTION, inputs=[("a", float), ("b", float)], outputs=[float]),
+    "sqrt": ports(kind=FUNCTION, inputs=[("x", float)], outputs=[float]),
+    "label": ports(kind=FUNCTION, inputs=[("text", str)], outputs=[str]),
+    "show": ports(kind=FUNCTION, inputs=[("value", float)], outputs=[]),
+    "split": ports(kind=FUNCTION, inputs=[("x", float)], outputs=[float, str, bool]),
+    "anything": ports(kind=FUNCTION, inputs=[("value", Any)], outputs=[Any]),
+    "Widget": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Widget]),
+    "Widget.resize": ports(kind=METHOD, inputs=[("self", Widget), ("f", float)], outputs=[float]),
+    "Gadget": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Gadget]),
+    "Sprocket": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Sprocket]),
+    "Cog": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Cog]),
+    "Cog.spin": ports(kind=METHOD, inputs=[("self", Cog)], outputs=[float]),
+    "Gear": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Gear]),
     # Collection-shaped entries, mirroring `coral_app.builtin_nodes`: a creator taking nothing and
     # returning a bare collection, and a consumer taking one. Hand-written like everything else here
     # — the point is the annotations `Graph` compares, not which module they came from.
-    "list_new": NodePorts(kind=FUNCTION, inputs=[], outputs=[list]),
-    "set_new": NodePorts(kind=FUNCTION, inputs=[], outputs=[set]),
-    "dict_new": NodePorts(kind=FUNCTION, inputs=[], outputs=[dict]),
-    "list_size": NodePorts(kind=FUNCTION, inputs=[("lst", list)], outputs=[int]),
-    "set_size": NodePorts(kind=FUNCTION, inputs=[("s", set)], outputs=[int]),
-    "dict_size": NodePorts(kind=FUNCTION, inputs=[("d", dict)], outputs=[int]),
+    "list_new": ports(kind=FUNCTION, inputs=[], outputs=[list]),
+    "set_new": ports(kind=FUNCTION, inputs=[], outputs=[set]),
+    "dict_new": ports(kind=FUNCTION, inputs=[], outputs=[dict]),
+    "list_size": ports(kind=FUNCTION, inputs=[("lst", list)], outputs=[int]),
+    "set_size": ports(kind=FUNCTION, inputs=[("s", set)], outputs=[int]),
+    "dict_size": ports(kind=FUNCTION, inputs=[("d", dict)], outputs=[int]),
 }
 
 
@@ -742,7 +767,7 @@ class TestEdgeTypes:
         """GIVEN a float feeding an int parameter
         WHEN the graph is built
         THEN it raises — the tower widens, it does not narrow."""
-        table = dict(PORT_TABLE, count=NodePorts(kind=FUNCTION, inputs=[("n", int)], outputs=[int]))
+        table = dict(PORT_TABLE, count=ports(kind=FUNCTION, inputs=[("n", int)], outputs=[int]))
         nodes = {"0": {"type": "float", "value": 1.0}, "1": {"type": "count"}}
 
         with pytest.raises(ValueError, match=r"feeds float .* expects int"):
@@ -753,7 +778,7 @@ class TestEdgeTypes:
         WHEN the graph is built
         THEN it raises — bool is an int subclass, but widening never lands on bool."""
         table = dict(
-            PORT_TABLE, toggle=NodePorts(kind=FUNCTION, inputs=[("flag", bool)], outputs=[bool])
+            PORT_TABLE, toggle=ports(kind=FUNCTION, inputs=[("flag", bool)], outputs=[bool])
         )
         nodes = {"0": {"type": "int", "value": 5}, "1": {"type": "toggle"}}
 
@@ -765,7 +790,7 @@ class TestEdgeTypes:
         WHEN the graph is built
         THEN it is accepted — the bool guard must not refuse an exact match."""
         table = dict(
-            PORT_TABLE, toggle=NodePorts(kind=FUNCTION, inputs=[("flag", bool)], outputs=[bool])
+            PORT_TABLE, toggle=ports(kind=FUNCTION, inputs=[("flag", bool)], outputs=[bool])
         )
         nodes = {"0": {"type": "bool", "value": True}, "1": {"type": "toggle"}}
 
@@ -1022,3 +1047,80 @@ class TestLookups:
 
         assert graph.order == ["0", "1"]
         assert graph.edges[0].id == "0"
+
+
+class TestNames:
+    """A node's optional ``name``: a caption that describes a node, never an address.
+
+    Nothing about it is validated — it is not unique, and anything but a non-empty string counts as
+    no name — so a graph never fails over it. What it changes is how messages name a node.
+    """
+
+    def test_a_declared_name_is_returned(self):
+        """GIVEN a node declaring a name
+        WHEN its name is requested
+        THEN the name comes back."""
+        graph = build({"0": {"type": "int", "value": 1, "name": "count"}}, {})
+
+        assert graph.name_of("0") == "count"
+
+    @pytest.mark.parametrize(
+        "extra",
+        [{}, {"name": ""}, {"name": 42}, {"name": None}],
+        ids=["absent", "empty", "number", "null"],
+    )
+    def test_anything_but_a_non_empty_string_is_no_name(self, extra):
+        """GIVEN a node whose name is absent, empty, or not a string
+        WHEN the graph is built and the node's name requested
+        THEN the graph constructs and the node has no name."""
+        graph = build({"0": {"type": "int", "value": 1, **extra}}, {})
+
+        assert graph.name_of("0") is None
+
+    def test_two_nodes_may_share_a_name(self):
+        """GIVEN two nodes declaring the same name
+        WHEN the graph is built
+        THEN it constructs — only ids must be unique, a name is a caption."""
+        nodes = {
+            "0": {"type": "int", "value": 1, "name": "same"},
+            "1": {"type": "int", "value": 2, "name": "same"},
+        }
+
+        assert build(nodes, {}).order == ["0", "1"]
+
+    def test_an_unnamed_node_is_described_by_its_id(self):
+        """GIVEN a node with no name
+        WHEN it is described
+        THEN the description is its quoted id alone."""
+        assert build({"0": {"type": "int", "value": 1}}, {}).describe("0") == "'0'"
+
+    def test_a_named_node_is_described_by_id_and_name(self):
+        """GIVEN a node declaring a name
+        WHEN it is described
+        THEN the description is its quoted id followed by its quoted name."""
+        graph = build({"0": {"type": "int", "value": 1, "name": "count"}}, {})
+
+        assert graph.describe("0") == "'0' ('count')"
+
+    def test_a_node_error_names_the_node(self):
+        """GIVEN a named two-input node with only one edge
+        WHEN the graph is built
+        THEN the error carries the node's name beside its id."""
+        nodes = {"0": {"type": "float", "value": 1.0}, "1": {"type": "add", "name": "total"}}
+
+        with pytest.raises(ValueError, match=r"Node '1' \('total'\) of type 'add' expects 2"):
+            build(nodes, {"0": edge("0", "1", 0)})
+
+    def test_an_edge_error_names_both_endpoints(self):
+        """GIVEN a named str primitive wired into a named float parameter
+        WHEN the graph is built
+        THEN the error carries both nodes' names beside their ids."""
+        nodes = {
+            "0": {"type": "str", "value": "x", "name": "word"},
+            "1": {"type": "sqrt", "name": "root"},
+        }
+
+        with pytest.raises(
+            ValueError, match=r"from node '0' \('word'\) into parameter 'x' of node '1' \('root'\)"
+        ):
+            build(nodes, {"0": edge("0", "1", 0)})

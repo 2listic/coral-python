@@ -119,17 +119,17 @@
       {
         "connection_type": "output",
         "type": "float",
-        "name": ""
+        "name": "value"
       },
       {
         "connection_type": "output",
         "type": "str",
-        "name": ""
+        "name": "text"
       },
       {
         "connection_type": "output",
         "type": "bool",
-        "name": ""
+        "name": "positive"
       }
     ],
     "inputs": [
@@ -855,7 +855,7 @@
       {
         "connection_type": "output",
         "type": "float",
-        "name": ""
+        "name": "total"
       }
     ],
     "inputs": [
@@ -927,7 +927,7 @@
       {
         "connection_type": "output",
         "type": "float",
-        "name": ""
+        "name": "total"
       }
     ],
     "inputs": [
@@ -1021,7 +1021,7 @@
       {
         "connection_type": "output",
         "type": "float",
-        "name": ""
+        "name": "total"
       }
     ],
     "inputs": [

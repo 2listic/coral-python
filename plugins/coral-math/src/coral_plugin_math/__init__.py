@@ -8,7 +8,7 @@ through ``get_functions()`` / ``get_classes()``. Registered under the
 import math
 from typing import Any, Dict, Tuple
 
-from coral_core import Plugin
+from coral_core import Plugin, outputs
 
 __all__ = ["MathPlugin", "Calculator"]
 
@@ -77,6 +77,7 @@ def math_pow(x: float, y: float) -> float:
     return result
 
 
+@outputs("sum", "product", "difference")
 def tuple_return(x: float, y: float) -> Tuple[float, float, float]:
     """Test function that returns a tuple of three values.
 

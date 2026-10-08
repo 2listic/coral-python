@@ -11,7 +11,7 @@ imported when ``phiflow`` is actually selected.
 
 from typing import Any, Dict, Tuple
 
-from coral_core import Plugin
+from coral_core import Plugin, outputs
 from phi.flow import (
     # Constants
     ZERO_GRADIENT,
@@ -108,6 +108,7 @@ class PhiFlowCuboid:
         return self.cuboid
 
 
+@outputs("velocity", "smoke", "pressure")
 def phiflow_iterate(
     velocity_grid: Any,
     smoke_grid: Any,

@@ -3,7 +3,7 @@ import json
 from typing import Any, Dict, List, Mapping, Optional
 
 from coral_app import PRIMITIVES_MAP, TYPE_NAMES, build_class_map, build_function_map, discover
-from coral_app.nodeports import NodePorts, build_port_table, methods_of
+from coral_app.nodeports import NodePorts, Port, build_port_table, methods_of
 
 # Python type -> the name the file format uses for it, for the socket types written on every
 # argument. Built from `TYPE_NAMES`, not from `PRIMITIVES_MAP`: the collections are renderable type
@@ -11,23 +11,21 @@ from coral_app.nodeports import NodePorts, build_port_table, methods_of
 _TYPE_NAME_OF = {v: k for k, v in TYPE_NAMES.items()}
 
 
-def _create_input_argument(
-    param_name: str, type_annotation, class_names: Mapping[type, str]
-) -> Dict:
+def _create_input_argument(port: Port, class_names: Mapping[type, str]) -> Dict:
     """Create an input argument dictionary"""
     return {
         "connection_type": "input",
-        "type": python_type_to_string(type_annotation, class_names),
-        "name": param_name,
+        "type": python_type_to_string(port.annotation, class_names),
+        "name": port.name,
     }
 
 
-def _create_output_argument(type_annotation, class_names: Mapping[type, str]) -> Dict:
-    """Create an output argument dictionary"""
+def _create_output_argument(port: Port, class_names: Mapping[type, str]) -> Dict:
+    """Create an output argument dictionary; its name is ``""`` unless the callable declared one."""
     return {
         "connection_type": "output",
-        "type": python_type_to_string(type_annotation, class_names),
-        "name": "",
+        "type": python_type_to_string(port.annotation, class_names),
+        "name": port.name,
     }
 
 
@@ -37,9 +35,7 @@ def _number_inputs(ports: NodePorts, class_names: Mapping[type, str]):
     Returns:
         tuple: (input_arguments, input_indices) — indices are 0-based, one per input port.
     """
-    arguments = [
-        _create_input_argument(name, annotation, class_names) for name, annotation in ports.inputs
-    ]
+    arguments = [_create_input_argument(port, class_names) for port in ports.inputs]
     return arguments, list(range(len(ports.inputs)))
 
 
@@ -53,7 +49,7 @@ def _number_outputs(ports: NodePorts, first_idx: int, class_names: Mapping[type,
     Returns:
         tuple: (output_arguments, output_indices)
     """
-    arguments = [_create_output_argument(annotation, class_names) for annotation in ports.outputs]
+    arguments = [_create_output_argument(port, class_names) for port in ports.outputs]
     return arguments, list(range(first_idx, first_idx + len(ports.outputs)))
 
 

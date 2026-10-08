@@ -94,17 +94,17 @@
       {
         "connection_type": "output",
         "type": "any",
-        "name": ""
+        "name": "velocity"
       },
       {
         "connection_type": "output",
         "type": "any",
-        "name": ""
+        "name": "smoke"
       },
       {
         "connection_type": "output",
         "type": "any",
-        "name": ""
+        "name": "pressure"
       }
     ],
     "inputs": [
