@@ -507,8 +507,8 @@ assumptions — if you touch this boundary, update both and re-run the full suit
   `list`/`set`/`dict` from `COLLECTION_TYPES` (issue #25, which also demonstrated that a type name need
   not be a node type) and, since issue #44, every **registered class** under its class-map key, with
   `bases`/`derived` on each constructor, listing its registered ancestors and descendants. What
-  still collapses to `"any"` is an unregistered class and every
-  parameterised generic (`List[int]`, `Optional[X]`): precise generic sockets need one canonical spelling
+  still collapses to `"any"` is an unregistered class and every parameterised generic (`List[int]`,
+  `Optional[X]`): precise generic sockets need one canonical spelling
   and new compatibility rules in both the front end and graph check 8.
 - **Lazy plugin import (done).** Entry-point discovery already imports only the plugins named in
   `-p`: `discover()` enumerates names without importing, and `load(name)` imports just that one. An
