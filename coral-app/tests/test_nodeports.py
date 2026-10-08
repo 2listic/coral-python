@@ -563,6 +563,18 @@ class TestOutputNames:
         with pytest.raises(ValueError, match="'offender'"):
             build_port_table(function_map={"offender": triple})
 
+    def test_too_many_names_are_refused(self):
+        """GIVEN a function returning one value, decorated with two names
+        WHEN the table is built
+        THEN ValueError gives both counts."""
+
+        @outputs("value", "text")
+        def single(x: float) -> float:
+            return x
+
+        with pytest.raises(ValueError, match=r"names 2 outputs.*declares 1"):
+            build_port_table(function_map={"single": single})
+
     def test_names_on_a_callable_returning_nothing_are_refused(self):
         """GIVEN a function annotated ``-> None``, decorated with a name
         WHEN the table is built

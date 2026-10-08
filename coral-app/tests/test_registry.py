@@ -305,6 +305,19 @@ class TestOutputNames:
 
         assert names == ["total"]
 
+    def test_every_undecorated_output_is_unnamed(self, registry):
+        """GIVEN the specimen registry, where only three entries carry @outputs
+        WHEN every other entry's output arguments are read
+        THEN each has the name "": a name nobody declared is never invented."""
+        decorated = {"split_triple", "Accumulator.add", "PreciseAccumulator.add"}
+        names = {
+            node_type: [arg["name"] for arg in outputs_of(entry)]
+            for node_type, entry in registry.items()
+            if node_type not in decorated
+        }
+
+        assert {node_type: n for node_type, n in names.items() if any(n)} == {}
+
 
 class TestClassSockets:
     """A socket typed with a registered class carries the class's key: the string the front end
