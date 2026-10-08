@@ -28,7 +28,7 @@ from coral_core import Plugin
 
 from coral_app.builtin_nodes import BUILTIN_FUNCTIONS
 from coral_app.errors import DuplicateNodeTypeError
-from coral_app.primitives import COLLECTION_TYPES, PRIMITIVES_MAP, TYPE_NAMES
+from coral_app.primitives import PRIMITIVES_MAP
 
 __all__ = [
     "PLUGIN_GROUP",
@@ -38,8 +38,6 @@ __all__ = [
     "build_function_map",
     "build_class_map",
     "PRIMITIVES_MAP",
-    "COLLECTION_TYPES",
-    "TYPE_NAMES",
     "BUILTIN_FUNCTIONS",
 ]
 
