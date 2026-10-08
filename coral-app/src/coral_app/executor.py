@@ -1,10 +1,11 @@
 from contextlib import nullcontext
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
 from coral_app.graph import Graph
 from coral_app.nodeports import CONSTRUCTOR, FUNCTION, METHOD, PRIMITIVE, build_port_table
 from coral_app.nodestatus import NodeStatusDir
+from coral_app.primitives import read_literal
 
 
 class WorkflowExecutor:
@@ -95,7 +96,7 @@ class WorkflowExecutor:
             status = self.status.node(qualified_id) if self.status else nullcontext()
             with status:
                 if kind == PRIMITIVE:
-                    self.results[node_id] = self._convert(node)
+                    self.results[node_id] = self._convert(node_id, node)
                     print(f"{node_id} (primitive) = {self.results[node_id]}")
                 else:
                     values = self._input_values(node_id)
@@ -155,18 +156,10 @@ class WorkflowExecutor:
                 f"a tuple of {len(result)}"
             )
 
-    def _convert(self, node: dict):
-        """A primitive node's value, cast to the type the node declares.
-
-        The JSON protocol may carry the value as a string, so the declared type does the casting.
-        """
-        converter = self.primitives_map[node["type"]]
-
-        if converter is type(None):
-            return None
-        if converter is Any:  # Don't convert value if type is Any
-            return node["value"]
-        return converter(node["value"])
+    def _convert(self, node_id: str, node: dict):
+        """A primitive node's value, read the way its declared type says: see
+        :func:`~coral_app.primitives.read_literal`, which names the node in its errors."""
+        return read_literal(node["type"], node.get("value"), self.graph.describe(node_id))
 
     def _input_values(self, node_id: str) -> list:
         """The values feeding a node, in port order.

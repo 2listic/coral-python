@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 # Map primitive type names to Python types.
@@ -21,3 +22,57 @@ PRIMITIVES_MAP = {
     "set": set,
     "dict": dict,
 }
+
+# The JSON value each collection literal must parse to: a set is written as an array.
+_JSON_SHAPE = {"list": list, "set": list, "dict": dict}
+
+# A parsed JSON value's type -> the name JSON gives it, for the error messages.
+_JSON_NAME = {
+    list: "array",
+    dict: "object",
+    str: "string",
+    bool: "boolean",
+    int: "number",
+    float: "number",
+    type(None): "null",
+}
+
+
+def read_literal(node_type: str, value: Any, label: str) -> Any:
+    """A primitive node's ``value``, read the way its declared type says.
+
+    A scalar is cast by its type: the protocol may carry it as a string (``"42"``) or natively
+    (``42``), and the cast accepts both. ``any`` passes the value through as the JSON carried it,
+    and ``none`` is ``None`` whatever ``value`` holds.
+
+    A collection must be a JSON string, which is parsed: ``'[1, 2]'`` for a ``list`` or a ``set``,
+    ``'{"a": 1}'`` for a ``dict``. A native array or object is refused, so a literal has one
+    spelling, the one the editor writes. Errors raised by the parsing itself — malformed JSON
+    (``json.JSONDecodeError``, a ``ValueError``) or an unhashable set element (``TypeError``) —
+    propagate untouched, as a failing scalar cast does.
+
+    Args:
+        node_type: The node's ``type``, a key of ``PRIMITIVES_MAP``.
+        value: The node's ``value`` field.
+        label: How an error names the node, e.g. ``"'0' ('ids')"``.
+
+    Raises:
+        ValueError: if a collection's ``value`` is not a string, or parses to the wrong JSON shape.
+    """
+    converter = PRIMITIVES_MAP[node_type]
+
+    if converter is type(None):
+        return None
+    if converter is Any:  # Don't convert value if type is Any
+        return value
+    if node_type not in _JSON_SHAPE:
+        return converter(value)
+
+    node = f"Node {label} of type {node_type!r}"
+    if not isinstance(value, str):
+        raise ValueError(f"{node} needs a JSON string, got {type(value).__name__}")
+    parsed = json.loads(value)
+    shape = _JSON_SHAPE[node_type]
+    if type(parsed) is not shape:
+        raise ValueError(f"{node} needs a JSON {_JSON_NAME[shape]}, got {_JSON_NAME[type(parsed)]}")
+    return converter(parsed)
