@@ -506,10 +506,10 @@ assumptions — if you touch this boundary, update both and re-run the full suit
 - **Richer type system (partly done).** The registry writes the six `PRIMITIVES_MAP` node types,
   `list`/`set`/`dict` from `COLLECTION_TYPES` (issue #25, which also demonstrated that a type name need
   not be a node type) and, since issue #44, every **registered class** under its class-map key, with
-  `base` on a subclass's constructor. What still collapses to `"any"` is an unregistered class and every
-  parameterised generic (`List[int]`, `Optional[X]`): precise generic sockets need one canonical spelling
-  and new compatibility rules in both the front end and graph check 8. Multiple inheritance is recorded
-  as its first registered parent only.
+  `bases`/`derived` on each constructor, listing its registered ancestors and descendants. What
+  still collapses to `"any"` is an unregistered class and every parameterised generic (`List[int]`,
+  `Optional[X]`): precise generic sockets need one canonical spelling
+  and new compatibility rules in both the front end and graph check 8.
 - **Lazy plugin import (done).** Entry-point discovery already imports only the plugins named in
   `-p`: `discover()` enumerates names without importing, and `load(name)` imports just that one. An
   unselected `phiflow` never triggers the PhiFlow/JAX import chain. (This was a weakness of the old
@@ -631,15 +631,16 @@ preference here, they are the only thing that works.
   needs zero backend-specific code to drive it.
 - The lean, type-keyed graph protocol matches the platform's current export format exactly (no
   adapter needed on the platform side).
-- Small, well-tested surface: **100 passing tests** covering the contract, discovery/loading, registry
-  generation (with byte-level golden pins), and execution.
+- Small, well-tested surface: **an extensive test suite** covering the contract, discovery/loading,
+  registry generation (with byte-level golden pins), and execution.
 
 **Weaknesses**
 
 - **Lossy type system** — primitives, collections and registered classes round-trip through the
   registry; unregistered classes and every parameterised generic (`List[int]`) become `"any"`, which
-  weakens connection validation on the canvas. Subclass instances also need front-end support
-  (dealiiX-platform#224) to be accepted where their own type is expected.
+  weakens connection validation on the canvas. Subclass instances are refused on the canvas where
+  a base is expected until the front end reads `bases` (rule `{type} ∪ bases ∪ {base}`); graph
+  validation and execution already accept them.
 - **Annotation asymmetry** — a missing parameter annotation becomes `"any"` (still usable), but a
   missing return annotation produces *no output socket* (the node becomes a dead end). Easy to trip
   over when writing a new wrapper.

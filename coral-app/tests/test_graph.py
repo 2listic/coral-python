@@ -19,6 +19,9 @@ node type             inputs                            outputs
 ``Widget``            ``size: float``                   ``Widget``
 ``Widget.resize``     ``self: Widget``, ``f: float``    ``float``
 ``Gadget``            ``size: float``                   ``Gadget``
+``Cog``               ``size: float``                   ``Cog``
+``Cog.spin``          ``self: Cog``                     ``float``
+``Gear``              ``size: float``                   ``Gear``
 ``list_new``          none                              ``list``
 ``set_new``           none                              ``set``
 ``dict_new``          none                              ``dict``
@@ -47,13 +50,35 @@ from coral_app.nodeports import (
 class Widget:
     """A plugin-supplied class."""
 
+    def __init__(self, size: float): ...
+
+    def resize(self, f: float) -> float:
+        """A stub: ``Graph`` only reads the ``Widget.resize`` port-table entry, never this."""
+        ...
+
 
 class Gadget:
     """An unrelated plugin-supplied class."""
 
+    def __init__(self, size: float): ...
+
 
 class Sprocket(Widget):
     """A subclass of Widget."""
+
+
+class Cog:
+    """Another class unrelated to Widget: Gear's second parent."""
+
+    def __init__(self, size: float): ...
+
+    def spin(self) -> float:
+        """A stub: ``Graph`` only reads the ``Cog.spin`` port-table entry, never this."""
+        ...
+
+
+class Gear(Sprocket, Cog):
+    """A Widget through a chain, and a Cog through a second parent."""
 
 
 def ports(kind, inputs=(), outputs=()) -> NodePorts:
@@ -85,6 +110,9 @@ PORT_TABLE = {
     "Widget.resize": ports(kind=METHOD, inputs=[("self", Widget), ("f", float)], outputs=[float]),
     "Gadget": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Gadget]),
     "Sprocket": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Sprocket]),
+    "Cog": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Cog]),
+    "Cog.spin": ports(kind=METHOD, inputs=[("self", Cog)], outputs=[float]),
+    "Gear": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Gear]),
     # Collection-shaped entries, mirroring `coral_app.builtin_nodes`: a creator taking nothing and
     # returning a bare collection, and a consumer taking one. Hand-written like everything else here
     # — the point is the annotations `Graph` compares, not which module they came from.
@@ -808,6 +836,34 @@ class TestEdgeTypes:
 
         assert build(nodes, edges).order[-1] == "3"
 
+    def test_a_grandparent_through_a_chain_is_accepted(self):
+        """GIVEN a Gear (Sprocket's subclass, so a Widget's grandchild) feeding a parameter
+        expecting Widget
+        WHEN the graph is built
+        THEN it is accepted."""
+        nodes = {
+            "0": {"type": "float", "value": 2.0},
+            "1": {"type": "Gear"},
+            "2": {"type": "float", "value": 3.0},
+            "3": {"type": "Widget.resize"},
+        }
+        edges = {"0": edge("0", "1", 0), "1": edge("1", "3", 0), "2": edge("2", "3", 1)}
+
+        assert build(nodes, edges).order[-1] == "3"
+
+    def test_a_non_first_parent_is_accepted(self):
+        """GIVEN a Gear(Sprocket, Cog) feeding a parameter expecting Cog, its second parent
+        WHEN the graph is built
+        THEN it is accepted."""
+        nodes = {
+            "0": {"type": "float", "value": 2.0},
+            "1": {"type": "Gear"},
+            "2": {"type": "Cog.spin"},
+        }
+        edges = {"0": edge("0", "1", 0), "1": edge("1", "2", 0)}
+
+        assert build(nodes, edges).order[-1] == "2"
+
     def test_unrelated_class_is_rejected(self):
         """GIVEN a Gadget feeding a parameter expecting Widget
         WHEN the graph is built
@@ -821,6 +877,21 @@ class TestEdgeTypes:
         edges = {"0": edge("0", "1", 0), "1": edge("1", "3", 0), "2": edge("2", "3", 1)}
 
         with pytest.raises(ValueError, match=r"feeds Gadget .* expects Widget"):
+            build(nodes, edges)
+
+    def test_a_parent_is_not_its_subclass_s_other_parent(self):
+        """GIVEN a Sprocket feeding a parameter expecting Cog, which only its subclass Gear derives
+        from
+        WHEN the graph is built
+        THEN it raises, naming both classes."""
+        nodes = {
+            "0": {"type": "float", "value": 2.0},
+            "1": {"type": "Sprocket"},
+            "2": {"type": "Cog.spin"},
+        }
+        edges = {"0": edge("0", "1", 0), "1": edge("1", "2", 0)}
+
+        with pytest.raises(ValueError, match=r"feeds Sprocket .* expects Cog"):
             build(nodes, edges)
 
     def test_class_into_a_scalar_is_rejected(self):
