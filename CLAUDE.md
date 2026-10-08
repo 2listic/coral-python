@@ -238,7 +238,7 @@ extension is a directory under `plugins/`. Adding a plugin is routine; touching 
 
 ```
 pyproject.toml                     # virtual uv workspace root (no [project]); members + sources
-coral-core/                        # the contract: the Plugin ABC, nothing else. Depends on nothing internal.
+coral-core/                        # the contract: the Plugin ABC and the @outputs mark. Depends on nothing internal.
 └── src/coral_core/__init__.py
 coral-app/                         # the host: discovery, node types, graph, executor, CLI. Depends on coral-core only.
 └── src/coral_app/
@@ -285,6 +285,14 @@ it finds them at runtime via entry-point discovery.
    There is no `name`/`describe` — a plugin's **entry-point name** is its identity. The ABC *enforces* both
    methods (a subclass missing either cannot be instantiated).
 
+   It also holds `outputs(*names)`, a decorator that names a function's or method's outputs in
+   port order: Python names every parameter but no return value, so an output name has to be
+   declared. It only marks — it stores the names on the function and returns the same object — and
+   the host reads them back through `output_names(func)` (`None` when unmarked). The names are
+   checked on their own when the decorator is applied (strings, at least one, none empty, all
+   distinct, and only a plain function may be marked); whether there is one per output port is
+   checked by `build_port_table`. See [Type Hint Requirements](#type-hint-requirements).
+
 2. **Plugins (`coral-plugin-*`)** — each subclasses `Plugin` and returns today's dict-shaped surface from
    `get_functions()` / `get_classes()`. Each declares itself under the `coral.plugins` entry-point group with its
    **class** as the target, e.g. `[project.entry-points."coral.plugins"] math = "coral_plugin_math:MathPlugin"`.
@@ -318,10 +326,11 @@ it finds them at runtime via entry-point discovery.
    `executor` are two independent consumers that **do not import each other**.
 
    - **`nodeports.py`** (stage 2): `build_port_table(function_map, class_map, primitives)` returns
-     node type -> `NodePorts(kind, inputs, outputs)` — `inputs` a list of `(name, annotation)` in
-     port order, `outputs` one annotation per output port. The **single place** that derives a node's
+     node type -> `NodePorts(kind, inputs, outputs)` — `inputs` and `outputs` each a list of
+     `Port(name, annotation)` in port order. An input's name is its parameter's; an output's is the
+     one declared with `@outputs`, else `""`. The **single place** that derives a node's
      arity from a callable, so the registry and the executor can no longer disagree about it. A
-     method's port 0 is its instance (`("self", cls)`); a missing annotation is normalised to `Any`.
+     method's port 0 is its instance (`Port("self", cls)`); a missing annotation is normalised to `Any`.
      `methods_of(port_table, class_name)` lists a class's `Class.method` entries. Also the only place
      the three node surfaces meet, so it is where **one name declared as two kinds** — a primitive and
      a function, a function and a class — raises `DuplicateNodeTypeError`. It raises the same for a
@@ -390,6 +399,8 @@ Edge format:
 - Each entry has:
   - `type`: the node type string (equals the entry's key)
   - `arguments`: Array with `connection_type` ("input"/"output"), `type`, and `name` (empty `[]` for primitives)
+    — an output argument's `name` is what `@outputs` declared, else `""`; the editor shows it as the
+    socket's label
   - `inputs`: List of input indices
   - `outputs`: List of output indices (or `[-1]` for constructors/primitives)
   - `node_type`: "primitive", "function", "constructor", or "method"
@@ -807,11 +818,15 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
    the ONBOARDING guide for why `math.sqrt` needs a wrapper) and a `Plugin` subclass:
    ```python
    # src/coral_plugin_<name>/__init__.py
-   from typing import Any, Dict
-   from coral_core import Plugin
+   from typing import Any, Dict, Tuple
+   from coral_core import Plugin, outputs
 
    def my_function(param1: float, param2: str) -> int:
        """Function description"""
+       ...
+
+   @outputs("quotient", "remainder")   # optional: labels the outputs in the editor
+   def my_divmod(a: int, b: int) -> Tuple[int, int]:
        ...
 
    class MyClass:
@@ -820,7 +835,7 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
 
    class MyPlugin(Plugin):
        def get_functions(self) -> Dict[str, Any]:
-           return {"my_function": my_function}
+           return {"my_function": my_function, "my_divmod": my_divmod}
        def get_classes(self) -> Dict[str, Any]:
            return {"MyClass": MyClass}
    ```
@@ -933,4 +948,12 @@ The registry system requires explicit type hints:
   annotated function fails the host rather than yielding a wrong registry
 - A function must return what its annotation declares: a node declaring n > 1 outputs returning
   anything but a tuple of exactly n raises at run time (see [Node Execution Model](#node-execution-model))
+- **Naming outputs**: a return value has no name, so every output is written with `"name": ""`
+  unless the callable declares names with `coral_core.outputs`, one per output port, in order —
+  `@outputs("velocity", "smoke", "pressure")` on a `-> Tuple[Any, Any, Any]`. It works on functions
+  and methods; a subclass inheriting a decorated method inherits its names. A name count different
+  from the output-port count (including any name on a `-> None`) is rejected by `build_port_table`
+  with a `ValueError` naming the node type, and so is `@outputs` on an `__init__`: a constructor's
+  output is the instance, written as `outputs: [-1]` with no argument to carry a name. Names are
+  labels only — wiring stays positional (`source_output`)
 - Do **not** use `from __future__ import annotations` (see Key Constraints above)

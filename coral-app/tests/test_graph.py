@@ -39,6 +39,7 @@ from coral_app.nodeports import (
     METHOD,
     PRIMITIVE,
     NodePorts,
+    Port,
     build_port_table,
 )
 
@@ -55,34 +56,44 @@ class Sprocket(Widget):
     """A subclass of Widget."""
 
 
+def ports(kind, inputs=(), outputs=()) -> NodePorts:
+    """A port-table entry from ``(name, annotation)`` inputs and bare output annotations.
+
+    Outputs are left unnamed: ``Graph`` never reads an output's name.
+    """
+    return NodePorts(
+        kind=kind,
+        inputs=[Port(name, annotation) for name, annotation in inputs],
+        outputs=[Port("", annotation) for annotation in outputs],
+    )
+
+
 PORT_TABLE = {
-    "int": NodePorts(kind=PRIMITIVE, outputs=[int]),
-    "float": NodePorts(kind=PRIMITIVE, outputs=[float]),
-    "str": NodePorts(kind=PRIMITIVE, outputs=[str]),
-    "bool": NodePorts(kind=PRIMITIVE, outputs=[bool]),
-    "any": NodePorts(kind=PRIMITIVE, outputs=[Any]),
-    "none": NodePorts(kind=PRIMITIVE, outputs=[type(None)]),
-    "add": NodePorts(kind=FUNCTION, inputs=[("a", float), ("b", float)], outputs=[float]),
-    "sqrt": NodePorts(kind=FUNCTION, inputs=[("x", float)], outputs=[float]),
-    "label": NodePorts(kind=FUNCTION, inputs=[("text", str)], outputs=[str]),
-    "show": NodePorts(kind=FUNCTION, inputs=[("value", float)], outputs=[]),
-    "split": NodePorts(kind=FUNCTION, inputs=[("x", float)], outputs=[float, str, bool]),
-    "anything": NodePorts(kind=FUNCTION, inputs=[("value", Any)], outputs=[Any]),
-    "Widget": NodePorts(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Widget]),
-    "Widget.resize": NodePorts(
-        kind=METHOD, inputs=[("self", Widget), ("f", float)], outputs=[float]
-    ),
-    "Gadget": NodePorts(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Gadget]),
-    "Sprocket": NodePorts(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Sprocket]),
+    "int": ports(kind=PRIMITIVE, outputs=[int]),
+    "float": ports(kind=PRIMITIVE, outputs=[float]),
+    "str": ports(kind=PRIMITIVE, outputs=[str]),
+    "bool": ports(kind=PRIMITIVE, outputs=[bool]),
+    "any": ports(kind=PRIMITIVE, outputs=[Any]),
+    "none": ports(kind=PRIMITIVE, outputs=[type(None)]),
+    "add": ports(kind=FUNCTION, inputs=[("a", float), ("b", float)], outputs=[float]),
+    "sqrt": ports(kind=FUNCTION, inputs=[("x", float)], outputs=[float]),
+    "label": ports(kind=FUNCTION, inputs=[("text", str)], outputs=[str]),
+    "show": ports(kind=FUNCTION, inputs=[("value", float)], outputs=[]),
+    "split": ports(kind=FUNCTION, inputs=[("x", float)], outputs=[float, str, bool]),
+    "anything": ports(kind=FUNCTION, inputs=[("value", Any)], outputs=[Any]),
+    "Widget": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Widget]),
+    "Widget.resize": ports(kind=METHOD, inputs=[("self", Widget), ("f", float)], outputs=[float]),
+    "Gadget": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Gadget]),
+    "Sprocket": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Sprocket]),
     # Collection-shaped entries, mirroring `coral_app.builtin_nodes`: a creator taking nothing and
     # returning a bare collection, and a consumer taking one. Hand-written like everything else here
     # — the point is the annotations `Graph` compares, not which module they came from.
-    "list_new": NodePorts(kind=FUNCTION, inputs=[], outputs=[list]),
-    "set_new": NodePorts(kind=FUNCTION, inputs=[], outputs=[set]),
-    "dict_new": NodePorts(kind=FUNCTION, inputs=[], outputs=[dict]),
-    "list_size": NodePorts(kind=FUNCTION, inputs=[("lst", list)], outputs=[int]),
-    "set_size": NodePorts(kind=FUNCTION, inputs=[("s", set)], outputs=[int]),
-    "dict_size": NodePorts(kind=FUNCTION, inputs=[("d", dict)], outputs=[int]),
+    "list_new": ports(kind=FUNCTION, inputs=[], outputs=[list]),
+    "set_new": ports(kind=FUNCTION, inputs=[], outputs=[set]),
+    "dict_new": ports(kind=FUNCTION, inputs=[], outputs=[dict]),
+    "list_size": ports(kind=FUNCTION, inputs=[("lst", list)], outputs=[int]),
+    "set_size": ports(kind=FUNCTION, inputs=[("s", set)], outputs=[int]),
+    "dict_size": ports(kind=FUNCTION, inputs=[("d", dict)], outputs=[int]),
 }
 
 
@@ -728,7 +739,7 @@ class TestEdgeTypes:
         """GIVEN a float feeding an int parameter
         WHEN the graph is built
         THEN it raises — the tower widens, it does not narrow."""
-        table = dict(PORT_TABLE, count=NodePorts(kind=FUNCTION, inputs=[("n", int)], outputs=[int]))
+        table = dict(PORT_TABLE, count=ports(kind=FUNCTION, inputs=[("n", int)], outputs=[int]))
         nodes = {"0": {"type": "float", "value": 1.0}, "1": {"type": "count"}}
 
         with pytest.raises(ValueError, match=r"feeds float .* expects int"):
@@ -739,7 +750,7 @@ class TestEdgeTypes:
         WHEN the graph is built
         THEN it raises — bool is an int subclass, but widening never lands on bool."""
         table = dict(
-            PORT_TABLE, toggle=NodePorts(kind=FUNCTION, inputs=[("flag", bool)], outputs=[bool])
+            PORT_TABLE, toggle=ports(kind=FUNCTION, inputs=[("flag", bool)], outputs=[bool])
         )
         nodes = {"0": {"type": "int", "value": 5}, "1": {"type": "toggle"}}
 
@@ -751,7 +762,7 @@ class TestEdgeTypes:
         WHEN the graph is built
         THEN it is accepted — the bool guard must not refuse an exact match."""
         table = dict(
-            PORT_TABLE, toggle=NodePorts(kind=FUNCTION, inputs=[("flag", bool)], outputs=[bool])
+            PORT_TABLE, toggle=ports(kind=FUNCTION, inputs=[("flag", bool)], outputs=[bool])
         )
         nodes = {"0": {"type": "bool", "value": True}, "1": {"type": "toggle"}}
 
