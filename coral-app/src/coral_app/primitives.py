@@ -6,8 +6,8 @@ from typing import Any
 # A primitive is a node carrying a literal in its `value` field; its type says how to read it. A
 # scalar (`int`, `float`, `str`, `bool`) is cast by its type, `any` passes the value through
 # unchanged and `none` is `None`. A collection (`list`, `set`, `dict`) is written as a JSON string
-# (`"[1, 2]"`, `"{\"a\": 1}"`) which the executor parses: the editor can only produce strings, and
-# the reference backend reads its collection literals the same way.
+# (`"[1, 2]"`, `"{\"a\": 1}"`) which `read_literal` below parses: the editor can only produce
+# strings, and the reference backend reads its collection literals the same way.
 #
 # PRIMITIVES_MAP lives in the host, not in coral-core: no plugin references it, and the registry /
 # executor (both host-side) are its only consumers.
@@ -70,7 +70,8 @@ def read_literal(node_type: str, value: Any, label: str) -> Any:
 
     node = f"Node {label} of type {node_type!r}"
     if not isinstance(value, str):
-        raise ValueError(f"{node} needs a JSON string, got {type(value).__name__}")
+        got = _JSON_NAME.get(type(value), type(value).__name__)
+        raise ValueError(f"{node} needs a JSON string, got {got}")
     parsed = json.loads(value)
     shape = _JSON_SHAPE[node_type]
     if type(parsed) is not shape:

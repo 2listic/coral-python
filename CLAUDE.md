@@ -611,7 +611,10 @@ empty one — rather than inventing a name nobody wrote.
 ### Graph validation
 
 **The graph is fully validated before execution starts.** Constructing a `Graph` runs every check
-below; a graph that constructs is a graph that can be executed. Because `WorkflowExecutor.__init__`
+below; a graph that constructs is a graph that can be executed. The one exception is a primitive's
+`value`, which is read only when its node runs (see [Node Execution Model](#node-execution-model));
+a primitive has no inputs, so every one runs in the first batch, before any simulation. Because
+`WorkflowExecutor.__init__`
 builds one, a defect surfaces there — never after a long PhiFlow run has already started. Each
 failure raises `ValueError` naming the offending node or edge (edges by their key in the graph JSON,
 nodes by their id followed by their `name` when they have one).
@@ -729,6 +732,11 @@ carrying `"[1, 2, 3]"`. The type strings still differ (`set` vs `std::set<unsign
 scalars already do (`float` vs `double`), so a graph using one runs on one backend only. The two
 forms are complementary: a literal cannot hold computed values, the operations can. `list_new` /
 `set_new` / `dict_new` duplicate the empty literals and stay.
+
+A literal is JSON, with JSON's limits: a `dict` literal's keys are always strings, so `dict_get` on
+it with an `int` key raises `KeyError`; a `set` literal collapses elements Python holds equal
+(`"[1, 1.0, true]"` is `{1}`); and a nested array inside a `set` literal is unhashable and raises
+`TypeError`.
 
 Three properties hold for all 15, and graphs depend on each:
 

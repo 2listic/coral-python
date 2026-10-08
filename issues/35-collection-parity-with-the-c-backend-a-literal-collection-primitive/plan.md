@@ -132,6 +132,8 @@ Each gains exactly three entries (`list`, `set`, `dict`, after `none`); nothing 
   `_convert(node_id, node)` only calls it, passing `node.get("value")`, so a scalar node with no
   `value` now fails with `TypeError` (`int(None)`) instead of `KeyError`.
 - 6.4: asserts `json.JSONDecodeError`, not `ValueError`, to pin "propagates untouched".
+- 5.1: the non-string error names the JSON kind (`got array`), not the Python type (`got list`),
+  matching the shape error.
 - 6.9: `test_a_method_named_after_a_collection_is_accepted` also passes `primitives=PRIMITIVES_MAP`,
   otherwise there is no `list` entry for it to not collide with.
 - 9.1: `CLAUDE.md`'s run-time checks table gains a third row, **literal**.

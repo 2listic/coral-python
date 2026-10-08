@@ -154,7 +154,9 @@ class TestPrimitiveNodes:
         """GIVEN a collection primitive whose value is a native JSON array or object
         WHEN the workflow is executed
         THEN ValueError names the node: a literal has one spelling, the string the editor writes."""
-        with pytest.raises(ValueError, match=r"Node '0' .* needs a JSON string"):
+        with pytest.raises(
+            ValueError, match=r"Node '0' .* needs a JSON string, got (array|object)"
+        ):
             run({"0": {"type": type_name, "value": raw}})
 
     @pytest.mark.parametrize(
