@@ -9,6 +9,8 @@ the executor was being constructed. So the failure cases here are about *constru
 success cases are about values.
 """
 
+import json
+
 import pytest
 from coral_app.errors import DuplicateNodeTypeError
 from coral_app.executor import WorkflowExecutor
@@ -79,7 +81,8 @@ class TestConstruction:
     def test_a_node_type_named_after_a_collection_is_refused(self, write_graph, specimen_plugins):
         """GIVEN a plugin declaring a class keyed ``list``
         WHEN the executor is constructed
-        THEN DuplicateNodeTypeError is raised, before the graph is read."""
+        THEN DuplicateNodeTypeError is raised, before the graph is read: the key collides with the
+        primitive ``list``."""
         path = write_graph(graph({"0": {"type": "int", "value": 1}}))
 
         with pytest.raises(DuplicateNodeTypeError):
@@ -87,7 +90,8 @@ class TestConstruction:
 
 
 class TestPrimitiveNodes:
-    """A primitive casts its ``value`` through the type it declares."""
+    """A primitive reads its ``value`` the way its declared type says: a scalar is cast, a
+    collection parses a JSON string."""
 
     @pytest.mark.parametrize(
         "type_name, raw, expected",
@@ -124,6 +128,69 @@ class TestPrimitiveNodes:
         results = run({"0": {"type": "none", "value": "ignored"}})
 
         assert results["0"] is None
+
+    @pytest.mark.parametrize(
+        "type_name, raw, expected",
+        [
+            ("list", '[1, "a", 2.5]', [1, "a", 2.5]),
+            ("set", "[3, 1, 3]", {1, 3}),
+            ("dict", '{"a": 1}', {"a": 1}),
+            ("list", "[]", []),
+            ("set", "[]", set()),
+            ("dict", "{}", {}),
+        ],
+    )
+    def test_a_collection_parses_its_json_string(self, run, type_name, raw, expected):
+        """GIVEN a collection primitive carrying a JSON string
+        WHEN the workflow is executed
+        THEN the string is parsed into the declared collection, a set collapsing duplicates."""
+        results = run({"0": {"type": type_name, "value": raw}})
+
+        assert results["0"] == expected
+        assert type(results["0"]) is type(expected)
+
+    @pytest.mark.parametrize("type_name, raw", [("list", [1, 2]), ("dict", {"a": 1})])
+    def test_a_collection_refuses_a_native_value(self, run, type_name, raw):
+        """GIVEN a collection primitive whose value is a native JSON array or object
+        WHEN the workflow is executed
+        THEN ValueError names the node: a literal has one spelling, the string the editor writes."""
+        with pytest.raises(ValueError, match=r"Node '0' .* needs a JSON string"):
+            run({"0": {"type": type_name, "value": raw}})
+
+    @pytest.mark.parametrize(
+        "type_name, raw", [("list", '{"a": 1}'), ("dict", "[1]"), ("set", "5")]
+    )
+    def test_a_collection_refuses_the_wrong_json_shape(self, run, type_name, raw):
+        """GIVEN a collection primitive whose string parses to the wrong kind of JSON value
+        WHEN the workflow is executed
+        THEN ValueError names the node, rather than e.g. `list` silently splitting a string."""
+        with pytest.raises(ValueError, match=r"Node '0' .* needs a JSON (array|object)"):
+            run({"0": {"type": type_name, "value": raw}})
+
+    def test_malformed_json_propagates_the_parser_error(self, run):
+        """GIVEN a list primitive whose string is not valid JSON
+        WHEN the workflow is executed
+        THEN the parser's own JSONDecodeError propagates, unwrapped."""
+        with pytest.raises(json.JSONDecodeError):
+            run({"0": {"type": "list", "value": "[1, 2"}})
+
+    def test_an_unhashable_set_element_raises(self, run):
+        """GIVEN a set primitive whose array holds an array
+        WHEN the workflow is executed
+        THEN TypeError propagates: a list cannot be a set element."""
+        with pytest.raises(TypeError):
+            run({"0": {"type": "set", "value": "[[1]]"}})
+
+    def test_a_set_literal_feeds_a_builtin(self, run):
+        """GIVEN a set literal wired into `set_size`
+        WHEN the workflow is executed
+        THEN the literal flows into the builtin like a computed set, and check 8 accepts the edge."""
+        results = run(
+            {"0": {"type": "set", "value": "[3, 1, 2, 3]"}, "1": {"type": "set_size"}},
+            {"0": edge("0", "1", 0)},
+        )
+
+        assert results["1"] == 3
 
 
 class TestFunctionNodes:

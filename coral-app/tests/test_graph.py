@@ -357,21 +357,19 @@ class TestNodeTypes:
         with pytest.raises(ValueError, match=r"Node '0' declares no 'type'"):
             build({"0": {"value": 1.0}}, {})
 
-    @pytest.mark.parametrize("collection", ["list", "set", "dict"])
-    def test_a_collection_is_not_a_node_type(self, collection):
-        """GIVEN a graph naming a collection type as a node
+    @pytest.mark.parametrize("collection, value", [("list", "[]"), ("set", "[]"), ("dict", "{}")])
+    def test_a_collection_is_a_primitive_node_type(self, collection, value):
+        """GIVEN a graph naming a collection type as a node, carrying a literal
         WHEN the graph is built against the real primitives-only port table
-        THEN check 4 rejects it: a collection is built by ``list_new`` and friends, so there is
-        exactly one way to make one.
+        THEN check 4 accepts it: a collection is a primitive, so it has an entry of that kind.
 
         The table here is built rather than hand-written — the point is what the *host* actually
         offers with no plugin at all, which a literal table could not show.
         """
         port_table = build_port_table(primitives=PRIMITIVES_MAP)
 
-        assert collection not in port_table
-        with pytest.raises(ValueError, match=rf"Node '0' has unknown type '{collection}'"):
-            build({"0": {"type": collection}}, {}, port_table)
+        assert port_table[collection].kind == PRIMITIVE
+        build({"0": {"type": collection, "value": value}}, {}, port_table)
 
 
 class TestNodeIds:
