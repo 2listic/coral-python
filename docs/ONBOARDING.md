@@ -593,9 +593,10 @@ remembered to install `coral-plugin-collections`. The host already ships primiti
 reasoning; the collections are the same argument one level up, so they live in
 `coral_app/builtin_nodes.py` next to `primitives.py`.
 
-The consequence is the precedence rule above: since a builtin is a guarantee rather than a contribution,
-a plugin declaring `list_append` is ignored rather than winning. A graph names only node types, so a
-plugin that silently redefined one would produce a wrong answer with nothing in the graph to point at.
+The consequence is the ownership rule above: since a builtin is a guarantee rather than a contribution,
+a plugin declaring `list_append` is refused with `DuplicateNodeTypeError` rather than winning. A graph
+names only node types, so a plugin that silently redefined one would produce a wrong answer with
+nothing in the graph to point at.
 
 **Why bare `list`, and not a `CoralList` wrapper class?** A wrapper would have been the tidier object
 model — real methods, a real constructor, no 15 free functions. It was rejected because of what crosses
