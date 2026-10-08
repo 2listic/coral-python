@@ -59,6 +59,36 @@
     "node_type": "primitive",
     "type": "none"
   },
+  "list": {
+    "arguments": [],
+    "value": "[]",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "list"
+  },
+  "set": {
+    "arguments": [],
+    "value": "[]",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "set"
+  },
+  "dict": {
+    "arguments": [],
+    "value": "{}",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "dict"
+  },
   "phiflow_iterate": {
     "arguments": [
       {
