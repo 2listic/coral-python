@@ -18,3 +18,10 @@ In order:
 2. Record decision in a file `decisions.md`. It should contain al the contex necessary for the implementation plan.
 3. Based on the decision write the implementaion plan. It must be divided in checkable (`- [ ]`) setp and substep. Approximately each step shoul have tests and they sould pass. There might be exceptions to this rule, tell me about.
 4. Implement the plan. Step by step. After each step pause so that I check.
+
+## Reccommendation
+* Always ask me every decision.
+* Do not do what you are not asked for. If you notice something that stinks, report it to me so that I decide.
+* Be brief and coincise.
+* Make clear statements.
+* Even in the example, show me the user (coder) experience.
