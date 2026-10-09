@@ -207,7 +207,7 @@ graph's plugin requirement is its directory and never something inferred at run 
 
 - **No unmarked test may run a simulation.** Exactly one test per solver does: phiflow's and pypde's,
   each in its own package's `tests/system/test_graphs_run.py`, both marked `slow`. Every other
-  simulation graph is *validated without being executed* — constructing a `Graph` runs all nine
+  simulation graph is *validated without being executed* — constructing a `Graph` runs all ten
   checks and calls nothing, so the graph-JSON contract is guarded at ~0 ms per file.
 - **The framework suites name no plugin.** `coral-app/tests/specimen.py` provides a designed
   plugin surface (`SpecimenPlugin`, `RivalPlugin`, and three clash plugins that exist to be refused),
@@ -342,10 +342,12 @@ it finds them at runtime via entry-point discovery.
      `Graph.from_file(path, port_table)`. **Constructing one validates it** — see
      [Graph validation](#graph-validation). Exposes `.order`, `.node(id)`, `.ports_of(id)`,
      `.inputs_of(id)` (incoming edges sorted by `target_input`, built once), `.qualified_ids`
-     (node id -> qualified id, validated as check 3), `.name_of(id)` and `.describe(id)` (see
+     (node id -> qualified id, validated as check 3), `.literals` (node id -> a primitive's value,
+     read as check 10), `.name_of(id)` and `.describe(id)` (see
      [Workflow JSON Structure](#workflow-json-structure)). Takes the port table as plain data, so it
      imports neither `inspect` nor any plugin machinery, and its tests need no plugin installed;
-     the one host module it imports is `nodestatus`, for check 3's rules.
+     the host modules it imports are `nodestatus`, for check 3's rules, and `primitives`, for
+     check 10's.
    - **`registry.py`** (stage 5): `generate_registry()` renders the port table into the platform's
      file format, `python_type_to_string()`, `save_registry_to_file(filename, plugins=...)`. Every
      decision about the *format* lives here — argument dicts, index numbering, the `[-1]`
@@ -439,7 +441,7 @@ Edge format:
 | --- | --- | --- | --- | --- |
 | 1 | load plugins, add the host's builtins | plugin names | `function_map`, `class_map` | `coral_app/__init__.py` |
 | 2 | describe each node type | the maps | port table | `coral_app/nodeports.py` |
-| 3 | read, validate, order the graph | graph JSON + port table | `Graph` | `coral_app/graph.py`, `coral_app/nodestatus.py` (check 3) |
+| 3 | read, validate, order the graph | graph JSON + port table | `Graph` | `coral_app/graph.py`, `coral_app/nodestatus.py` (check 3), `coral_app/primitives.py` (check 10) |
 | 4 | execute | `Graph` + the maps | `results`, plus the status markers if a touch dir was given | `coral_app/executor.py`, `coral_app/nodestatus.py` |
 | 5 | write the registry | port table | `node_types.json` | `coral_app/registry.py` |
 
@@ -472,16 +474,17 @@ Each node's kind is read from the port table — `graph.ports_of(node_id).kind`,
 membership in `PRIMITIVES_MAP` / `function_map` / `class_map` plus the `Class.method` split, in that
 precedence order (so a dotted function name like `math.sqrt` stays a function).
 
-**Primitive nodes** are the one special case, and they return early: `primitives.read_literal` reads
-the node's `value` the way its declared `type` says. A scalar is cast via `PRIMITIVES_MAP[type]` (the
-JSON protocol may carry it as a string), except `bool`, which accepts only `true` / `false`,
-natively or as a string, since `bool("false")` is `True`. `any` passes through unconverted and
-`none` is `None`. A collection's `value` must be a JSON string, parsed with `json.loads`: an array
-for `list` / `set`, an object for `dict`. A native array or object, or the wrong shape, raises
-`ValueError` naming the node; malformed JSON and an unhashable set element raise the parser's own
-error, untouched. A missing `value` raises `ValueError` naming the node, for every type but `none`.
-The literal is checked at execution, not by graph validation, but a primitive has no inputs, so
-every one runs in the first batch of the order, before any simulation.
+**Primitive nodes** are the one special case, and they return early with the value `Graph` already
+read (`graph.literals`): `primitives.read_literal` reads the node's `value` the way its declared
+`type` says. A scalar is cast via `PRIMITIVES_MAP[type]` (the JSON protocol may carry it as a
+string); a value the cast refuses (`int("")`) raises `ValueError` naming the node. `bool` is the
+exception: it accepts only `true` / `false`, natively or as a string, since `bool("false")` is
+`True`. `any` passes through unconverted and `none` is `None`. A collection's `value` must be a
+JSON string, parsed with `json.loads`: an array for `list` / `set`, an object for `dict`. A native
+array or object, or the wrong shape, raises `ValueError` naming the node; malformed JSON and an
+unhashable set element raise the parser's own error, untouched. A missing `value` raises
+`ValueError` naming the node, for every type but `none`. All of this happens while the `Graph` is
+built (check 10), so a bad literal fails before any node runs.
 
 **Every other node** runs the same four steps, written once:
 
@@ -508,13 +511,12 @@ every one runs in the first batch of the order, before any simulation.
    all three kinds.
 4. **Store** the result under the node id.
 
-Three run-time checks survive in the executor, and all are there for the same reason: they are about
+Two run-time checks survive in the executor, and both are there for the same reason: they are about
 a *value*, not about wiring, so validation cannot have settled them in advance. Everything else was
 verified before execution began.
 
 | check | when | what |
 | --- | --- | --- |
-| **literal** | reading a collection primitive | `value` must be a JSON string of the declared shape (`primitives.read_literal`) |
 | **instance** | resolving a method's callable | input port 0 must really hold an instance of the named class (`isinstance(instance, class_map[class_name])`) |
 | **output arity** | right after a node returns | a node declaring n > 1 outputs must have returned a tuple of exactly n |
 
@@ -613,10 +615,7 @@ empty one — rather than inventing a name nobody wrote.
 ### Graph validation
 
 **The graph is fully validated before execution starts.** Constructing a `Graph` runs every check
-below; a graph that constructs is a graph that can be executed. The one exception is a primitive's
-`value`, which is read only when its node runs (see [Node Execution Model](#node-execution-model));
-a primitive has no inputs, so every one runs in the first batch, before any simulation. Because
-`WorkflowExecutor.__init__`
+below; a graph that constructs is a graph that can be executed. Because `WorkflowExecutor.__init__`
 builds one, a defect surfaces there — never after a long PhiFlow run has already started. Each
 failure raises `ValueError` naming the offending node or edge (edges by their key in the graph JSON,
 nodes by their id followed by their `name` when they have one).
@@ -641,6 +640,9 @@ In order — one item per check, as `Graph.__init__` runs them:
 7. every `source_output` names an output the source type has;
 8. every edge's source annotation is compatible with its target annotation;
 9. no cycles — the message names the cycle path.
+10. every primitive's `value` is present (unless its type is `none`) and can be read as its type
+    says (`primitives.read_literal`). The parsed values are kept on `.literals`, so the executor
+    never parses one — see [Node Execution Model](#node-execution-model).
 
 **Every argument must be connected** (check 6). A default value in plugin code is *not* a way to
 leave a port unwired, so the defaults in `phiflow_union`, `phiflow_iterate`,
@@ -804,11 +806,12 @@ is what provides their node types. The
   shows, and a test looks the node up by it (`node_named` in the plugin's `<n>_suite.py`)
 - **No cycles**: Workflow graphs must be acyclic (DAG) — `graph.py` raises `ValueError` naming the
   cycle path, using `graphlib.TopologicalSorter` (stdlib, `{node: predecessors}`)
-- **Validate before executing**: every defect — identity, wiring, typing, ordering — raises while the `Graph` is being constructed, so
+- **Validate before executing**: every defect — identity, wiring, typing, ordering, literals — raises while the `Graph` is being constructed, so
   `WorkflowExecutor(...)` fails before the first node runs — see [Graph validation](#graph-validation)
 - **One job per module**: `nodeports` knows callables but not graphs; `graph` knows graphs but not
-  callables (it never imports `inspect` or a plugin; its one host import is `nodestatus`, for
-  check 3's filename rules); `executor` receives an already-validated graph
+  callables (it never imports `inspect` or a plugin; its host imports are `nodestatus`, for
+  check 3's filename rules, and `primitives`, for check 10's literals); `executor` receives an
+  already-validated graph
   (no `json`, no `graphlib`, no edge list). `tests/invariants/test_source_rules.py` enforces these
   boundaries by reading the source
 - **Lazy discovery**: `discover()` never imports a plugin; `load(name)` imports only that one. An unselected

@@ -43,7 +43,8 @@ def read_literal(node_type: str, value: Any, label: str) -> Any:
 
     A scalar is cast by its type: the protocol may carry it as a string (``"42"``) or natively
     (``42``), and the cast accepts both. ``any`` passes the value through as the JSON carried it,
-    and ``none`` is ``None`` whatever ``value`` holds.
+    and ``none`` is ``None`` whatever ``value`` holds. A value the cast refuses (``int("")``)
+    raises ``ValueError`` naming the node, chained to the cast's own error.
 
     A ``bool`` is the exception to the cast, because ``bool("false")`` is ``True``: it accepts
     ``true`` and ``false``, natively or as the strings ``"true"`` and ``"false"``, and nothing else.
@@ -52,7 +53,7 @@ def read_literal(node_type: str, value: Any, label: str) -> Any:
     ``'{"a": 1}'`` for a ``dict``. A native array or object is refused, so a literal has one
     spelling, the one the editor writes. Errors raised by the parsing itself — malformed JSON
     (``json.JSONDecodeError``, a ``ValueError``) or an unhashable set element (``TypeError``) —
-    propagate untouched, as a failing scalar cast does.
+    propagate untouched.
 
     Args:
         node_type: The node's ``type``, a key of ``PRIMITIVES_MAP``.
@@ -60,10 +61,12 @@ def read_literal(node_type: str, value: Any, label: str) -> Any:
         label: How an error names the node, e.g. ``"'0' ('ids')"``.
 
     Raises:
-        ValueError: if a ``bool``'s ``value`` is neither ``true`` nor ``false``, or if a
-            collection's ``value`` is not a string, or parses to the wrong JSON shape.
+        ValueError: if a scalar's cast refuses its ``value``, if a ``bool``'s ``value`` is neither
+            ``true`` nor ``false``, or if a collection's ``value`` is not a string, or parses to
+            the wrong JSON shape.
     """
     converter = PRIMITIVES_MAP[node_type]
+    node = f"Node {label} of type {node_type!r}"
 
     if converter is type(None):
         return None
@@ -76,11 +79,13 @@ def read_literal(node_type: str, value: Any, label: str) -> Any:
             return True
         if value == "false":
             return False
-        raise ValueError(f"Node {label} of type {node_type!r} needs true or false, got {value!r}")
+        raise ValueError(f"{node} needs true or false, got {value!r}")
     if node_type not in _JSON_SHAPE:
-        return converter(value)
+        try:
+            return converter(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{node} cannot read {value!r}: {exc}") from exc
 
-    node = f"Node {label} of type {node_type!r}"
     if not isinstance(value, str):
         got = _JSON_NAME.get(type(value), type(value).__name__)
         raise ValueError(f"{node} needs a JSON string, got {got}")

@@ -4,7 +4,7 @@ Written entirely against the designed specimen (``specimen.py``), because the ex
 not a fact about any plugin: it collects a node's inputs in port order, resolves its callable, binds
 positionally, and stores the result. Which callable that is, is the plugin's business.
 
-By the time ``execute()`` runs there is nothing left to verify — ``Graph`` ran all nine checks while
+By the time ``execute()`` runs there is nothing left to verify — ``Graph`` ran all ten checks while
 the executor was being constructed. So the failure cases here are about *construction*, and the
 success cases are about values.
 """
@@ -155,6 +155,21 @@ class TestPrimitiveNodes:
         results = run({"0": {"type": "none"}})
 
         assert results["0"] is None
+
+    def test_a_bad_literal_fails_before_any_node_runs(
+        self, write_graph, specimen_plugins, tmp_path
+    ):
+        """GIVEN a bad bool literal beside a zero-input node that sorts before it in the order
+        WHEN the executor is constructed with a touch directory
+        THEN ValueError names the literal, and no node has written a marker."""
+        nodes = {"0": {"type": "make_one"}, "1": {"type": "bool", "value": "False"}}
+        path = write_graph(graph(nodes))
+        status = tmp_path / "status"
+
+        with pytest.raises(ValueError, match=r"Node '1' .* needs true or false"):
+            WorkflowExecutor(str(path), plugins=[SPECIMEN], touch_dir=str(status))
+
+        assert list(status.iterdir()) == []
 
     @pytest.mark.parametrize(
         "type_name, raw, expected",

@@ -1,8 +1,9 @@
 """Stage 3: read a workflow graph, validate it, and put it in execution order.
 
 Construction is where a graph is judged. Every defect raises ``ValueError`` here — a node that
-cannot be identified, a wiring error, an incompatible edge, a cycle — before the first node runs: a
-long PhiFlow simulation must never be spent on a graph that was already known to be broken.
+cannot be identified, a wiring error, an incompatible edge, a cycle, a literal that cannot be read —
+before the first node runs: a long PhiFlow simulation must never be spent on a graph that was
+already known to be broken.
 
 The port table (stage 2) arrives as plain data, so this module introspects nothing and knows nothing
 about plugins: give it a node/edge dict and a table and it will tell you whether the two agree.
@@ -17,8 +18,9 @@ from dataclasses import dataclass
 from graphlib import CycleError, TopologicalSorter
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
-from coral_app.nodeports import NodePorts
+from coral_app.nodeports import PRIMITIVE, NodePorts
 from coral_app.nodestatus import qualified_ids
+from coral_app.primitives import read_literal
 
 __all__ = ["Edge", "Graph"]
 
@@ -112,6 +114,10 @@ class Graph:
             :func:`_read_id` enforces — and a graph whose nodes cannot be told apart is not
             executable. The rules themselves stay in :mod:`coral_app.nodestatus`, which owns the
             filename convention they come from.
+        literals: Node id -> value, for every primitive node, read by
+            :func:`~coral_app.primitives.read_literal` during construction (check 10). A literal
+            is static data in the JSON, so a bad one is a defect of the graph like any other; the
+            executor takes each value from here and parses nothing itself.
     """
 
     def __init__(
@@ -131,7 +137,9 @@ class Graph:
         Raises:
             ValueError: on any structural, identity, wiring, typing or ordering defect — including
                 a node that declares no ``qualified_id``, one that cannot be a filename, or one
-                another node already declares. The message names the offending node or edge.
+                another node already declares, and a primitive whose ``value`` is missing or cannot
+                be read. The message names the offending node or edge.
+            TypeError: if a ``set`` literal holds an unhashable element, as the parser raises it.
         """
         self.nodes: Dict[str, dict] = _read_nodes(nodes)
         self.edges: List[Edge] = _read_edges(edges)
@@ -162,6 +170,10 @@ class Graph:
         self._check_edge_types()
 
         self.order: List[str] = self._build_order()
+
+        # Check 10: a literal is static data, so it is read here like any other defect and kept —
+        # the executor takes each value from this mapping and parses nothing itself.
+        self.literals: Dict[str, Any] = self._read_literals()
 
     @classmethod
     def from_file(cls, workflow_file: str, port_table: Mapping[str, NodePorts]) -> "Graph":
@@ -350,6 +362,26 @@ class Graph:
             # `None` (key omitted) and -1 both mean "the only output".
             return outputs[0].annotation
         return outputs[edge.source_output].annotation
+
+    def _read_literals(self) -> Dict[str, Any]:
+        """Every primitive's ``value``, read the way its type says, by node id.
+
+        A literal is static data in the JSON, so it is judged here rather than when its node is
+        reached — by then a zero-input sibling may already have run. ``none`` is the one type that
+        needs no ``value``; any other primitive without one would be read as ``null``, which
+        ``str`` turns into ``"None"`` and ``any`` passes on. Parsing errors propagate as
+        :func:`~coral_app.primitives.read_literal` raises them.
+        """
+        literals = {}
+        for node_id, node in self.nodes.items():
+            if self.ports_of(node_id).kind != PRIMITIVE:
+                continue
+            node_type = node["type"]
+            label = self.describe(node_id)
+            if "value" not in node and node_type != "none":
+                raise ValueError(f"Node {label} of type {node_type!r} has no value")
+            literals[node_id] = read_literal(node_type, node.get("value"), label)
+        return literals
 
     def _build_order(self) -> List[str]:
         """Execution order, predecessors first.
