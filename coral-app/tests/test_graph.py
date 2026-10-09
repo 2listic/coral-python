@@ -357,21 +357,59 @@ class TestNodeTypes:
         with pytest.raises(ValueError, match=r"Node '0' declares no 'type'"):
             build({"0": {"value": 1.0}}, {})
 
-    @pytest.mark.parametrize("collection", ["list", "set", "dict"])
-    def test_a_collection_is_not_a_node_type(self, collection):
-        """GIVEN a graph naming a collection type as a node
+    @pytest.mark.parametrize("collection, value", [("list", "[]"), ("set", "[]"), ("dict", "{}")])
+    def test_a_collection_is_a_primitive_node_type(self, collection, value):
+        """GIVEN a graph naming a collection type as a node, carrying a literal
         WHEN the graph is built against the real primitives-only port table
-        THEN check 4 rejects it: a collection is built by ``list_new`` and friends, so there is
-        exactly one way to make one.
+        THEN check 4 accepts it: a collection is a primitive, so it has an entry of that kind.
 
         The table here is built rather than hand-written — the point is what the *host* actually
         offers with no plugin at all, which a literal table could not show.
         """
         port_table = build_port_table(primitives=PRIMITIVES_MAP)
 
-        assert collection not in port_table
-        with pytest.raises(ValueError, match=rf"Node '0' has unknown type '{collection}'"):
-            build({"0": {"type": collection}}, {}, port_table)
+        assert port_table[collection].kind == PRIMITIVE
+        build({"0": {"type": collection, "value": value}}, {}, port_table)
+
+
+class TestLiterals:
+    """Check 10: every primitive's ``value`` is read while the graph is built, and kept."""
+
+    def test_the_parsed_values_are_exposed_on_the_graph(self):
+        """GIVEN an int primitive carrying a string, wired into a function
+        WHEN the graph is built
+        THEN `.literals` holds the int, cast, and has no entry for the function node."""
+        nodes = {"0": {"type": "int", "value": "42"}, "1": {"type": "sqrt"}}
+
+        graph = build(nodes, {"0": edge("0", "1")})
+
+        assert graph.literals == {"0": 42}
+
+    def test_a_bad_literal_fails_construction(self):
+        """GIVEN a bool primitive whose value is neither true nor false, beside a zero-input node
+        WHEN the graph is built
+        THEN ValueError names the primitive — before any node, the zero-input one included, runs."""
+        nodes = {"0": {"type": "list_new"}, "1": {"type": "bool", "value": "False"}}
+
+        with pytest.raises(ValueError, match=r"Node '1' .* needs true or false"):
+            build(nodes, {})
+
+    @pytest.mark.parametrize("type_name, raw", [("int", ""), ("float", "abc"), ("int", None)])
+    def test_a_scalar_the_cast_refuses_names_the_node(self, type_name, raw):
+        """GIVEN a scalar primitive whose value its type cannot cast
+        WHEN the graph is built
+        THEN ValueError names the node, chained to the cast's own error."""
+        with pytest.raises(ValueError, match=r"Node '0' of type .* cannot read") as caught:
+            build({"0": {"type": type_name, "value": raw}}, {})
+
+        assert isinstance(caught.value.__cause__, (TypeError, ValueError))
+
+    def test_a_missing_value_fails_construction(self):
+        """GIVEN an int primitive with no `value` field
+        WHEN the graph is built
+        THEN ValueError names the node, rather than the missing value being read as null."""
+        with pytest.raises(ValueError, match=r"Node '0' of type 'int' has no value"):
+            build({"0": {"type": "int"}}, {})
 
 
 class TestNodeIds:
@@ -726,9 +764,9 @@ class TestOutputPorts:
 class TestEdgeTypes:
     """Check 8: the source's output annotation against the target's input annotation."""
 
-    def _wire(self, source_type, target_type):
+    def _wire(self, source_type, target_type, value=1):
         """One edge from a primitive/constructor node into port 0 of a target node."""
-        nodes = {"0": {"type": source_type, "value": 1}, "1": {"type": target_type}}
+        nodes = {"0": {"type": source_type, "value": value}, "1": {"type": target_type}}
         return nodes, {"0": edge("0", "1", 0)}
 
     def test_identical_types_are_accepted(self):
@@ -747,7 +785,7 @@ class TestEdgeTypes:
         """GIVEN a bool primitive feeding a float parameter
         WHEN the graph is built
         THEN it is accepted — bool is an int, and int widens to float."""
-        assert build(*self._wire("bool", "sqrt")).order == ["0", "1"]
+        assert build(*self._wire("bool", "sqrt", True)).order == ["0", "1"]
 
     def test_str_into_float_is_rejected(self):
         """GIVEN a str primitive feeding a float parameter

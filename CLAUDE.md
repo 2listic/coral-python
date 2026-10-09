@@ -207,7 +207,7 @@ graph's plugin requirement is its directory and never something inferred at run 
 
 - **No unmarked test may run a simulation.** Exactly one test per solver does: phiflow's and pypde's,
   each in its own package's `tests/system/test_graphs_run.py`, both marked `slow`. Every other
-  simulation graph is *validated without being executed* — constructing a `Graph` runs all nine
+  simulation graph is *validated without being executed* — constructing a `Graph` runs all ten
   checks and calls nothing, so the graph-JSON contract is guarded at ~0 ms per file.
 - **The framework suites name no plugin.** `coral-app/tests/specimen.py` provides a designed
   plugin surface (`SpecimenPlugin`, `RivalPlugin`, and three clash plugins that exist to be refused),
@@ -243,7 +243,7 @@ coral-core/                        # the contract: the Plugin ABC and the @outpu
 coral-app/                         # the host: discovery, node types, graph, executor, CLI. Depends on coral-core only.
 └── src/coral_app/
     ├── __init__.py                # PLUGIN_GROUP, discover/load, build_function_map/build_class_map
-    ├── primitives.py              # the type table: PRIMITIVES_MAP + COLLECTION_TYPES (host-only)
+    ├── primitives.py              # the primitive node types (PRIMITIVES_MAP) + how each reads its value
     ├── builtin_nodes.py           # the host's own functions: the list/set/dict operations
     ├── nodeports.py               # the port table: each node type's inputs and outputs
     ├── graph.py                   # read, validate and order a workflow graph
@@ -318,8 +318,8 @@ it finds them at runtime via entry-point discovery.
      This replaced the former "later wins" merge, which was never a designed rule but the behaviour of
      `dict.update()`; the single real duplicate it papered over — `print_result`, declared by both math and
      string — is gone, each plugin naming its own (`print_number` / `print_text`).
-   - Re-exports the two host-owned node surfaces: `PRIMITIVES_MAP` / `COLLECTION_TYPES` / `TYPE_NAMES`
-     (from `coral_app/primitives.py`) and `BUILTIN_FUNCTIONS` (from `coral_app/builtin_nodes.py`).
+   - Re-exports the two host-owned node surfaces: `PRIMITIVES_MAP` (from `coral_app/primitives.py`)
+     and `BUILTIN_FUNCTIONS` (from `coral_app/builtin_nodes.py`).
 
    The rest of the host is **one job per module**, in stages (issue #23). Nothing imports backwards:
    `nodeports` knows callables but not graphs; `graph` knows graphs but not callables; `registry` and
@@ -333,18 +333,21 @@ it finds them at runtime via entry-point discovery.
      method's port 0 is its instance (`Port("self", cls)`); a missing annotation is normalised to `Any`.
      `methods_of(port_table, class_name)` lists a class's `Class.method` entries. Also the only place
      the three node surfaces meet, so it is where **one name declared as two kinds** — a primitive and
-     a function, a function and a class — raises `DuplicateNodeTypeError`. It raises the same for a
-     node type named `list` / `set` / `dict`, and for one class registered under two keys. A collision with a
+     a function, a function and a class — raises `DuplicateNodeTypeError`; a node type named `list` /
+     `set` / `dict` is such a case, since those are primitives. It raises the same for one class
+     registered under two keys. A collision with a
      `Class.method` key is *not* refused: that key is derived from a class, not declared by anyone, so
      a function named `math.sqrt` keeps its name against a class `math` with a `sqrt` method.
    - **`graph.py`** (stage 3): `Graph(nodes, edges, port_table)` and
      `Graph.from_file(path, port_table)`. **Constructing one validates it** — see
      [Graph validation](#graph-validation). Exposes `.order`, `.node(id)`, `.ports_of(id)`,
      `.inputs_of(id)` (incoming edges sorted by `target_input`, built once), `.qualified_ids`
-     (node id -> qualified id, validated as check 3), `.name_of(id)` and `.describe(id)` (see
+     (node id -> qualified id, validated as check 3), `.literals` (node id -> a primitive's value,
+     read as check 10), `.name_of(id)` and `.describe(id)` (see
      [Workflow JSON Structure](#workflow-json-structure)). Takes the port table as plain data, so it
      imports neither `inspect` nor any plugin machinery, and its tests need no plugin installed;
-     the one host module it imports is `nodestatus`, for check 3's rules.
+     the host modules it imports are `nodestatus`, for check 3's rules, and `primitives`, for
+     check 10's.
    - **`registry.py`** (stage 5): `generate_registry()` renders the port table into the platform's
      file format, `python_type_to_string()`, `save_registry_to_file(filename, plugins=...)`. Every
      decision about the *format* lives here — argument dicts, index numbering, the `[-1]`
@@ -377,7 +380,8 @@ Nodes are **lean**: each carries its `type` and its `qualified_id` (plus `value`
 the executor infers the kind from `type`, so `node_type`/`method_name` are not part of the graph.
 The `qualified_id` is required — see [Per-node execution status](#per-node-execution-status) — and is
 omitted from the shapes below, which show only what decides a node's kind:
-- Primitive: `{"type": "<type>", "value": <val>}`
+- Primitive: `{"type": "<type>", "value": <val>}`; a collection's `<val>` is a JSON string,
+  `{"type": "set", "value": "[1, 2, 3]"}`
 - Function: `{"type": "<func_name>"}`
 - Constructor: `{"type": "<ClassName>"}`
 - Method: `{"type": "<ClassName>.<method_name>"}`
@@ -404,13 +408,15 @@ Edge format:
   - `inputs`: List of input indices
   - `outputs`: List of output indices (or `[-1]` for constructors/primitives)
   - `node_type`: "primitive", "function", "constructor", or "method"
+  - `value` (primitives only): the initial value the editor copies into a dropped node: `"[]"` for
+    `list` / `set`, `"{}"` for `dict`, `"false"` for `bool`, `""` for every other primitive
   - `bases` (constructors only, optional): the keys of every registered ancestor, in MRO order
     (so under multiple inheritance a parent may follow a grandparent). An unregistered class in
     between is skipped (its ancestors are still found); a type-name ancestor (`float`) is never
     listed. Absent when empty.
   - `derived` (constructors only, optional): the keys of every registered descendant, in class-map
     order. Absent when empty. Both lists depend on the `-p` selection.
-- **A socket's `type`** is one of the nine names in `TYPE_NAMES`, or — for a class the class map
+- **A socket's `type`** is one of the nine names in `PRIMITIVES_MAP`, or — for a class the class map
   holds — that class's **key**, the same string its constructor entry is keyed by. Anything else
   is `"any"`: a class no selected plugin registers, and every parameterised generic (`List[int]`,
   `Optional[X]`), even around a registered class.
@@ -435,7 +441,7 @@ Edge format:
 | --- | --- | --- | --- | --- |
 | 1 | load plugins, add the host's builtins | plugin names | `function_map`, `class_map` | `coral_app/__init__.py` |
 | 2 | describe each node type | the maps | port table | `coral_app/nodeports.py` |
-| 3 | read, validate, order the graph | graph JSON + port table | `Graph` | `coral_app/graph.py`, `coral_app/nodestatus.py` (check 3) |
+| 3 | read, validate, order the graph | graph JSON + port table | `Graph` | `coral_app/graph.py`, `coral_app/nodestatus.py` (check 3), `coral_app/primitives.py` (check 10) |
 | 4 | execute | `Graph` + the maps | `results`, plus the status markers if a touch dir was given | `coral_app/executor.py`, `coral_app/nodestatus.py` |
 | 5 | write the registry | port table | `node_types.json` | `coral_app/registry.py` |
 
@@ -448,8 +454,8 @@ Edge format:
    primitives plus the 15 builtins.
 3. **Describe node types**: `build_port_table()` turns the maps into one entry per node type — and
    raises `DuplicateNodeTypeError` if one name is declared as two kinds, the duplicate stage 2 sees
-   because it holds all three surfaces at once (and if a node type is named after a collection, or
-   one class is registered under two keys). Each entry lists the node type's input parameters and
+   because it holds all three surfaces at once (and if one class is registered under two keys).
+   Each entry lists the node type's input parameters and
    its outputs. Stages 4 and 5 both read it; neither introspects again.
 4. **Read, validate and order the graph**: `Graph.from_file()` loads `workflow.nodes` /
    `workflow.edges`, runs every check in [Graph validation](#graph-validation), and orders the nodes
@@ -468,9 +474,17 @@ Each node's kind is read from the port table — `graph.ports_of(node_id).kind`,
 membership in `PRIMITIVES_MAP` / `function_map` / `class_map` plus the `Class.method` split, in that
 precedence order (so a dotted function name like `math.sqrt` stays a function).
 
-**Primitive nodes** are the one special case, and they return early: the declared `type` casts the
-node's `value` via `PRIMITIVES_MAP[type]` (the JSON protocol may carry it as a string), except `any`
-which passes through unconverted and `none` which is `None`.
+**Primitive nodes** are the one special case, and they return early with the value `Graph` already
+read (`graph.literals`): `primitives.read_literal` reads the node's `value` the way its declared
+`type` says. A scalar is cast via `PRIMITIVES_MAP[type]` (the JSON protocol may carry it as a
+string); a value the cast refuses (`int("")`) raises `ValueError` naming the node. `bool` is the
+exception: it accepts only `true` / `false`, natively or as a string, since `bool("false")` is
+`True`. `any` passes through unconverted and `none` is `None`. A collection's `value` must be a
+JSON string, parsed with `json.loads`: an array for `list` / `set`, an object for `dict`. A native
+array or object, the wrong shape, malformed JSON or an unhashable set element raises `ValueError`
+naming the node, chained to the parser's own error where there is one. A missing `value` raises
+`ValueError` naming the node, for every type but `none`. All of this happens while the `Graph` is
+built (check 10), so a bad literal fails before any node runs.
 
 **Every other node** runs the same four steps, written once:
 
@@ -626,6 +640,9 @@ In order — one item per check, as `Graph.__init__` runs them:
 7. every `source_output` names an output the source type has;
 8. every edge's source annotation is compatible with its target annotation;
 9. no cycles — the message names the cycle path.
+10. every primitive's `value` is present (unless its type is `none`) and can be read as its type
+    says (`primitives.read_literal`). The parsed values are kept on `.literals`, so the executor
+    never parses one — see [Node Execution Model](#node-execution-model).
 
 **Every argument must be connected** (check 6). A default value in plugin code is *not* a way to
 leave a port unwired, so the defaults in `phiflow_union`, `phiflow_iterate`,
@@ -712,6 +729,19 @@ all, exactly like the primitives — a graph using them runs anywhere a coral ho
 | **set** | `set_new` | `set_add` | `set_to_list` | `set_size` | `set_remove` |
 | **dict** | `dict_new` | `dict_set` | `dict_get` | `dict_size` | `dict_delete` |
 
+A collection can also be written as a **literal**: a primitive node whose `value` is a JSON string,
+`{"type": "list", "value": "[10, 20, 30]"}` (see [Node Execution Model](#node-execution-model)). This
+is the reference C++ backend's model, which registers `std::set<unsigned int>` as an elementary type
+carrying `"[1, 2, 3]"`. The type strings still differ (`set` vs `std::set<unsigned int>`), as the
+scalars already do (`float` vs `double`), so a graph using one runs on one backend only. The two
+forms are complementary: a literal cannot hold computed values, the operations can. `list_new` /
+`set_new` / `dict_new` duplicate the empty literals and stay.
+
+A literal is JSON, with JSON's limits: a `dict` literal's keys are always strings, so `dict_get` on
+it with an `int` key raises `KeyError`; a `set` literal collapses elements Python holds equal
+(`"[1, 1.0, true]"` is `{1}`); and a nested array inside a `set` literal is unhashable and raises
+`ValueError` naming the node.
+
 Three properties hold for all 15, and graphs depend on each:
 
 - **Pure.** Every operation returns a *new* collection and never mutates its input. A node's result is
@@ -734,31 +764,27 @@ Two details worth knowing before touching them:
   (`Calculator.add_to_value`), and `list.append` is real Python for a method with *different* semantics
   (mutates, returns `None`) — the name would assert something false.
 - `list_new`/`set_new`/`dict_new` are the first **function** nodes with zero inputs (`inputs: []`,
-  `outputs: [0]`); primitives also take no input but use `outputs: [-1]`. Together with `"list"` as a
-  socket type that is not a registry key, these are the two platform-facing novelties to confirm in the
-  editor.
+  `outputs: [0]`); primitives also take no input but use `outputs: [-1]`. This is the platform-facing
+  novelty to confirm in the editor.
 
 Runnable examples: `coral run coral-app/examples/collections/list.json` (also `set.json`,
-`dict.json`) — they ship with the host, because the host is what provides their node types. The
+`dict.json`, and `literals.json` for the literal form) — they ship with the host, because the host
+is what provides their node types. The
 "needs no plugin" property is asserted by `coral-app/tests/test_examples.py`, which passes
 `plugins=[]` — the CLI cannot express it, since an empty `-p` means *all* installed plugins.
 
 ## Key Constraints and Design Decisions
 
 - **Edge ordering is critical**: Function/method parameter order determined by `target_input` values on edges (sorted ascending)
-- **Type system**: maps Python types to the protocol's type-name strings. The table lives in
-  `coral_app/primitives.py` and is **split in two**, because not every type name is a node type:
-  `PRIMITIVES_MAP` holds the six *primitive node* types (`int`, `float`, `str`, `bool`, `any`, `none`)
-  — a node carrying a literal in its `value` field, cast by the declared type; `COLLECTION_TYPES` holds
-  `list` / `set` / `dict`, which a socket can be typed with but which **no node creates**. A collection
-  is built by `list_new()` / `set_new()` / `dict_new()`, so `{"type": "list"}` in a graph is an unknown
-  node type and graph check 4 rejects it. `TYPE_NAMES` is their union and is what `registry.py` renders
-  from. Consequence to know: `"list"` is the first socket type string with no matching `registry[...]`
-  key — see [Built-in collection nodes](#built-in-collection-nodes). So no node type may be named
-  `list` / `set` / `dict`: `build_port_table` refuses one with `DuplicateNodeTypeError`. The third
-  source of socket type names is the **registered classes**, written as their class-map key (see
-  *Registry Files*); a class registered under two keys is refused the same way, since it would have
-  two names
+- **Type system**: maps Python types to the protocol's type-name strings. The table is
+  `PRIMITIVES_MAP` in `coral_app/primitives.py`, and every name in it is a *primitive node* type, a
+  node carrying a literal in its `value` field: `int`, `float`, `str`, `bool`, `any`, `none`, cast by
+  the declared type (`any` passed through, `none` is `None`), and the collections `list` / `set` /
+  `dict`, whose `value` is a JSON string. `registry.py` renders socket types from the same table, so
+  every socket type name is also a `registry[...]` key. So no node type may be named after a
+  primitive: `build_port_table` refuses one with `DuplicateNodeTypeError`. The second source of
+  socket type names is the **registered classes**, written as their class-map key (see *Registry
+  Files*); a class registered under two keys is refused the same way, since it would have two names
 - **Node ids are decimal integers**, and the loader enforces it: node keys, edge keys and both
   endpoints of every edge go through `graph.py:_read_id`, which raises `ValueError` while the `Graph`
   is being constructed. The protocol keys nodes by integer and three platform mechanisms rest on it:
@@ -780,11 +806,12 @@ Runnable examples: `coral run coral-app/examples/collections/list.json` (also `s
   shows, and a test looks the node up by it (`node_named` in the plugin's `<n>_suite.py`)
 - **No cycles**: Workflow graphs must be acyclic (DAG) — `graph.py` raises `ValueError` naming the
   cycle path, using `graphlib.TopologicalSorter` (stdlib, `{node: predecessors}`)
-- **Validate before executing**: every defect — identity, wiring, typing, ordering — raises while the `Graph` is being constructed, so
+- **Validate before executing**: every defect — identity, wiring, typing, ordering, literals — raises while the `Graph` is being constructed, so
   `WorkflowExecutor(...)` fails before the first node runs — see [Graph validation](#graph-validation)
 - **One job per module**: `nodeports` knows callables but not graphs; `graph` knows graphs but not
-  callables (it never imports `inspect` or a plugin; its one host import is `nodestatus`, for
-  check 3's filename rules); `executor` receives an already-validated graph
+  callables (it never imports `inspect` or a plugin; its host imports are `nodestatus`, for
+  check 3's filename rules, and `primitives`, for check 10's literals); `executor` receives an
+  already-validated graph
   (no `json`, no `graphlib`, no edge list). `tests/invariants/test_source_rules.py` enforces these
   boundaries by reading the source
 - **Lazy discovery**: `discover()` never imports a plugin; `load(name)` imports only that one. An unselected

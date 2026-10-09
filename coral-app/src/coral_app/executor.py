@@ -1,5 +1,5 @@
 from contextlib import nullcontext
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
 from coral_app.graph import Graph
@@ -55,13 +55,12 @@ class WorkflowExecutor:
 
         self.function_map = build_function_map(include=plugins)
         self.class_map = build_class_map(include=plugins)
-        self.primitives_map = PRIMITIVES_MAP
 
         print(f"Loaded plugins: {', '.join(plugins)}")
         print(f"Available functions: {len(self.function_map)}")
         print(f"Available classes: {len(self.class_map)}\n")
 
-        self.port_table = build_port_table(self.function_map, self.class_map, self.primitives_map)
+        self.port_table = build_port_table(self.function_map, self.class_map, PRIMITIVES_MAP)
         self.graph = Graph.from_file(workflow_file, self.port_table)
 
         self.results = {}
@@ -95,7 +94,7 @@ class WorkflowExecutor:
             status = self.status.node(qualified_id) if self.status else nullcontext()
             with status:
                 if kind == PRIMITIVE:
-                    self.results[node_id] = self._convert(node)
+                    self.results[node_id] = self.graph.literals[node_id]
                     print(f"{node_id} (primitive) = {self.results[node_id]}")
                 else:
                     values = self._input_values(node_id)
@@ -154,19 +153,6 @@ class WorkflowExecutor:
                 f"Node {node} of type {node_type!r} declares {expected} outputs but returned "
                 f"a tuple of {len(result)}"
             )
-
-    def _convert(self, node: dict):
-        """A primitive node's value, cast to the type the node declares.
-
-        The JSON protocol may carry the value as a string, so the declared type does the casting.
-        """
-        converter = self.primitives_map[node["type"]]
-
-        if converter is type(None):
-            return None
-        if converter is Any:  # Don't convert value if type is Any
-            return node["value"]
-        return converter(node["value"])
 
     def _input_values(self, node_id: str) -> list:
         """The values feeding a node, in port order.

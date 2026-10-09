@@ -2,13 +2,13 @@ import inspect
 import json
 from typing import Any, Dict, List, Mapping, Optional
 
-from coral_app import PRIMITIVES_MAP, TYPE_NAMES, build_class_map, build_function_map, discover
+from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
 from coral_app.nodeports import NodePorts, Port, build_port_table, methods_of
+from coral_app.primitives import DEFAULT_LITERAL
 
 # Python type -> the name the file format uses for it, for the socket types written on every
-# argument. Built from `TYPE_NAMES`, not from `PRIMITIVES_MAP`: the collections are renderable type
-# names without being node types, so more types can appear on a socket than can be a node.
-_TYPE_NAME_OF = {v: k for k, v in TYPE_NAMES.items()}
+# argument. Every primitive type name is a socket type name, and each also keys a primitive entry.
+_TYPE_NAME_OF = {v: k for k, v in PRIMITIVES_MAP.items()}
 
 
 def _create_input_argument(port: Port, class_names: Mapping[type, str]) -> Dict:
@@ -189,7 +189,7 @@ def generate_registry(
     for prim_type in primitives:
         registry[prim_type] = {
             "arguments": [],
-            "value": "",
+            "value": DEFAULT_LITERAL.get(prim_type, ""),
             "inputs": [],
             "outputs": [-1],
             "node_type": "primitive",
@@ -218,8 +218,7 @@ def python_type_to_string(py_type, class_names: Mapping[type, str] = None) -> st
 
     Three sources of names, tried in order:
 
-    - the primitives and the collections (``TYPE_NAMES``): ``float`` -> ``"float"``, ``list`` ->
-      ``"list"``;
+    - the primitives (``PRIMITIVES_MAP``): ``float`` -> ``"float"``, ``list`` -> ``"list"``;
     - the registered classes, by their key in the class map (``class_names``): the string that also
       keys the class's constructor entry;
     - anything else is ``"any"``: a class no selected plugin registers, a missing annotation, and
@@ -234,7 +233,7 @@ def python_type_to_string(py_type, class_names: Mapping[type, str] = None) -> st
     if py_type is inspect.Signature.empty or py_type is None:
         return _TYPE_NAME_OF[Any]
 
-    # Handle the named types: the primitives plus the collections
+    # Handle the primitive type names
     if py_type in _TYPE_NAME_OF:
         return _TYPE_NAME_OF[py_type]
 

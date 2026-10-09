@@ -42,8 +42,8 @@ Six plugins expose it, and the split is driven entirely by what the host's merge
   class of its (``Accumulator``), and one of the *host's* builtins (``list_append``). All three must
   raise ``DuplicateNodeTypeError``. They exist only to be refused, and so are never merged with the
   others in a passing case.
-* :class:`CollectionClashPlugin` — declares a class keyed ``list``, a collection type name that no
-  node may claim. It must raise ``DuplicateNodeTypeError`` too.
+* :class:`CollectionClashPlugin` — declares a class keyed ``list``, which collides with the
+  primitive ``list``. It must raise ``DuplicateNodeTypeError`` too.
 
 Nothing here is a distribution: no entry point, no ``pyproject.toml``. The suite hands these to the
 host by patching the one lookup that maps a plugin *name* to a plugin instance — see the
@@ -304,7 +304,7 @@ class BuiltinClashPlugin(Plugin):
 
 
 class CollectionClashPlugin(Plugin):
-    """Declares a class keyed ``list``, a collection type name; selecting it is refused."""
+    """Declares a class keyed ``list``, the name of a primitive; selecting it is refused."""
 
     def get_functions(self) -> Dict[str, Any]:
         return {}

@@ -58,7 +58,7 @@ class TestPythonTypeToString:
 
     @pytest.mark.parametrize("py_type, name", [(list, "list"), (set, "set"), (dict, "dict")])
     def test_collection_types(self, py_type, name):
-        """GIVEN a bare collection type, which is a socket type but not a node type
+        """GIVEN a bare collection type, a primitive node type like the scalars
         WHEN it is rendered
         THEN it gets its own name rather than collapsing to 'any'."""
         assert python_type_to_string(py_type) == name
@@ -539,6 +539,27 @@ class TestPrimitiveEntries:
             "type": "int",
         }
 
+    @pytest.mark.parametrize("collection, value", [("list", "[]"), ("set", "[]"), ("dict", "{}")])
+    def test_a_collection_entry_defaults_to_the_empty_literal(self, registry, collection, value):
+        """GIVEN a collection primitive type
+        WHEN its entry is read
+        THEN it is a primitive entry whose `value` is the empty literal: the editor copies it into a
+        dropped node, which is then a valid empty collection rather than an unparsable ``""``."""
+        assert registry[collection] == {
+            "arguments": [],
+            "value": value,
+            "inputs": [],
+            "outputs": [-1],
+            "node_type": "primitive",
+            "type": collection,
+        }
+
+    def test_a_bool_entry_defaults_to_false(self, registry):
+        """GIVEN the bool primitive type
+        WHEN its entry is read
+        THEN its `value` is "false": a dropped bool node is then valid, where "" would be refused."""
+        assert registry["bool"]["value"] == "false"
+
     def test_every_primitive_is_present(self, registry):
         """GIVEN any plugin selection
         WHEN the registry is generated
@@ -559,7 +580,8 @@ class TestPrimitiveEntries:
     def test_a_class_named_after_a_collection_is_refused(self):
         """GIVEN a class keyed ``set``
         WHEN the registry is generated
-        THEN DuplicateNodeTypeError is raised, as it is when a graph is run with the same class."""
+        THEN DuplicateNodeTypeError is raised, since it collides with the primitive ``set``, as it
+        is when a graph is run with the same class."""
 
         class Widget:
             pass

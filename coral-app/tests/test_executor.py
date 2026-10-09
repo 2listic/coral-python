@@ -4,10 +4,12 @@ Written entirely against the designed specimen (``specimen.py``), because the ex
 not a fact about any plugin: it collects a node's inputs in port order, resolves its callable, binds
 positionally, and stores the result. Which callable that is, is the plugin's business.
 
-By the time ``execute()`` runs there is nothing left to verify — ``Graph`` ran all nine checks while
+By the time ``execute()`` runs there is nothing left to verify — ``Graph`` ran all ten checks while
 the executor was being constructed. So the failure cases here are about *construction*, and the
 success cases are about values.
 """
+
+import json
 
 import pytest
 from coral_app.errors import DuplicateNodeTypeError
@@ -79,7 +81,8 @@ class TestConstruction:
     def test_a_node_type_named_after_a_collection_is_refused(self, write_graph, specimen_plugins):
         """GIVEN a plugin declaring a class keyed ``list``
         WHEN the executor is constructed
-        THEN DuplicateNodeTypeError is raised, before the graph is read."""
+        THEN DuplicateNodeTypeError is raised, before the graph is read: the key collides with the
+        primitive ``list``."""
         path = write_graph(graph({"0": {"type": "int", "value": 1}}))
 
         with pytest.raises(DuplicateNodeTypeError):
@@ -87,7 +90,8 @@ class TestConstruction:
 
 
 class TestPrimitiveNodes:
-    """A primitive casts its ``value`` through the type it declares."""
+    """A primitive reads its ``value`` the way its declared type says: a scalar is cast, a
+    collection parses a JSON string."""
 
     @pytest.mark.parametrize(
         "type_name, raw, expected",
@@ -98,6 +102,9 @@ class TestPrimitiveNodes:
             ("float", "3.5", 3.5),
             ("str", "hello", "hello"),
             ("bool", True, True),
+            ("bool", False, False),
+            ("bool", "true", True),
+            ("bool", "false", False),  # bool("false") would be True
         ],
     )
     def test_declared_type_casts_the_value(self, run, type_name, raw, expected):
@@ -108,6 +115,14 @@ class TestPrimitiveNodes:
 
         assert results["0"] == expected
         assert isinstance(results["0"], type(expected))
+
+    @pytest.mark.parametrize("raw", ["False", "0", "", "yes", 1, 0, None])
+    def test_a_bool_refuses_anything_but_true_or_false(self, run, raw):
+        """GIVEN a bool primitive whose value is neither true nor false, natively or as a string
+        WHEN the executor is constructed
+        THEN ValueError names the node, rather than a truthiness cast deciding the value."""
+        with pytest.raises(ValueError, match=r"Node '0' .* needs true or false"):
+            run({"0": {"type": "bool", "value": raw}})
 
     def test_any_passes_its_value_through_unconverted(self, run):
         """GIVEN a node declared `any`
@@ -124,6 +139,106 @@ class TestPrimitiveNodes:
         results = run({"0": {"type": "none", "value": "ignored"}})
 
         assert results["0"] is None
+
+    @pytest.mark.parametrize("type_name", ["int", "str", "bool", "any", "list"])
+    def test_a_missing_value_is_refused(self, run, type_name):
+        """GIVEN a primitive node, other than `none`, with no `value` field
+        WHEN the executor is constructed
+        THEN ValueError names the node, rather than the missing value being read as null."""
+        with pytest.raises(ValueError, match=r"Node '0' of type .* has no value"):
+            run({"0": {"type": type_name}})
+
+    def test_none_needs_no_value(self, run):
+        """GIVEN a node declared `none` with no `value` field
+        WHEN it is executed
+        THEN its result is None: `none` never reads its value."""
+        results = run({"0": {"type": "none"}})
+
+        assert results["0"] is None
+
+    def test_a_bad_literal_fails_before_any_node_runs(
+        self, write_graph, specimen_plugins, tmp_path
+    ):
+        """GIVEN a bad bool literal beside a zero-input node that sorts before it in the order
+        WHEN the executor is constructed with a touch directory
+        THEN ValueError names the literal, and no node has written a marker."""
+        nodes = {"0": {"type": "make_one"}, "1": {"type": "bool", "value": "False"}}
+        path = write_graph(graph(nodes))
+        status = tmp_path / "status"
+
+        with pytest.raises(ValueError, match=r"Node '1' .* needs true or false"):
+            WorkflowExecutor(str(path), plugins=[SPECIMEN], touch_dir=str(status))
+
+        assert list(status.iterdir()) == []
+
+    @pytest.mark.parametrize(
+        "type_name, raw, expected",
+        [
+            ("list", '[1, "a", 2.5]', [1, "a", 2.5]),
+            ("set", "[3, 1, 3]", {1, 3}),
+            ("dict", '{"a": 1}', {"a": 1}),
+            ("list", "[]", []),
+            ("set", "[]", set()),
+            ("dict", "{}", {}),
+        ],
+    )
+    def test_a_collection_parses_its_json_string(self, run, type_name, raw, expected):
+        """GIVEN a collection primitive carrying a JSON string
+        WHEN the workflow is executed
+        THEN the string is parsed into the declared collection, a set collapsing duplicates."""
+        results = run({"0": {"type": type_name, "value": raw}})
+
+        assert results["0"] == expected
+        assert type(results["0"]) is type(expected)
+
+    @pytest.mark.parametrize("type_name, raw", [("list", [1, 2]), ("dict", {"a": 1})])
+    def test_a_collection_refuses_a_native_value(self, run, type_name, raw):
+        """GIVEN a collection primitive whose value is a native JSON array or object
+        WHEN the executor is constructed
+        THEN ValueError names the node: a literal has one spelling, the string the editor writes."""
+        with pytest.raises(
+            ValueError, match=r"Node '0' .* needs a JSON string, got (array|object)"
+        ):
+            run({"0": {"type": type_name, "value": raw}})
+
+    @pytest.mark.parametrize(
+        "type_name, raw", [("list", '{"a": 1}'), ("dict", "[1]"), ("set", "5")]
+    )
+    def test_a_collection_refuses_the_wrong_json_shape(self, run, type_name, raw):
+        """GIVEN a collection primitive whose string parses to the wrong kind of JSON value
+        WHEN the executor is constructed
+        THEN ValueError names the node, rather than e.g. `list` silently splitting a string."""
+        with pytest.raises(ValueError, match=r"Node '0' .* needs a JSON (array|object)"):
+            run({"0": {"type": type_name, "value": raw}})
+
+    def test_malformed_json_names_the_node(self, run):
+        """GIVEN a list primitive whose string is not valid JSON
+        WHEN the executor is constructed
+        THEN ValueError names the node, chained to the parser's own JSONDecodeError."""
+        with pytest.raises(ValueError, match=r"Node '0' of type 'list' cannot read") as caught:
+            run({"0": {"type": "list", "value": "[1, 2"}})
+
+        assert isinstance(caught.value.__cause__, json.JSONDecodeError)
+
+    def test_an_unhashable_set_element_names_the_node(self, run):
+        """GIVEN a set primitive whose array holds an array
+        WHEN the executor is constructed
+        THEN ValueError names the node, chained to the TypeError: a list cannot be a set element."""
+        with pytest.raises(ValueError, match=r"Node '0' of type 'set' cannot read") as caught:
+            run({"0": {"type": "set", "value": "[[1]]"}})
+
+        assert isinstance(caught.value.__cause__, TypeError)
+
+    def test_a_set_literal_feeds_a_builtin(self, run):
+        """GIVEN a set literal wired into `set_size`
+        WHEN the workflow is executed
+        THEN the literal flows into the builtin like a computed set, and check 8 accepts the edge."""
+        results = run(
+            {"0": {"type": "set", "value": "[3, 1, 2, 3]"}, "1": {"type": "set_size"}},
+            {"0": edge("0", "1", 0)},
+        )
+
+        assert results["1"] == 3
 
 
 class TestFunctionNodes:

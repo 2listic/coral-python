@@ -174,9 +174,9 @@ type), or a method (`_method_ports`). It walks `sig.parameters` (ordered, each c
 `Port(name, annotation)` per input and per output — an input named by its parameter, an output by
 `@outputs` when the callable declares names, else `""` (Python gives a return value no name).
 `registry.py` then renders those annotations through
-`python_type_to_string`, which maps each against `TYPE_NAMES` — the six primitive node types (`int`, `float`,
-`str`, `bool`, `any`, `none`) plus the three collections (`list`, `set`, `dict`), which are socket type names
-without being node types — and then against the **registered classes**, each written as its key in the class
+`python_type_to_string`, which maps each against `PRIMITIVES_MAP` — the nine primitive node types: `int`,
+`float`, `str`, `bool`, `any`, `none` and the collections `list`, `set`, `dict` — and then against the
+**registered classes**, each written as its key in the class
 map (`Calculator`), the same string its constructor entry is keyed by. A class no selected plugin registers,
 and any parameterised generic (`List[int]`, `Optional[Calculator]`), is `"any"`. Three behaviours fall out of
 this:
@@ -208,7 +208,7 @@ That is a hard boundary in two directions, and both are common:
   `"any"` inputs and no output.
 - **Modern pure-Python libraries stringize their annotations.** With `from __future__ import annotations`
   (PEP 563), `inspect.signature` returns the *string* `"float"` rather than the type `float`, and
-  `python_type_to_string`'s identity check against `TYPE_NAMES` misses it → `"any"`.
+  `python_type_to_string`'s identity check against `PRIMITIVES_MAP` misses it → `"any"`.
 
 We measured how much of the real ecosystem this rules out, and the answer is sobering: across **751 public
 callables** in `numpy` (461), `jax` (98), and `phi.flow` (192), **zero** are directly registrable into a clean,
@@ -225,7 +225,7 @@ hand-written, type-hinted wrappers are the rule, not a corner case** — see
   `inspect.signature` leaves as strings. This is a cheap, low-risk change that would unlock the whole class of
   modern annotated pure-Python libraries (it would, for instance, make `jax`'s stringized signatures readable).
   *Our take: the one improvement worth doing first.* It doesn't fix C code (there are still no annotations to
-  resolve) and is still bounded by the six-primitive map, but it removes the most common avoidable failure.
+  resolve) and is still bounded by the primitive map, but it removes the most common avoidable failure.
 - **Static AST parsing of source files** — extracts signatures without importing, dodging import side effects.
   Heavier machinery, and still annotation-dependent (it reads the same hints). *Not worth it at this scale.*
 - **Explicit decorator / manual schema registration** — precise and introspection-free, but it trades every
@@ -503,9 +503,9 @@ assumptions — if you touch this boundary, update both and re-run the full suit
 
 ### Concrete extension points
 
-- **Richer type system (partly done).** The registry writes the six `PRIMITIVES_MAP` node types,
-  `list`/`set`/`dict` from `COLLECTION_TYPES` (issue #25, which also demonstrated that a type name need
-  not be a node type) and, since issue #44, every **registered class** under its class-map key, with
+- **Richer type system (partly done).** The registry writes the nine `PRIMITIVES_MAP` node types,
+  among them `list`/`set`/`dict` (issue #25 added them as socket types, issue #35 as literal
+  primitives) and, since issue #44, every **registered class** under its class-map key, with
   `bases`/`derived` on each constructor, listing its registered ancestors and descendants. What
   still collapses to `"any"` is an unregistered class and every parameterised generic (`List[int]`,
   `Optional[X]`): precise generic sockets need one canonical spelling
@@ -593,9 +593,10 @@ remembered to install `coral-plugin-collections`. The host already ships primiti
 reasoning; the collections are the same argument one level up, so they live in
 `coral_app/builtin_nodes.py` next to `primitives.py`.
 
-The consequence is the precedence rule above: since a builtin is a guarantee rather than a contribution,
-a plugin declaring `list_append` is ignored rather than winning. A graph names only node types, so a
-plugin that silently redefined one would produce a wrong answer with nothing in the graph to point at.
+The consequence is the ownership rule above: since a builtin is a guarantee rather than a contribution,
+a plugin declaring `list_append` is refused with `DuplicateNodeTypeError` rather than winning. A graph
+names only node types, so a plugin that silently redefined one would produce a wrong answer with
+nothing in the graph to point at.
 
 **Why bare `list`, and not a `CoralList` wrapper class?** A wrapper would have been the tidier object
 model — real methods, a real constructor, no 15 free functions. It was rejected because of what crosses
@@ -612,6 +613,14 @@ to: `inspect.signature(list)` is `(iterable=(), /)`, one mandatory port, so an e
 would fail graph check 6; `list.append` mutates and returns `None`, so it would have no output port; and
 being C extension types they expose no introspectable methods at all. Free functions are not a stylistic
 preference here, they are the only thing that works.
+
+**And the literal form.** Since issue #35 a collection can also be a primitive node whose `value` is a
+JSON string: `{"type": "set", "value": "[1, 2, 3]"}`. This is how the C++ backend builds one: it has no
+collection operations at all, and registers `std::set<unsigned int>` as an elementary type whose
+`value` it `json::parse`s. A JSON string is also the only thing the editor's text box can produce. The
+two forms are complementary rather than redundant: a literal cannot contain computed values, the
+operations can. Parity is of the *model*, not of the JSON: the type string is `set`, not
+`std::set<unsigned int>`, so a graph using one still runs on one backend only.
 
 ---
 

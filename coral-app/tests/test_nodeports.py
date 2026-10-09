@@ -9,6 +9,7 @@ import inspect
 from typing import Any, Tuple
 
 import pytest
+from coral_app import PRIMITIVES_MAP
 from coral_app.errors import DuplicateNodeTypeError
 from coral_app.nodeports import (
     CONSTRUCTOR,
@@ -382,33 +383,34 @@ class TestDeclaredNameClashIsRefused:
         assert FUNCTION in message and CONSTRUCTOR in message
 
 
-class TestCollectionNamesAreReserved:
-    """``list``, ``set`` and ``dict`` are socket types that no node creates, so no node may claim one."""
+class TestCollectionNamesCollideWithPrimitives:
+    """``list``, ``set`` and ``dict`` are primitive node types, so a bare name claiming one collides."""
 
     def test_a_class_named_after_a_collection_raises(self):
-        """GIVEN a class keyed ``list``
+        """GIVEN a class keyed ``list``, alongside the primitives
         WHEN the table is built
-        THEN DuplicateNodeTypeError is raised."""
-        with pytest.raises(DuplicateNodeTypeError):
-            build_port_table(class_map={"list": Widget})
+        THEN DuplicateNodeTypeError is raised, naming the primitive it collides with."""
+        with pytest.raises(DuplicateNodeTypeError, match="primitive"):
+            build_port_table(class_map={"list": Widget}, primitives=PRIMITIVES_MAP)
 
     def test_a_function_named_after_a_collection_raises(self):
-        """GIVEN a function keyed ``dict``
+        """GIVEN a function keyed ``dict``, alongside the primitives
         WHEN the table is built
-        THEN DuplicateNodeTypeError is raised."""
-        with pytest.raises(DuplicateNodeTypeError):
-            build_port_table(function_map={"dict": annotated})
+        THEN DuplicateNodeTypeError is raised, naming the primitive it collides with."""
+        with pytest.raises(DuplicateNodeTypeError, match="primitive"):
+            build_port_table(function_map={"dict": annotated}, primitives=PRIMITIVES_MAP)
 
     def test_a_method_named_after_a_collection_is_accepted(self):
         """GIVEN a class with a public method named ``list``
         WHEN the table is built
-        THEN ``Shelf.list`` is a method entry — only a bare name can claim a type name."""
+        THEN ``Shelf.list`` is a method entry: its key carries the class, so it never meets the
+        primitive ``list``."""
 
         class Shelf:
             def list(self) -> str:
                 return ""
 
-        table = build_port_table(class_map={"Shelf": Shelf})
+        table = build_port_table(class_map={"Shelf": Shelf}, primitives=PRIMITIVES_MAP)
 
         assert table["Shelf.list"].kind == METHOD
 
