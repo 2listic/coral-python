@@ -474,12 +474,14 @@ precedence order (so a dotted function name like `math.sqrt` stays a function).
 
 **Primitive nodes** are the one special case, and they return early: `primitives.read_literal` reads
 the node's `value` the way its declared `type` says. A scalar is cast via `PRIMITIVES_MAP[type]` (the
-JSON protocol may carry it as a string), `any` passes through unconverted and `none` is `None`. A
-collection's `value` must be a JSON string, parsed with `json.loads`: an array for `list` / `set`, an
-object for `dict`. A native array or object, or the wrong shape, raises `ValueError` naming the node;
-malformed JSON and an unhashable set element raise the parser's own error, untouched. The literal is
-checked at execution, not by graph validation, but a primitive has no inputs, so every one runs in
-the first batch of the order, before any simulation.
+JSON protocol may carry it as a string), except `bool`, which accepts only `true` / `false`,
+natively or as a string, since `bool("false")` is `True`. `any` passes through unconverted and
+`none` is `None`. A collection's `value` must be a JSON string, parsed with `json.loads`: an array
+for `list` / `set`, an object for `dict`. A native array or object, or the wrong shape, raises
+`ValueError` naming the node; malformed JSON and an unhashable set element raise the parser's own
+error, untouched. A missing `value` raises `ValueError` naming the node, for every type but `none`.
+The literal is checked at execution, not by graph validation, but a primitive has no inputs, so
+every one runs in the first batch of the order, before any simulation.
 
 **Every other node** runs the same four steps, written once:
 

@@ -4,10 +4,10 @@ from typing import Any
 # Map primitive type names to Python types.
 #
 # A primitive is a node carrying a literal in its `value` field; its type says how to read it. A
-# scalar (`int`, `float`, `str`, `bool`) is cast by its type, `any` passes the value through
-# unchanged and `none` is `None`. A collection (`list`, `set`, `dict`) is written as a JSON string
-# (`"[1, 2]"`, `"{\"a\": 1}"`) which `read_literal` below parses: the editor can only produce
-# strings, and the reference backend reads its collection literals the same way.
+# scalar (`int`, `float`, `str`) is cast by its type, a `bool` is `true` or `false`, `any` passes
+# the value through unchanged and `none` is `None`. A collection (`list`, `set`, `dict`) is written
+# as a JSON string (`"[1, 2]"`, `"{\"a\": 1}"`) which `read_literal` below parses: the editor can
+# only produce strings, and the reference backend reads its collection literals the same way.
 #
 # PRIMITIVES_MAP lives in the host, not in coral-core: no plugin references it, and the registry /
 # executor (both host-side) are its only consumers.
@@ -45,6 +45,9 @@ def read_literal(node_type: str, value: Any, label: str) -> Any:
     (``42``), and the cast accepts both. ``any`` passes the value through as the JSON carried it,
     and ``none`` is ``None`` whatever ``value`` holds.
 
+    A ``bool`` is the exception to the cast, because ``bool("false")`` is ``True``: it accepts
+    ``true`` and ``false``, natively or as the strings ``"true"`` and ``"false"``, and nothing else.
+
     A collection must be a JSON string, which is parsed: ``'[1, 2]'`` for a ``list`` or a ``set``,
     ``'{"a": 1}'`` for a ``dict``. A native array or object is refused, so a literal has one
     spelling, the one the editor writes. Errors raised by the parsing itself — malformed JSON
@@ -57,7 +60,8 @@ def read_literal(node_type: str, value: Any, label: str) -> Any:
         label: How an error names the node, e.g. ``"'0' ('ids')"``.
 
     Raises:
-        ValueError: if a collection's ``value`` is not a string, or parses to the wrong JSON shape.
+        ValueError: if a ``bool``'s ``value`` is neither ``true`` nor ``false``, or if a
+            collection's ``value`` is not a string, or parses to the wrong JSON shape.
     """
     converter = PRIMITIVES_MAP[node_type]
 
@@ -65,6 +69,14 @@ def read_literal(node_type: str, value: Any, label: str) -> Any:
         return None
     if converter is Any:  # Don't convert value if type is Any
         return value
+    if converter is bool:
+        if isinstance(value, bool):
+            return value
+        if value == "true":
+            return True
+        if value == "false":
+            return False
+        raise ValueError(f"Node {label} of type {node_type!r} needs true or false, got {value!r}")
     if node_type not in _JSON_SHAPE:
         return converter(value)
 

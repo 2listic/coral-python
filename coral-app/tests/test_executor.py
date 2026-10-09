@@ -102,6 +102,9 @@ class TestPrimitiveNodes:
             ("float", "3.5", 3.5),
             ("str", "hello", "hello"),
             ("bool", True, True),
+            ("bool", False, False),
+            ("bool", "true", True),
+            ("bool", "false", False),  # bool("false") would be True
         ],
     )
     def test_declared_type_casts_the_value(self, run, type_name, raw, expected):
@@ -112,6 +115,14 @@ class TestPrimitiveNodes:
 
         assert results["0"] == expected
         assert isinstance(results["0"], type(expected))
+
+    @pytest.mark.parametrize("raw", ["False", "0", "", "yes", 1, 0, None])
+    def test_a_bool_refuses_anything_but_true_or_false(self, run, raw):
+        """GIVEN a bool primitive whose value is neither true nor false, natively or as a string
+        WHEN the workflow is executed
+        THEN ValueError names the node, rather than a truthiness cast deciding the value."""
+        with pytest.raises(ValueError, match=r"Node '0' .* needs true or false"):
+            run({"0": {"type": "bool", "value": raw}})
 
     def test_any_passes_its_value_through_unconverted(self, run):
         """GIVEN a node declared `any`
@@ -126,6 +137,22 @@ class TestPrimitiveNodes:
         WHEN it is executed
         THEN its result is None regardless of the value field."""
         results = run({"0": {"type": "none", "value": "ignored"}})
+
+        assert results["0"] is None
+
+    @pytest.mark.parametrize("type_name", ["int", "str", "bool", "any", "list"])
+    def test_a_missing_value_is_refused(self, run, type_name):
+        """GIVEN a primitive node, other than `none`, with no `value` field
+        WHEN the workflow is executed
+        THEN ValueError names the node, rather than the missing value being read as null."""
+        with pytest.raises(ValueError, match=r"Node '0' of type .* has no value"):
+            run({"0": {"type": type_name}})
+
+    def test_none_needs_no_value(self, run):
+        """GIVEN a node declared `none` with no `value` field
+        WHEN it is executed
+        THEN its result is None: `none` never reads its value."""
+        results = run({"0": {"type": "none"}})
 
         assert results["0"] is None
 

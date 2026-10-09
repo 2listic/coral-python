@@ -158,8 +158,14 @@ class WorkflowExecutor:
 
     def _convert(self, node_id: str, node: dict):
         """A primitive node's value, read the way its declared type says: see
-        :func:`~coral_app.primitives.read_literal`, which names the node in its errors."""
-        return read_literal(node["type"], node.get("value"), self.graph.describe(node_id))
+        :func:`~coral_app.primitives.read_literal`, which names the node in its errors.
+
+        Every primitive but ``none`` must carry a ``value``: a missing one raises here rather than
+        being read as ``null``, which ``str`` would turn into ``"None"`` and ``any`` pass on."""
+        label = self.graph.describe(node_id)
+        if "value" not in node and node["type"] != "none":
+            raise ValueError(f"Node {label} of type {node['type']!r} has no value")
+        return read_literal(node["type"], node.get("value"), label)
 
     def _input_values(self, node_id: str) -> list:
         """The values feeding a node, in port order.
