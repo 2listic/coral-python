@@ -409,7 +409,7 @@ Edge format:
   - `outputs`: List of output indices (or `[-1]` for constructors/primitives)
   - `node_type`: "primitive", "function", "constructor", or "method"
   - `value` (primitives only): the initial value the editor copies into a dropped node: `"[]"` for
-    `list` / `set`, `"{}"` for `dict`, `""` for every other primitive
+    `list` / `set`, `"{}"` for `dict`, `"false"` for `bool`, `""` for every other primitive
   - `bases` (constructors only, optional): the keys of every registered ancestor, in MRO order
     (so under multiple inheritance a parent may follow a grandparent). An unregistered class in
     between is skipped (its ancestors are still found); a type-name ancestor (`float`) is never

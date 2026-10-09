@@ -4,14 +4,11 @@ from typing import Any, Dict, List, Mapping, Optional
 
 from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
 from coral_app.nodeports import NodePorts, Port, build_port_table, methods_of
+from coral_app.primitives import DEFAULT_LITERAL
 
 # Python type -> the name the file format uses for it, for the socket types written on every
 # argument. Every primitive type name is a socket type name, and each also keys a primitive entry.
 _TYPE_NAME_OF = {v: k for k, v in PRIMITIVES_MAP.items()}
-
-# A primitive entry's `value`: the editor copies it into a node the user drops, so a collection's
-# is the empty one, which the executor accepts; a scalar's is left empty, as before.
-_DEFAULT_VALUE = {"list": "[]", "set": "[]", "dict": "{}"}
 
 
 def _create_input_argument(port: Port, class_names: Mapping[type, str]) -> Dict:
@@ -192,7 +189,7 @@ def generate_registry(
     for prim_type in primitives:
         registry[prim_type] = {
             "arguments": [],
-            "value": _DEFAULT_VALUE.get(prim_type, ""),
+            "value": DEFAULT_LITERAL.get(prim_type, ""),
             "inputs": [],
             "outputs": [-1],
             "node_type": "primitive",

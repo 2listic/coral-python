@@ -26,6 +26,14 @@ PRIMITIVES_MAP = {
 # The JSON value each collection literal must parse to: a set is written as an array.
 _JSON_SHAPE = {"list": list, "set": list, "dict": dict}
 
+# A primitive entry's registry `value`: the editor copies it into a node the user drops. A
+# collection's is its empty literal and a bool's is `false`, both of which `read_literal` accepts;
+# any other primitive has none, and the registry writes `""`.
+DEFAULT_LITERAL = {
+    "bool": "false",
+    **{node_type: json.dumps(shape()) for node_type, shape in _JSON_SHAPE.items()},
+}
+
 # A parsed JSON value's type -> the name JSON gives it, for the error messages.
 _JSON_NAME = {
     list: "array",

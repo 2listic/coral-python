@@ -55,13 +55,12 @@ class WorkflowExecutor:
 
         self.function_map = build_function_map(include=plugins)
         self.class_map = build_class_map(include=plugins)
-        self.primitives_map = PRIMITIVES_MAP
 
         print(f"Loaded plugins: {', '.join(plugins)}")
         print(f"Available functions: {len(self.function_map)}")
         print(f"Available classes: {len(self.class_map)}\n")
 
-        self.port_table = build_port_table(self.function_map, self.class_map, self.primitives_map)
+        self.port_table = build_port_table(self.function_map, self.class_map, PRIMITIVES_MAP)
         self.graph = Graph.from_file(workflow_file, self.port_table)
 
         self.results = {}

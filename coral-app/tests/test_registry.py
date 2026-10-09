@@ -554,6 +554,12 @@ class TestPrimitiveEntries:
             "type": collection,
         }
 
+    def test_a_bool_entry_defaults_to_false(self, registry):
+        """GIVEN the bool primitive type
+        WHEN its entry is read
+        THEN its `value` is "false": a dropped bool node is then valid, where "" would be refused."""
+        assert registry["bool"]["value"] == "false"
+
     def test_every_primitive_is_present(self, registry):
         """GIVEN any plugin selection
         WHEN the registry is generated

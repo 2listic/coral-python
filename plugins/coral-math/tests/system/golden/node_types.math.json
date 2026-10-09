@@ -31,7 +31,7 @@
   },
   "bool": {
     "arguments": [],
-    "value": "",
+    "value": "false",
     "inputs": [],
     "outputs": [
       -1

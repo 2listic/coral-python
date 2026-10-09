@@ -119,7 +119,7 @@ class TestPrimitiveNodes:
     @pytest.mark.parametrize("raw", ["False", "0", "", "yes", 1, 0, None])
     def test_a_bool_refuses_anything_but_true_or_false(self, run, raw):
         """GIVEN a bool primitive whose value is neither true nor false, natively or as a string
-        WHEN the workflow is executed
+        WHEN the executor is constructed
         THEN ValueError names the node, rather than a truthiness cast deciding the value."""
         with pytest.raises(ValueError, match=r"Node '0' .* needs true or false"):
             run({"0": {"type": "bool", "value": raw}})
@@ -143,7 +143,7 @@ class TestPrimitiveNodes:
     @pytest.mark.parametrize("type_name", ["int", "str", "bool", "any", "list"])
     def test_a_missing_value_is_refused(self, run, type_name):
         """GIVEN a primitive node, other than `none`, with no `value` field
-        WHEN the workflow is executed
+        WHEN the executor is constructed
         THEN ValueError names the node, rather than the missing value being read as null."""
         with pytest.raises(ValueError, match=r"Node '0' of type .* has no value"):
             run({"0": {"type": type_name}})
@@ -194,7 +194,7 @@ class TestPrimitiveNodes:
     @pytest.mark.parametrize("type_name, raw", [("list", [1, 2]), ("dict", {"a": 1})])
     def test_a_collection_refuses_a_native_value(self, run, type_name, raw):
         """GIVEN a collection primitive whose value is a native JSON array or object
-        WHEN the workflow is executed
+        WHEN the executor is constructed
         THEN ValueError names the node: a literal has one spelling, the string the editor writes."""
         with pytest.raises(
             ValueError, match=r"Node '0' .* needs a JSON string, got (array|object)"
@@ -206,21 +206,21 @@ class TestPrimitiveNodes:
     )
     def test_a_collection_refuses_the_wrong_json_shape(self, run, type_name, raw):
         """GIVEN a collection primitive whose string parses to the wrong kind of JSON value
-        WHEN the workflow is executed
+        WHEN the executor is constructed
         THEN ValueError names the node, rather than e.g. `list` silently splitting a string."""
         with pytest.raises(ValueError, match=r"Node '0' .* needs a JSON (array|object)"):
             run({"0": {"type": type_name, "value": raw}})
 
     def test_malformed_json_propagates_the_parser_error(self, run):
         """GIVEN a list primitive whose string is not valid JSON
-        WHEN the workflow is executed
+        WHEN the executor is constructed
         THEN the parser's own JSONDecodeError propagates, unwrapped."""
         with pytest.raises(json.JSONDecodeError):
             run({"0": {"type": "list", "value": "[1, 2"}})
 
     def test_an_unhashable_set_element_raises(self, run):
         """GIVEN a set primitive whose array holds an array
-        WHEN the workflow is executed
+        WHEN the executor is constructed
         THEN TypeError propagates: a list cannot be a set element."""
         with pytest.raises(TypeError):
             run({"0": {"type": "set", "value": "[[1]]"}})
