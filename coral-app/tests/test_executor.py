@@ -211,19 +211,23 @@ class TestPrimitiveNodes:
         with pytest.raises(ValueError, match=r"Node '0' .* needs a JSON (array|object)"):
             run({"0": {"type": type_name, "value": raw}})
 
-    def test_malformed_json_propagates_the_parser_error(self, run):
+    def test_malformed_json_names_the_node(self, run):
         """GIVEN a list primitive whose string is not valid JSON
         WHEN the executor is constructed
-        THEN the parser's own JSONDecodeError propagates, unwrapped."""
-        with pytest.raises(json.JSONDecodeError):
+        THEN ValueError names the node, chained to the parser's own JSONDecodeError."""
+        with pytest.raises(ValueError, match=r"Node '0' of type 'list' cannot read") as caught:
             run({"0": {"type": "list", "value": "[1, 2"}})
 
-    def test_an_unhashable_set_element_raises(self, run):
+        assert isinstance(caught.value.__cause__, json.JSONDecodeError)
+
+    def test_an_unhashable_set_element_names_the_node(self, run):
         """GIVEN a set primitive whose array holds an array
         WHEN the executor is constructed
-        THEN TypeError propagates: a list cannot be a set element."""
-        with pytest.raises(TypeError):
+        THEN ValueError names the node, chained to the TypeError: a list cannot be a set element."""
+        with pytest.raises(ValueError, match=r"Node '0' of type 'set' cannot read") as caught:
             run({"0": {"type": "set", "value": "[[1]]"}})
+
+        assert isinstance(caught.value.__cause__, TypeError)
 
     def test_a_set_literal_feeds_a_builtin(self, run):
         """GIVEN a set literal wired into `set_size`

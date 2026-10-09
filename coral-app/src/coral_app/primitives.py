@@ -60,8 +60,8 @@ def read_literal(node_type: str, value: Any, label: str) -> Any:
     A collection must be a JSON string, which is parsed: ``'[1, 2]'`` for a ``list`` or a ``set``,
     ``'{"a": 1}'`` for a ``dict``. A native array or object is refused, so a literal has one
     spelling, the one the editor writes. Errors raised by the parsing itself — malformed JSON
-    (``json.JSONDecodeError``, a ``ValueError``) or an unhashable set element (``TypeError``) —
-    propagate untouched.
+    (``json.JSONDecodeError``) or an unhashable set element (``TypeError``) — are raised again as
+    ``ValueError`` naming the node, chained to the parser's own error.
 
     Args:
         node_type: The node's ``type``, a key of ``PRIMITIVES_MAP``.
@@ -70,8 +70,8 @@ def read_literal(node_type: str, value: Any, label: str) -> Any:
 
     Raises:
         ValueError: if a scalar's cast refuses its ``value``, if a ``bool``'s ``value`` is neither
-            ``true`` nor ``false``, or if a collection's ``value`` is not a string, or parses to
-            the wrong JSON shape.
+            ``true`` nor ``false``, or if a collection's ``value`` is not a string, is not valid
+            JSON, parses to the wrong JSON shape, or holds an unhashable element in a ``set``.
     """
     converter = PRIMITIVES_MAP[node_type]
     node = f"Node {label} of type {node_type!r}"
@@ -97,8 +97,14 @@ def read_literal(node_type: str, value: Any, label: str) -> Any:
     if not isinstance(value, str):
         got = _JSON_NAME.get(type(value), type(value).__name__)
         raise ValueError(f"{node} needs a JSON string, got {got}")
-    parsed = json.loads(value)
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{node} cannot read {value!r}: {exc}") from exc
     shape = _JSON_SHAPE[node_type]
     if type(parsed) is not shape:
         raise ValueError(f"{node} needs a JSON {_JSON_NAME[shape]}, got {_JSON_NAME[type(parsed)]}")
-    return converter(parsed)
+    try:
+        return converter(parsed)
+    except TypeError as exc:
+        raise ValueError(f"{node} cannot read {value!r}: {exc}") from exc

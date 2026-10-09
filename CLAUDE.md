@@ -481,8 +481,8 @@ string); a value the cast refuses (`int("")`) raises `ValueError` naming the nod
 exception: it accepts only `true` / `false`, natively or as a string, since `bool("false")` is
 `True`. `any` passes through unconverted and `none` is `None`. A collection's `value` must be a
 JSON string, parsed with `json.loads`: an array for `list` / `set`, an object for `dict`. A native
-array or object, or the wrong shape, raises `ValueError` naming the node; malformed JSON and an
-unhashable set element raise the parser's own error, untouched. A missing `value` raises
+array or object, the wrong shape, malformed JSON or an unhashable set element raises `ValueError`
+naming the node, chained to the parser's own error where there is one. A missing `value` raises
 `ValueError` naming the node, for every type but `none`. All of this happens while the `Graph` is
 built (check 10), so a bad literal fails before any node runs.
 
@@ -740,7 +740,7 @@ forms are complementary: a literal cannot hold computed values, the operations c
 A literal is JSON, with JSON's limits: a `dict` literal's keys are always strings, so `dict_get` on
 it with an `int` key raises `KeyError`; a `set` literal collapses elements Python holds equal
 (`"[1, 1.0, true]"` is `{1}`); and a nested array inside a `set` literal is unhashable and raises
-`TypeError`.
+`ValueError` naming the node.
 
 Three properties hold for all 15, and graphs depend on each:
 

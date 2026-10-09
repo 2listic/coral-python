@@ -139,7 +139,6 @@ class Graph:
                 a node that declares no ``qualified_id``, one that cannot be a filename, or one
                 another node already declares, and a primitive whose ``value`` is missing or cannot
                 be read. The message names the offending node or edge.
-            TypeError: if a ``set`` literal holds an unhashable element, as the parser raises it.
         """
         self.nodes: Dict[str, dict] = _read_nodes(nodes)
         self.edges: List[Edge] = _read_edges(edges)
