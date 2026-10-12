@@ -114,7 +114,7 @@ marked methods" (D3); **its golden byte-identical**.
 - [x] 6.4 Regenerate the math golden: the diff is **additions only** (the three entries).
 
 ### 7. Documentation
-- [ ] 7.1 `CLAUDE.md`: Project Overview and Package layout (the ABC, `@outputs`); Running Tests
+- [x] 7.1 `CLAUDE.md`: Project Overview and Package layout (the ABC, `@outputs`); Running Tests
       (`SpecimenPlugin` / `RivalPlugin` are now the instances `specimen_plugin` / `rival_plugin`);
       Core components
       (`Plugin`, `load`, `BUILTIN_FUNCTIONS`); Registry Files (an output's `name`); Data Flow
@@ -122,7 +122,7 @@ marked methods" (D3); **its golden byte-identical**.
       validation (step 6's math nodes); Key Constraints (the C-extension limitation, D10); Adding
       a New Plugin (code, entry point, test-suite shape, "How registration works internally":
       methods opt-in); Type Hint Requirements (`@outputs` -> `outputs=`).
-- [ ] 7.2 `docs/ONBOARDING.md` (including lines ~171, 465, 614, 657) and `tests/README.md`
+- [x] 7.2 `docs/ONBOARDING.md` (including lines ~171, 465, 614, 657) and `tests/README.md`
       (its wording on the ABC / `get_*` contract).
 
 ### 8. Final check

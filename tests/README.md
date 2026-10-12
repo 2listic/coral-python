@@ -10,7 +10,7 @@ Answer in order; the first **yes** wins.
 | --- | --- | --- |
 | One plugin `<n>`, and you can make the claim by calling that plugin's own Python? | 3 plugin unit | `plugins/coral-<n>/tests/unit/` |
 | One plugin `<n>`, but you need `coral_app` — a graph, its registry slice? | 4 plugin system | `plugins/coral-<n>/tests/system/` |
-| The app, or the `Plugin` ABC, naming no plugin? | 2 framework | `coral-app/tests/`, `coral-core/tests/` |
+| The app, or the `Plugin` contract, naming no plugin? | 2 framework | `coral-app/tests/`, `coral-core/tests/` |
 | The repo as a whole — its source text, its packaging? | 1 repo-level | `tests/` |
 
 Then:
