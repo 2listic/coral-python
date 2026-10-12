@@ -45,6 +45,10 @@ __all__ = [
 # A class's constructor is the class's own node type, so neither can be declared as a method.
 _CONSTRUCTORS = ("__init__", "__new__")
 
+# Stands for a decorator's omitted target, as in `@plugin.function(...)`. Not `None`: a target
+# that is `None` is a mistake to refuse, such as a failed `getattr(module, "name", None)`.
+_OMITTED: Any = object()
+
 
 @dataclass(frozen=True)
 class Declaration:
@@ -143,7 +147,7 @@ class Plugin:
 
     def function(
         self,
-        target: Callable | None = None,
+        target: Callable = _OMITTED,
         /,
         *,
         name: str | None = None,
@@ -183,11 +187,11 @@ class Plugin:
             )
             return func
 
-        return declare if target is None else declare(target)
+        return declare if target is _OMITTED else declare(target)
 
     def cls(
         self,
-        target: type | None = None,
+        target: type = _OMITTED,
         /,
         *,
         name: str | None = None,
@@ -228,11 +232,11 @@ class Plugin:
             self._class_keys[klass] = key
             return klass
 
-        return declare if target is None else declare(target)
+        return declare if target is _OMITTED else declare(target)
 
     def method(
         self,
-        target: Callable | None = None,
+        target: Callable = _OMITTED,
         /,
         *,
         name: str | None = None,
@@ -283,7 +287,7 @@ class Plugin:
             )
             return func
 
-        return declare if target is None else declare(target)
+        return declare if target is _OMITTED else declare(target)
 
     def functions(self) -> dict[str, Declaration]:
         """Every declared function, as ``{node type: Declaration}`` in declaration order."""

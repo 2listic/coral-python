@@ -472,6 +472,14 @@ class TestTargetsAreRefused:
         with pytest.raises(TypeError, match="only a class"):
             Plugin().cls(add)
 
+    @pytest.mark.parametrize("decorator", ["function", "cls", "method"])
+    def test_none_is_refused(self, decorator):
+        """GIVEN None, as a failed lookup such as getattr(module, "name", None) returns
+        WHEN it is passed to a decorator as its target
+        THEN TypeError: None is a target that is not one, not the decorator used with options."""
+        with pytest.raises(TypeError):
+            getattr(Plugin(), decorator)(None)
+
     @pytest.mark.parametrize(
         "target",
         [staticmethod(add), classmethod(add), property(add), math.atan2],
