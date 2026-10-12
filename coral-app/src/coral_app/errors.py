@@ -4,7 +4,7 @@
 than in either of them:
 
 * stage 1 (:mod:`coral_app`) — two plugins declaring the same *function* name, or a plugin claiming
-  one of the host's ``BUILTIN_FUNCTIONS``;
+  one of the host's ``BUILTINS``;
 * stage 2 (:mod:`coral_app.nodeports`) — one name claimed by two *different kinds* of node, which
   stage 1 cannot see because the function and class surfaces are merged into separate maps.
 

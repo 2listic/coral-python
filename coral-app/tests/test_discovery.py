@@ -16,7 +16,7 @@ What lives elsewhere, on purpose:
 
 import pytest
 from coral_app import (
-    BUILTIN_FUNCTIONS,
+    BUILTINS,
     PRIMITIVES_MAP,
     DuplicateNodeTypeError,
     build_class_map,
@@ -122,17 +122,15 @@ class TestHostWithoutPlugins:
         out = tmp_path / "node_types.host.json"
         registry = save_registry_to_file(str(out), plugins=[])
 
-        assert set(registry) == set(PRIMITIVES_MAP) | set(BUILTIN_FUNCTIONS)
-        assert len(registry) == len(PRIMITIVES_MAP) + len(BUILTIN_FUNCTIONS)
+        assert set(registry) == set(PRIMITIVES_MAP) | set(BUILTINS.functions())
+        assert len(registry) == len(PRIMITIVES_MAP) + len(BUILTINS.functions())
         assert all(entry["node_type"] in ("primitive", "function") for entry in registry.values())
 
     def test_builtins_are_the_whole_function_map_without_plugins(self):
         """GIVEN no plugin selected
         WHEN the function map is built
         THEN it is exactly the builtins: they need no plugin, and nothing else sneaks in."""
-        function_map = build_function_map(include=[])
-
-        assert {name: decl.target for name, decl in function_map.items()} == BUILTIN_FUNCTIONS
+        assert build_function_map(include=[]) == BUILTINS.functions()
 
     def test_no_builtin_classes_without_plugins(self):
         """GIVEN no plugin selected
@@ -166,15 +164,16 @@ class TestMerge:
 
         assert names.index("add_pair") < names.index("rival_only")
         assert reversed_names.index("rival_only") < reversed_names.index("add_pair")
-        assert names[-len(BUILTIN_FUNCTIONS) :] == list(BUILTIN_FUNCTIONS)
+        builtins = list(BUILTINS.functions())
+        assert names[-len(builtins) :] == builtins
 
     def test_builtins_are_present_under_every_selection(self, specimen_plugins):
         """GIVEN any plugin selection
         WHEN the function map is built
-        THEN each builtin name still resolves to the host's own callable."""
+        THEN each builtin name still resolves to the host's own declaration."""
         function_map = build_function_map(include=[SPECIMEN, RIVAL])
 
-        assert all(function_map[name].target is func for name, func in BUILTIN_FUNCTIONS.items())
+        assert all(function_map[name] == decl for name, decl in BUILTINS.functions().items())
 
 
 class TestDuplicateNodeTypeIsRefused:

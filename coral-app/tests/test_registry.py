@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 import pytest
-from coral_app import BUILTIN_FUNCTIONS, PRIMITIVES_MAP, build_class_map, build_function_map
+from coral_app import BUILTINS, PRIMITIVES_MAP, build_class_map, build_function_map
 from coral_app.errors import DuplicateNodeTypeError
 from coral_app.registry import generate_registry, python_type_to_string, save_registry_to_file
 from host_suite import declared_classes, declared_functions
@@ -844,4 +844,4 @@ class TestFormatGolden:
 
         kinds = {entry["node_type"] for entry in entries.values()}
         assert kinds == {"primitive", "function", "constructor", "method"}
-        assert set(BUILTIN_FUNCTIONS) <= set(entries)
+        assert set(BUILTINS.functions()) <= set(entries)

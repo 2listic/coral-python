@@ -110,13 +110,13 @@ class TestTheGoldenDescribesThisPlugin:
 
         Guards against a golden regenerated with the wrong `-p`, which would quietly turn this file
         into a snapshot of somebody else's surface."""
-        from coral_app import BUILTIN_FUNCTIONS, PRIMITIVES_MAP
+        from coral_app import BUILTINS, PRIMITIVES_MAP
 
         classes = plugin.classes()
         mine = set(plugin.functions()) | set(classes)
         methods = {
             node_type for declaration in classes.values() for node_type in declaration.methods
         }
-        host = set(BUILTIN_FUNCTIONS) | set(PRIMITIVES_MAP)
+        host = set(BUILTINS.functions()) | set(PRIMITIVES_MAP)
 
         assert set(registry) - mine - methods - host == set()

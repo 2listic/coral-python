@@ -5,8 +5,6 @@ Such a plugin subclasses :class:`coral_core.Plugin`, overrides ``get_functions()
 into the declarations a decorated plugin hands over, reproducing how that contract was read: every
 public pure-Python method of a class is a method node, named by its attribute, and its output names
 are the ones ``@outputs`` stored on it.
-
-The host's builtins are still a plain ``{name: function}`` dict, so they come through here too.
 """
 
 import inspect

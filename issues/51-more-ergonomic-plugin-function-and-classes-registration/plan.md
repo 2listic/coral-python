@@ -84,10 +84,10 @@ marked methods" (D3); **its golden byte-identical**.
       equals today's `get_functions()` order. The format golden is byte-identical.
 
 ### 4. Builtins (D9)
-- [ ] 4.1 `builtin_nodes.py`: `BUILTINS = Plugin()`, the 15 functions decorated in today's order;
+- [x] 4.1 `builtin_nodes.py`: `BUILTINS = Plugin()`, the 15 functions decorated in today's order;
       `BUILTIN_FUNCTIONS` removed; re-export `BUILTINS`; `build_function_map` merges
       `BUILTINS.functions()` last.
-- [ ] 4.2 Update `test_builtin_nodes.py`, `test_discovery.py`, `test_registry.py`,
+- [x] 4.2 Update `test_builtin_nodes.py`, `test_discovery.py`, `test_registry.py`,
       `tests/test_acceptance.py`, the four `plugins/*/tests/system/test_registry.py`
       (`BUILTIN_FUNCTIONS` -> `BUILTINS.functions()`), and the `errors.py` docstring. Format
       golden and plugin goldens byte-identical.

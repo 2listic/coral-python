@@ -17,7 +17,7 @@ raises the same error.
 
 The host owns two node surfaces of its own, present under every plugin selection
 and with no plugin installed at all: ``PRIMITIVES_MAP`` (the primitive node
-types, in :mod:`coral_app.primitives`) and ``BUILTIN_FUNCTIONS`` (the collection
+types, in :mod:`coral_app.primitives`) and ``BUILTINS`` (the collection
 operations, in :mod:`coral_app.builtin_nodes`).
 """
 
@@ -27,7 +27,7 @@ from typing import Dict, List, Optional
 from coral_core import ClassDeclaration, Declaration, Plugin
 
 from coral_app import legacy
-from coral_app.builtin_nodes import BUILTIN_FUNCTIONS
+from coral_app.builtin_nodes import BUILTINS
 from coral_app.errors import DuplicateNodeTypeError
 from coral_app.primitives import PRIMITIVES_MAP
 
@@ -39,7 +39,7 @@ __all__ = [
     "build_function_map",
     "build_class_map",
     "PRIMITIVES_MAP",
-    "BUILTIN_FUNCTIONS",
+    "BUILTINS",
 ]
 
 #: The entry-point group plugins declare themselves under. Public API; stable.
@@ -107,7 +107,7 @@ def build_function_map(
     """Build the function map by merging the selected plugins' function declarations.
 
     **One node type, one owner.** A duplicate name — between two plugins, or between a plugin and
-    one of the host's ``BUILTIN_FUNCTIONS`` — raises :class:`DuplicateNodeTypeError`. There is no
+    one of the host's ``BUILTINS`` — raises :class:`DuplicateNodeTypeError`. There is no
     winner to pick: a graph names only the node type, so a silently shadowed ``list_append`` would
     change what every graph computes while the JSON looks identical. Refusing the selection puts the
     error in the plugin that chose the name.
@@ -118,8 +118,9 @@ def build_function_map(
 
     Returns:
         Mapping of function name -> :class:`coral_core.Declaration`: the selected plugins merged in
-        selection order, then the builtins. The builtins land last, so they also come last in ``node_types.json``, which
-        leaves every plugin-contributed entry at the position it already had.
+        selection order, then the builtins. The builtins land last, so they also come last in
+        ``node_types.json``, which leaves every plugin-contributed entry at the position it already
+        had.
 
     Raises:
         LookupError: if a selected name is not a discoverable plugin.
@@ -140,7 +141,7 @@ def build_function_map(
 
     # The host's own nodes land last, so they keep their position in `node_types.json` — but a
     # plugin may not claim one of their names either.
-    for node_type, declaration in legacy.function_declarations(BUILTIN_FUNCTIONS).items():
+    for node_type, declaration in BUILTINS.functions().items():
         if node_type in owner:
             raise DuplicateNodeTypeError(
                 f"node type {node_type!r} is a host builtin and cannot be declared by "
