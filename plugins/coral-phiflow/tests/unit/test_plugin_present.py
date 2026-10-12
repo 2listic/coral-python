@@ -26,15 +26,16 @@ def test_the_entry_point_name_is_the_one_the_platform_uses():
 
 
 @requires_this_plugin
-def test_the_entry_point_resolves_to_this_plugin_class():
+def test_the_entry_point_resolves_to_this_plugin_instance():
     """GIVEN this plugin's entry point
     WHEN it is loaded
-    THEN it resolves to a class in this plugin's own module — the host instantiates the *class*."""
-    from coral_plugin_phiflow import PhiFlowPlugin
+    THEN it resolves to the ``plugin`` instance in this plugin's own module — the one its node types
+    are declared on, which the host uses as is."""
+    from coral_plugin_phiflow import plugin
 
     (found,) = entry_points(group=PLUGIN_GROUP, name=PLUGIN_NAME)
 
-    assert found.load() is PhiFlowPlugin
+    assert found.load() is plugin
 
 
 def test_this_distribution_is_registered_under_its_declared_name():

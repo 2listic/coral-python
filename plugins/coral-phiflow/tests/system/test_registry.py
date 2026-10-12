@@ -14,12 +14,11 @@ To regenerate, from the workspace root::
     uv run coral -p "phiflow" register --output=plugins/coral-phiflow/tests/system/golden/node_types.phiflow.json
 """
 
-import inspect
 import json
 
 import pytest
 from coral_app.registry import save_registry_to_file
-from coral_plugin_phiflow import PhiFlowPlugin
+from coral_plugin_phiflow import plugin
 from phiflow_suite import GOLDEN, PLUGIN_NAME
 
 
@@ -56,29 +55,28 @@ class TestTheGoldenDescribesThisPlugin:
         """GIVEN this plugin's declared functions
         WHEN the golden is read
         THEN each appears as a function node under its own name."""
-        for name in PhiFlowPlugin().get_functions():
+        for name in plugin.functions():
             assert registry[name]["node_type"] == "function", name
 
     def test_every_declared_class_is_a_constructor_node(self, registry):
         """GIVEN this plugin's declared classes
         WHEN the golden is read
         THEN each appears as a constructor node under the class name."""
-        for name in PhiFlowPlugin().get_classes():
+        for name in plugin.classes():
             assert registry[name]["node_type"] == "constructor", name
 
-    def test_every_public_method_is_a_method_node(self, registry):
+    def test_a_class_s_method_nodes_are_exactly_its_declared_methods(self, registry):
         """GIVEN this plugin's classes
         WHEN the golden is read
-        THEN each public method is present as `Class.method`, and no private one is."""
-        for class_name, cls in PhiFlowPlugin().get_classes().items():
-            for member in dir(cls):
-                if not inspect.isfunction(getattr(cls, member)):
-                    continue
-                key = f"{class_name}.{member}"
-                if member.startswith("_"):
-                    assert key not in registry
-                else:
-                    assert registry[key]["node_type"] == "method", key
+        THEN each class's `Class.*` method entries are exactly the methods it declares: a method
+        is a node because it is declared, not because it is public."""
+        for class_name, declaration in plugin.classes().items():
+            in_golden = {
+                key
+                for key, entry in registry.items()
+                if entry["node_type"] == "method" and key.startswith(f"{class_name}.")
+            }
+            assert in_golden == set(declaration.methods), class_name
 
     def test_the_iterate_node_declares_three_outputs(self, registry):
         """GIVEN `phiflow_iterate`, annotated `Tuple[Any, Any, Any]`
@@ -118,9 +116,11 @@ class TestTheGoldenDescribesThisPlugin:
         into a snapshot of somebody else's surface."""
         from coral_app import BUILTIN_FUNCTIONS, PRIMITIVES_MAP
 
-        plugin = PhiFlowPlugin()
-        mine = set(plugin.get_functions()) | set(plugin.get_classes())
-        methods = {key for key in registry if key.split(".")[0] in plugin.get_classes()}
+        classes = plugin.classes()
+        mine = set(plugin.functions()) | set(classes)
+        methods = {
+            node_type for declaration in classes.values() for node_type in declaration.methods
+        }
         host = set(BUILTIN_FUNCTIONS) | set(PRIMITIVES_MAP)
 
         assert set(registry) - mine - methods - host == set()
