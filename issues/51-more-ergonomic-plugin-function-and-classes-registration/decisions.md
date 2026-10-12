@@ -126,9 +126,10 @@ math = "coral_plugin_math:plugin"      # the instance; the entry-point name is u
 
 ### D8 — What the host receives
 - `functions()` -> `{node name: Declaration}`.
-- `classes()` -> `{class key: constructor Declaration + {method node name: (attribute, Declaration)}}`.
+- `classes()` -> `{class key: the class + its constructor's options + {method node name: (attribute, Declaration)}}`,
+  the method node name being the full `<class key>.<name>`.
 - `Declaration(target, inputs, outputs, annotations)`: the callable plus what the decorator said,
-  as frozen dataclasses in `coral_core`. Exact shape to settle in the plan.
+  as frozen dataclasses in `coral_core`. Exact shape in the plan, step 1.1.
 - `coral_core` never calls `inspect.signature` and builds no ports.
 - `nodeports.build_port_table` stays the **only** place that builds ports. It reads the signature
   as today, then applies `annotations=` (fill), `inputs=` (relabel) and `outputs=` (name), in that
@@ -155,7 +156,7 @@ math = "coral_plugin_math:plugin"      # the instance; the entry-point name is u
   tested for it).
 - The migration must leave every golden `node_types.*.json` **byte-identical**. Node order is
   registration order, which matches today's dict order in all four plugins and the builtins;
-  methods keep today's `dir()` (alphabetical) order.
+  methods keep today's `dir()` (alphabetical) order, by attribute name.
 - After the migration, the math plugin **adds** three nodes as living examples of the call form:
   `math.atan2`, `Fraction` and `Fraction.limit_denominator`, each with tests and an example graph.
   The math golden then changes by additions only.
@@ -169,7 +170,7 @@ math = "coral_plugin_math:plugin"      # the instance; the entry-point name is u
 | `name=` not a non-empty `str`; `.` in a class or method name | `coral_core` | at the decorator | `TypeError` / `ValueError` |
 | `outputs=`: not strings, none, empty, repeated | `coral_core` | at the decorator | `TypeError` / `ValueError` |
 | `inputs=` not a dict of `str` -> non-empty `str`; `annotations=` not a dict with `str` keys | `coral_core` | at the decorator | `TypeError` / `ValueError` |
-| duplicate node name in one plugin | `coral_core` | at the decorator | `ValueError` |
+| a function name or class key used twice in one plugin, across both kinds | `coral_core` | at the decorator | `ValueError` |
 | one method marked twice in one plugin | `coral_core` | at the decorator | `ValueError` |
 | one class registered twice in one plugin | `coral_core` | at the decorator | `ValueError` |
 | one function under two names | — | — | allowed (an alias) |
@@ -193,5 +194,4 @@ the host.
 - Replacing the existing wrappers.
 
 ## Documentation to update
-`CLAUDE.md` (Core components, Adding a New Plugin, Type Hint Requirements, the C-extension
-limitation, `BUILTIN_FUNCTIONS`), `docs/ONBOARDING.md`, `tests/README.md`.
+`CLAUDE.md`, `docs/ONBOARDING.md`, `tests/README.md`; the sections are listed in the plan, step 7.

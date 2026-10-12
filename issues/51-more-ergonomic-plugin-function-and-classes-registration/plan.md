@@ -3,7 +3,7 @@
 ## Read first
 - `decisions.md` (this folder): the why behind every step; "D<n>" below refers to it.
 - `desiderata.md` (this folder): the working rules. Implement one step at a time and **pause after
-  each step** for review; show every diff before applying it.
+  each step** for review. Show every diff before applying it (user's `CLAUDE.md`).
 - Conventions that bite here: test docstrings are GIVEN/WHEN/THEN; no issue numbers in code
   comments/docstrings; no plugin name as a string literal under `coral-core/tests` or
   `coral-app/tests` (`tests/invariants/test_source_rules.py`).
@@ -12,31 +12,33 @@
   golden diff therefore always points at exactly one change.
 - Golden commands:
   - plugins: `uv run coral -p "<name>" register --output=plugins/coral-<name>/tests/system/golden/node_types.<name>.json`
-  - format golden: the command in `issues/46-support-multiple-inheritance/plan.md` step 6.1.
+  - format golden: the command in the `TestFormatGolden` docstring
+    (`coral-app/tests/test_registry.py`); from step 3.5 on, `PLUGINS[n]()` -> `PLUGINS[n]`.
 - After editing a plugin's entry point: `uv sync` (refreshes the editable install's metadata).
   Read the `uv.lock` diff: it must be empty.
 
 ## Steps
 
 ### 1. `coral-core`: the new `Plugin`
-- [ ] 1.1 Declarations (D8), frozen dataclasses: `Declaration(target, inputs, outputs, annotations)`
-      (a constructor's `target` is the class itself),
+- [ ] 1.1 Declarations (D8), frozen dataclasses: `Declaration(target, inputs, outputs, annotations)`,
       `MethodDeclaration(attribute, declaration)`,
-      `ClassDeclaration(target, constructor: Declaration, methods: {node method name: MethodDeclaration})`.
+      `ClassDeclaration(target, inputs, annotations, methods: {method node name: MethodDeclaration})`.
+      `methods` is keyed by the full node name (`"Calculator.get_value"`). A class's `inputs` /
+      `annotations` are its constructor's; it has no `outputs` (D4).
 - [ ] 1.2 `Plugin` becomes concrete (no ABC). `function` / `cls` / `method`, each bare, with
       arguments, or as a call (D2), returning the target unchanged. Options and their
       decorator-time checks per D3, D4 and the errors table (rows "at the decorator").
 - [ ] 1.3 `functions()` / `classes()`, lazy (D6): MRO walk; nearest mark; inheritance of
       `name=`/`inputs=`/`outputs=` but not `annotations=` (D7); non-function override
       `TypeError`; "marked but in no registered MRO" `ValueError`; method-name clash `ValueError`.
-      Node order: registration order; methods in `dir()` order.
+      Node order: registration order; methods in `dir()` order of their attribute names.
 - [ ] 1.4 Transitional: `get_functions()` / `get_classes()` stay. Old subclasses override them; on
       a new-style instance they return `{name: decl.target}`. Removed in step 5.
 - [ ] 1.5 Tests: new `coral-core/tests/test_plugin.py`: the three forms; every decorator-time
       check; lazy resolution independent of order; inheritance (registered and unregistered base,
       unmarked and re-marked override, annotations not inherited, non-function override, dead base
       mark not raising); cross-plugin non-inheritance and explicit re-mark; foreign method call
-      form; order. `test_plugin_abc.py`: drop the abstractness tests (no longer true).
+      form; order. `test_plugin_abc.py` deleted: every test in it is about the ABC, which is gone.
       `test_outputs.py` untouched until step 5.
 
 ### 2. Host on declarations, with the legacy adapter
@@ -67,23 +69,28 @@
 ### 3. Migrate, one sub-step each (D11)
 Each: `plugin = Plugin()` with decorators; entry point -> `:plugin`; `uv sync`; its unit tests
 (`test_plugin_conformance.py` rewritten for an instance; `test_plugin_present.py`: resolves to
-`plugin`); **its golden byte-identical**.
+`plugin`); its `tests/system/test_registry.py` on `plugin.functions()` / `plugin.classes()`, with
+"every public method is a method node" rewritten as "a class's `Class.*` entries are exactly its
+marked methods" (D3); **its golden byte-identical**.
 - [ ] 3.1 `coral-string`.
 - [ ] 3.2 `coral-math` (`@outputs` -> `outputs=`).
 - [ ] 3.3 `coral-pypde` (`_holding` stays unmarked).
 - [ ] 3.4 `coral-phiflow` (`@outputs` -> `outputs=`).
 - [ ] 3.5 `coral-app/tests/specimen.py`: the six specimen plugins become instances; every
       currently public method marked (`_hidden` stays unmarked); `@outputs` -> `outputs=`;
-      `PLUGINS` maps names to instances; the `specimen_plugins` fixture stops instantiating.
-      The format golden is byte-identical.
+      `PLUGINS` maps names to instances; the `specimen_plugins` fixture and the regeneration
+      command in the `TestFormatGolden` docstring stop instantiating (`PLUGINS[n]()` -> `PLUGINS[n]`).
+      Move `pair`, `short_triple`, `not_a_tuple` to just after `shared_label`, so source order
+      equals today's `get_functions()` order. The format golden is byte-identical.
 
 ### 4. Builtins (D9)
 - [ ] 4.1 `builtin_nodes.py`: `BUILTINS = Plugin()`, the 15 functions decorated in today's order;
       `BUILTIN_FUNCTIONS` removed; re-export `BUILTINS`; `build_function_map` merges
       `BUILTINS.functions()` last.
 - [ ] 4.2 Update `test_builtin_nodes.py`, `test_discovery.py`, `test_registry.py`,
-      `tests/test_acceptance.py`, and the `errors.py` docstring. Format golden and plugin goldens
-      byte-identical.
+      `tests/test_acceptance.py`, the four `plugins/*/tests/system/test_registry.py`
+      (`BUILTIN_FUNCTIONS` -> `BUILTINS.functions()`), and the `errors.py` docstring. Format
+      golden and plugin goldens byte-identical.
 
 ### 5. Remove the transition
 - [ ] 5.1 Delete the adapter, `load()`'s legacy branch (a class is now a `TypeError`),
@@ -105,8 +112,12 @@ Each: `plugin = Plugin()` with decorators; entry point -> `:plugin`; `uv sync`; 
 - [ ] 6.4 Regenerate the math golden: the diff is **additions only** (the three entries).
 
 ### 7. Documentation
-- [ ] 7.1 `CLAUDE.md`: Core components, Adding a New Plugin (code, entry point, test-suite
-      shape), Type Hint Requirements, the C-extension limitation, `BUILTIN_FUNCTIONS`.
+- [ ] 7.1 `CLAUDE.md`: Project Overview and Package layout (the ABC, `@outputs`); Core components
+      (`Plugin`, `load`, `BUILTIN_FUNCTIONS`); Registry Files (an output's `name`); Data Flow
+      stage 2; Node Execution Model (`getattr(values[0], attribute)`); the slot table under Graph
+      validation (step 6's math nodes); Key Constraints (the C-extension limitation, D10); Adding
+      a New Plugin (code, entry point, test-suite shape, "How registration works internally":
+      methods opt-in); Type Hint Requirements (`@outputs` -> `outputs=`).
 - [ ] 7.2 `docs/ONBOARDING.md` (including lines ~171, 465, 614, 657) and `tests/README.md`
       (its wording on the ABC / `get_*` contract).
 
