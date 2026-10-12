@@ -356,17 +356,19 @@ it finds them at runtime via entry-point discovery.
 
    - **`nodeports.py`** (stage 2): `build_port_table(function_map, class_map, primitives)` takes the
      declarations and returns node type -> `NodePorts(kind, inputs, outputs, attribute)` — `inputs`
-     and `outputs` each a list of `Port(name, annotation)` in port order, `attribute` the name a
-     method is looked up by on its instance (`None` for every other kind). It reads each callable's
+     and `outputs` each a list of `Port(name, annotation, instance)` in port order, `attribute` the
+     name a method is looked up by on its instance (`None` for every other kind). It reads each callable's
      signature, then applies `annotations=` (fill only: typing an annotated slot, including an
      explicit `Any`, raises), `inputs=` (relabel; labels must stay distinct) and `outputs=` (name),
-     in that order; a key naming no parameter, or `self` on a method, raises. An input's name is its
+     in that order; a key naming no parameter, or a method's instance, raises. An input's name is its
      parameter's or its label; an output's is the one declared with `outputs=`, else `""`. Every
      port is passed by position, so a callable with no readable signature, or with a keyword-only,
      `*args` or `**kwargs` parameter, raises `ValueError` — which refuses every C-extension class,
      constructor included. The **single place** that derives a node's
      arity from a callable, so the registry and the executor can no longer disagree about it. A
-     method's port 0 is its instance (`Port("self", cls)`); a missing annotation is normalised to `Any`.
+     method's port 0 is its instance: its first parameter, whatever its name, re-emitted as
+     `Port("self", cls, instance=True)`; a method with no parameter at all raises. A missing
+     annotation is normalised to `Any`.
      `methods_of(port_table, class_name)` lists a class's `Class.method` entries. Also the only place
      the three node surfaces meet, so it is where **one name declared as two kinds** — a primitive and
      a function, a function and a class — raises `DuplicateNodeTypeError`; a node type named `list` /
@@ -711,6 +713,7 @@ certain, because wrongly refusing a good graph is worse than not checking one.
 | `Any`, or no annotation | anything | skip |
 | anything | `Any`, or no annotation | skip |
 | a class | the same class, or a base of it | accept |
+| a number | a method's instance (port 0) of a numeric class, e.g. `Fraction` | **reject** unless the same class or a subclass — the executor checks the instance with `isinstance`, so no widening reaches it |
 | `bool` | `int` | accept — `bool` really is an `int` subclass |
 | `int` | `float` | accept — numeric widening |
 | anything | `bool` | **reject** — widening never lands on `bool`; only `bool` itself is accepted |

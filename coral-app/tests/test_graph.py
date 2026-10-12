@@ -31,6 +31,7 @@ node type             inputs                            outputs
 ===================== ================================= ==========================
 """
 
+from fractions import Fraction
 from typing import Any
 
 import pytest
@@ -84,11 +85,15 @@ class Gear(Sprocket, Cog):
 def ports(kind, inputs=(), outputs=()) -> NodePorts:
     """A port-table entry from ``(name, annotation)`` inputs and bare output annotations.
 
-    Outputs are left unnamed: ``Graph`` never reads an output's name.
+    Outputs are left unnamed: ``Graph`` never reads an output's name. A method's port 0 is marked
+    as its instance, as ``build_port_table`` marks it.
     """
     return NodePorts(
         kind=kind,
-        inputs=[Port(name, annotation) for name, annotation in inputs],
+        inputs=[
+            Port(name, annotation, instance=kind == METHOD and index == 0)
+            for index, (name, annotation) in enumerate(inputs)
+        ],
         outputs=[Port("", annotation) for annotation in outputs],
     )
 
@@ -822,6 +827,30 @@ class TestEdgeTypes:
 
         with pytest.raises(ValueError, match=r"feeds int .* expects bool"):
             build(nodes, {"0": edge("0", "1", 0)}, table)
+
+    def test_int_into_a_numeric_class_s_instance_port_is_rejected(self):
+        """GIVEN an int primitive feeding port 0, the instance, of a method of Fraction, a class
+             in the numeric tower
+        WHEN the graph is built
+        THEN it raises: the instance must be a Fraction, and no widening turns an int into one."""
+        table = dict(
+            PORT_TABLE,
+            **{
+                "Fraction.limit_denominator": ports(
+                    kind=METHOD,
+                    inputs=[("self", Fraction), ("max_denominator", int)],
+                    outputs=[Fraction],
+                )
+            },
+        )
+        nodes = {
+            "0": {"type": "int", "value": 5},
+            "1": {"type": "int", "value": 10},
+            "2": {"type": "Fraction.limit_denominator"},
+        }
+
+        with pytest.raises(ValueError, match=r"feeds int .* expects Fraction"):
+            build(nodes, {"0": edge("0", "2", 0), "1": edge("1", "2", 1)}, table)
 
     def test_bool_into_bool_is_accepted(self):
         """GIVEN a bool primitive feeding a bool parameter

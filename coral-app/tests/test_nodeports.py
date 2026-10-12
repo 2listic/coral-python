@@ -167,10 +167,14 @@ class TestInputs:
     def test_method_input_zero_is_the_instance(self):
         """GIVEN a class method
         WHEN its ports are read
-        THEN port 0 is ``self``, annotated with the class, and the parameters follow."""
+        THEN port 0 is ``self``, annotated with the class and marked as the instance, and the
+             parameters follow."""
         table = build_port_table(class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS))
 
-        assert table["Widget.resize"].inputs == [Port("self", Widget), Port("factor", float)]
+        assert table["Widget.resize"].inputs == [
+            Port("self", Widget, instance=True),
+            Port("factor", float),
+        ]
 
     def test_method_with_no_parameters_has_only_the_instance(self):
         """GIVEN a method taking nothing but ``self``
@@ -178,7 +182,7 @@ class TestInputs:
         THEN it has exactly one input, the instance."""
         table = build_port_table(class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS))
 
-        assert table["Widget.describe"].inputs == [Port("self", Widget)]
+        assert table["Widget.describe"].inputs == [Port("self", Widget, instance=True)]
 
     def test_primitive_has_no_inputs(self):
         """GIVEN a primitive type
@@ -695,7 +699,10 @@ class TestSignatures:
 
         table = build_port_table(class_map=plugin.classes())
 
-        assert table["Meter.scaled"].inputs == [Port("self", Meter), Port("factor", float)]
+        assert table["Meter.scaled"].inputs == [
+            Port("self", Meter, instance=True),
+            Port("factor", float),
+        ]
 
     def test_a_method_without_parameters_is_refused(self):
         """GIVEN a declared method taking no parameter at all

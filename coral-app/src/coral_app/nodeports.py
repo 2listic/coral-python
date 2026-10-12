@@ -54,10 +54,13 @@ class Port:
             the one declared with ``outputs=``, or ``""`` when none is: Python gives a return value
             no name of its own, so there is nothing to read.
         annotation: The declared type, with a missing annotation normalised to ``Any``.
+        instance: Whether this is a method's instance, port 0, which the executor checks with
+            ``isinstance`` before the call. ``False`` on every other port.
     """
 
     name: str
     annotation: Any
+    instance: bool = False
 
 
 @dataclass(frozen=True)
@@ -67,7 +70,7 @@ class NodePorts:
     Attributes:
         kind: One of ``primitive`` / ``function`` / ``constructor`` / ``method``.
         inputs: One :class:`Port` per input port, in port order. For a method, port 0 is the
-            instance, named ``self`` and annotated with the class itself.
+            instance, named ``self``, annotated with the class itself and marked ``instance``.
         outputs: One :class:`Port` per output port, in port order — 0-based within outputs, which
             is the numbering the editor and the executor use. A callable returning ``None`` has
             none.
@@ -311,7 +314,7 @@ def _method_ports(cls: type, method: MethodDeclaration, node_type: str) -> NodeP
     )
     return NodePorts(
         kind=METHOD,
-        inputs=[Port("self", cls), *inputs],
+        inputs=[Port("self", cls, instance=True), *inputs],
         outputs=_output_ports(declaration.outputs, return_annotation, node_type),
         attribute=method.attribute,
     )

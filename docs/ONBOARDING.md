@@ -175,7 +175,7 @@ explains why most libraries need their types written by hand.
 callable with no readable signature, such as a C extension type, is refused. It walks `sig.parameters`
 (ordered, each carrying a `.annotation`) plus `sig.return_annotation`, lets the declaration's
 `annotations=` fill the slots left empty, and stores the result as that node type's **port table**
-entry: one `Port(name, annotation)` per input and per output — an input named by its parameter (or its
+entry: one `Port(name, annotation, instance)` per input and per output — an input named by its parameter (or its
 `inputs=` label), an output by `outputs=` when the declaration names them, else `""` (Python gives a
 return value no name).
 `registry.py` then renders those annotations through
@@ -280,7 +280,7 @@ executor reads the answer back as `graph.ports_of(node_id).kind` and never re-de
 
 Two things worth being precise about:
 
-- The port table records a node type's **argument shape** too, not just its kind: one `Port(name, annotation)`
+- The port table records a node type's **argument shape** too, not just its kind: one `Port(name, annotation, instance)`
   per input port and per output port. So nothing downstream introspects a second time — the executor binds
   a node's inputs with a plain positional call (`target(*arguments)`, no `inspect` import at all), because the
   values arrive in port order, which *is* parameter order.

@@ -60,7 +60,7 @@ def _numeric_rank(annotation: type) -> Optional[int]:
     )
 
 
-def _is_compatible(source_annotation, target_annotation) -> bool:
+def _is_compatible(source_annotation, target_annotation, *, widening: bool = True) -> bool:
     """Whether a value annotated ``source_annotation`` may feed ``target_annotation``.
 
     Deliberately narrow — it returns ``True`` whenever the answer is not certain, because wrongly
@@ -75,6 +75,8 @@ def _is_compatible(source_annotation, target_annotation) -> bool:
     - ``bool`` as the *target* is the one exception the tower needs: ``bool`` is an ``int`` subclass,
       so it shares ``int``'s rank, and without a guard any Integral would be accepted where a
       ``bool`` is expected. Widening never lands on ``bool``.
+    - ``widening=False`` turns the tower off, so only the class itself or a subclass is accepted.
+      It is for a method's instance, which the executor checks with ``isinstance``.
     """
     if source_annotation is Any or target_annotation is Any:
         return True
@@ -84,6 +86,9 @@ def _is_compatible(source_annotation, target_annotation) -> bool:
 
     if issubclass(source_annotation, target_annotation):
         return True
+
+    if not widening:
+        return False
 
     # `bool` is an `int` subclass, so the tower ranks it alongside `int` — without this, any
     # Integral would be accepted where a `bool` is expected. Widening never lands on `bool`.
@@ -347,7 +352,11 @@ class Graph:
             # incoming edges occupy exactly ports 0..n-1 for its type's n inputs.
             target = ports.inputs[edge.target_input]
 
-            if not _is_compatible(source_annotation, target.annotation):
+            # A method's instance is checked with `isinstance` when the node runs, so no widening
+            # reaches it: an `int` is not a `Fraction` there.
+            if not _is_compatible(
+                source_annotation, target.annotation, widening=not target.instance
+            ):
                 raise ValueError(
                     f"Edge {edge.id!r} feeds {_name(source_annotation)} from node "
                     f"{self.describe(edge.source)} into parameter {target.name!r} of node "
