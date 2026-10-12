@@ -20,21 +20,21 @@
 ## Steps
 
 ### 1. `coral-core`: the new `Plugin`
-- [ ] 1.1 Declarations (D8), frozen dataclasses: `Declaration(target, inputs, outputs, annotations)`,
+- [x] 1.1 Declarations (D8), frozen dataclasses: `Declaration(target, inputs, outputs, annotations)`,
       `MethodDeclaration(attribute, declaration)`,
       `ClassDeclaration(target, inputs, annotations, methods: {method node name: MethodDeclaration})`.
       `methods` is keyed by the full node name (`"Calculator.get_value"`). A class's `inputs` /
       `annotations` are its constructor's; it has no `outputs` (D4).
-- [ ] 1.2 `Plugin` becomes concrete (no ABC). `function` / `cls` / `method`, each bare, with
+- [x] 1.2 `Plugin` becomes concrete (no ABC). `function` / `cls` / `method`, each bare, with
       arguments, or as a call (D2), returning the target unchanged. Options and their
       decorator-time checks per D3, D4 and the errors table (rows "at the decorator").
-- [ ] 1.3 `functions()` / `classes()`, lazy (D6): MRO walk; nearest mark; inheritance of
+- [x] 1.3 `functions()` / `classes()`, lazy (D6): MRO walk; nearest mark; inheritance of
       `name=`/`inputs=`/`outputs=` but not `annotations=` (D7); non-function override
       `TypeError`; "marked but in no registered MRO" `ValueError`; method-name clash `ValueError`.
       Node order: registration order; methods in `dir()` order of their attribute names.
-- [ ] 1.4 Transitional: `get_functions()` / `get_classes()` stay. Old subclasses override them; on
+- [x] 1.4 Transitional: `get_functions()` / `get_classes()` stay. Old subclasses override them; on
       a new-style instance they return `{name: decl.target}`. Removed in step 5.
-- [ ] 1.5 Tests: new `coral-core/tests/test_plugin.py`: the three forms; every decorator-time
+- [x] 1.5 Tests: new `coral-core/tests/test_plugin.py`: the three forms; every decorator-time
       check; lazy resolution independent of order; inheritance (registered and unregistered base,
       unmarked and re-marked override, annotations not inherited, non-function override, dead base
       mark not raising); cross-plugin non-inheritance and explicit re-mark; foreign method call

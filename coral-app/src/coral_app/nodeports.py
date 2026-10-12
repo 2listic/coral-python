@@ -4,6 +4,11 @@ One entry per node type, keyed exactly as a graph's ``type`` field (primitives b
 functions by name, constructors by class name, methods by ``Class.method``). Each entry lists the
 node's input ports and output ports, each a :class:`Port`: a name and an annotation.
 
+Its input is the declarations the plugins hand over (``coral_core.Declaration`` /
+``ClassDeclaration``): a callable plus the labels its decorator gave. The ports come from the
+callable's signature, with the declared ``annotations`` filling the types it leaves out, ``inputs``
+relabelling input ports and ``outputs`` naming output ports — in that order.
+
 This is the single place that derives a node's arity from a callable. Both consumers read it:
 ``registry.py`` (which turns it into ``node_types.json``) and ``graph.py`` (which validates a graph
 against it). They used to introspect separately, which is how they came to disagree about output
@@ -14,9 +19,9 @@ This module knows callables. It does not know what a graph, an edge, or a regist
 
 import inspect
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, List, Mapping, get_args, get_origin
+from typing import Any, Dict, List, Mapping, Optional, get_args, get_origin
 
-from coral_core import output_names
+from coral_core import ClassDeclaration, Declaration, MethodDeclaration
 
 from coral_app.errors import DuplicateNodeTypeError
 
@@ -31,6 +36,9 @@ __all__ = [
     "methods_of",
 ]
 
+# Every port is passed by position, so only these parameter kinds can be one.
+_POSITIONAL = (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+
 PRIMITIVE = "primitive"
 FUNCTION = "function"
 CONSTRUCTOR = "constructor"
@@ -42,9 +50,9 @@ class Port:
     """One connection of a node type.
 
     Attributes:
-        name: An input's name is its parameter's. An output's is the one declared with
-            ``coral_core.outputs``, or ``""`` when none is: Python gives a return value no name of
-            its own, so there is nothing to read.
+        name: An input's name is its parameter's, unless ``inputs=`` relabels it. An output's is
+            the one declared with ``outputs=``, or ``""`` when none is: Python gives a return value
+            no name of its own, so there is nothing to read.
         annotation: The declared type, with a missing annotation normalised to ``Any``.
     """
 
@@ -63,11 +71,14 @@ class NodePorts:
         outputs: One :class:`Port` per output port, in port order — 0-based within outputs, which
             is the numbering the editor and the executor use. A callable returning ``None`` has
             none.
+        attribute: For a method, the attribute the executor looks up on the instance; ``None`` for
+            every other kind. A renamed method's node type no longer contains it.
     """
 
     kind: str
     inputs: List[Port] = field(default_factory=list)
     outputs: List[Port] = field(default_factory=list)
+    attribute: Optional[str] = None
 
 
 def _annotation(param: inspect.Parameter):
@@ -82,9 +93,104 @@ def _annotation(param: inspect.Parameter):
     return param.annotation
 
 
-def _input_ports(params: Iterable[inspect.Parameter]) -> List[Port]:
-    """One :class:`Port` per parameter, in order; a missing annotation becomes ``Any``."""
-    return [Port(param.name, _annotation(param)) for param in params]
+def _signature(target, node_type: str) -> inspect.Signature:
+    """The signature the node's ports are read from.
+
+    Raises:
+        ValueError: if there is none to read (a builtin such as ``max``, a C extension class), or a
+            parameter cannot be passed by position — keyword-only, ``*args``, ``**kwargs``. The
+            executor passes every port by position, so such a parameter could never be wired.
+    """
+    try:
+        sig = inspect.signature(target)
+    except (ValueError, TypeError) as error:
+        raise ValueError(
+            f"Node type {node_type!r}: no signature can be read from {target!r}. Wrap it in a "
+            f"Python function or class."
+        ) from error
+
+    refused = [param.name for param in sig.parameters.values() if param.kind not in _POSITIONAL]
+    if refused:
+        raise ValueError(
+            f"Node type {node_type!r} has parameters {refused} that cannot be passed by position "
+            f"(keyword-only, *args or **kwargs); every port is passed by position."
+        )
+    return sig
+
+
+def _parameters(
+    sig: inspect.Signature, declaration, node_type: str, *, method: bool, constructor: bool
+):
+    """The input ports, and the return annotation, after ``annotations=`` and ``inputs=``.
+
+    ``annotations=`` only fills what the signature leaves out, so a declared type never contradicts
+    the code. ``inputs=`` relabels the ports it names, and the labels must stay distinct, because
+    the editor tells ports apart by them.
+
+    For a method, the parameter ``self`` is left out: it is port 0, the instance, which the caller
+    adds. It can be neither relabelled nor annotated.
+
+    Raises:
+        ValueError: if a key names no parameter (``self`` included, for a method), ``"return"`` is
+            annotated on a constructor, a key's parameter is already annotated, or two input ports
+            end up with one label.
+    """
+    params = [p for p in sig.parameters.values() if not (method and p.name == "self")]
+    by_name = {param.name: param for param in params}
+
+    def check_key(option: str, key: str) -> None:
+        if method and key == "self":
+            raise ValueError(
+                f"Node type {node_type!r}: {option}= names 'self', which is port 0, the instance; "
+                f"it cannot be relabelled or annotated."
+            )
+        if key not in by_name:
+            raise ValueError(
+                f"Node type {node_type!r}: {option}= names {key!r}, which is not a parameter of "
+                f"it; its parameters are {list(by_name)}."
+            )
+
+    return_annotation = sig.return_annotation
+    for key, annotation in declaration.annotations.items():
+        if key == "return":
+            if constructor:
+                raise ValueError(
+                    f"Node type {node_type!r}: annotations= cannot type 'return' of a constructor; "
+                    f"its output is the instance."
+                )
+            if sig.return_annotation is not inspect.Signature.empty:
+                raise ValueError(
+                    f"Node type {node_type!r}: annotations= types 'return', which the code "
+                    f"already annotates."
+                )
+            return_annotation = annotation
+            continue
+        check_key("annotations", key)
+        if by_name[key].annotation is not inspect.Parameter.empty:
+            raise ValueError(
+                f"Node type {node_type!r}: annotations= types {key!r}, which the code already "
+                f"annotates."
+            )
+
+    for key in declaration.inputs:
+        check_key("inputs", key)
+
+    ports = [
+        Port(
+            declaration.inputs.get(param.name, param.name),
+            declaration.annotations.get(param.name, _annotation(param)),
+        )
+        for param in params
+    ]
+
+    labels = ["self", *[port.name for port in ports]] if method else [p.name for p in ports]
+    repeated = sorted({label for label in labels if labels.count(label) > 1})
+    if repeated:
+        raise ValueError(
+            f"Node type {node_type!r}: two input ports are labelled {repeated}; labels must be "
+            f"distinct."
+        )
+    return ports, return_annotation
 
 
 def _outputs_from_return(return_annotation, node_type: str) -> List[Any]:
@@ -131,125 +237,89 @@ def _outputs_from_return(return_annotation, node_type: str) -> List[Any]:
     return []
 
 
-def _output_ports(func: Callable, return_annotation, node_type: str) -> List[Port]:
-    """One :class:`Port` per output, named by the callable's ``@outputs`` declaration if it has one.
+def _output_ports(names, return_annotation, node_type: str) -> List[Port]:
+    """One :class:`Port` per output, named by the declaration's ``outputs`` if it gives them.
 
-    The annotation decides how many outputs there are; ``@outputs`` only names them, so the two
+    The annotation decides how many outputs there are; ``outputs=`` only names them, so the two
     must agree. This is the one check on the names the decorator could not make itself, because it
     needs the annotation.
 
     Raises:
-        ValueError: if the callable declares a number of names different from its number of
+        ValueError: if the declaration gives a number of names different from its number of
             outputs — including any names at all on a callable that returns nothing.
     """
     annotations = _outputs_from_return(return_annotation, node_type)
-    names = output_names(func)
     if names is None:
         return [Port("", annotation) for annotation in annotations]
 
     if len(names) != len(annotations):
         raise ValueError(
-            f"Node type {node_type!r} names {len(names)} outputs with @outputs{names!r}, but its "
+            f"Node type {node_type!r} names {len(names)} outputs with outputs={names!r}, but its "
             f"return annotation declares {len(annotations)}. Give one name per output port."
         )
     return [Port(name, annotation) for name, annotation in zip(names, annotations)]
 
 
-def _public_method_names(cls: type) -> List[str]:
-    """Names of the class's public, pure-Python instance methods, in ``dir()`` order.
-
-    C extension methods are not ``inspect.isfunction``, so a C extension class yields none — the
-    documented limitation that such classes register a constructor but no methods.
-    """
-    names = []
-    for method_name in dir(cls):
-        if method_name.startswith("_"):
-            continue
-        method = getattr(cls, method_name)
-        if not callable(method) or not inspect.isfunction(method):
-            continue
-        names.append(method_name)
-    return names
-
-
-def _function_ports(func: Callable, node_type: str) -> NodePorts:
+def _function_ports(declaration: Declaration, node_type: str) -> NodePorts:
     """Ports of a plain function: its parameters in, its return annotation out."""
-    sig = inspect.signature(func)
+    sig = _signature(declaration.target, node_type)
+    inputs, return_annotation = _parameters(
+        sig, declaration, node_type, method=False, constructor=False
+    )
     return NodePorts(
         kind=FUNCTION,
-        inputs=_input_ports(sig.parameters.values()),
-        outputs=_output_ports(func, sig.return_annotation, node_type),
+        inputs=inputs,
+        outputs=_output_ports(declaration.outputs, return_annotation, node_type),
     )
 
 
-def _constructor_ports(cls: type) -> NodePorts:
-    """Ports of a constructor: ``__init__`` parameters in, the instance out.
-
-    ``signature(cls)`` already omits ``self``. It refuses outright on a C extension type
-    (``ValueError: no signature found for builtin type``), so those fall back to reading
-    ``__init__`` and dropping ``self`` by name — which is how this was always derived.
-
-    That fallback keeps a C extension class from raising here, but its entry is a placeholder rather
-    than a usable constructor: the class defines no ``__init__`` of its own, so this reads
-    ``object``'s and records two ``Any`` inputs named ``args``/``kwargs``. A pure-Python wrapper
-    class is the way to expose such a type properly.
+def _constructor_ports(declaration: ClassDeclaration, node_type: str) -> NodePorts:
+    """Ports of a constructor: the parameters of ``signature(cls)``, which omits ``self``, in; the
+    instance out.
 
     A constructor's single output is the instance, which the registry writes with no output
-    argument and so no name. An ``__init__`` marked with ``@outputs`` is therefore refused rather
-    than ignored — including one a subclass inherits, since it is the same function.
-
-    Raises:
-        ValueError: if the class's ``__init__`` is marked with ``@outputs``.
+    argument and so no name.
     """
-    if output_names(cls.__init__) is not None:
-        raise ValueError(
-            f"Class {cls.__name__!r} marks __init__ with @outputs, but a constructor's output "
-            f"cannot be named: it is the instance, which carries no name. Remove the decorator."
-        )
-
-    try:
-        params = inspect.signature(cls).parameters.values()
-    except (ValueError, TypeError):
-        params = [
-            param
-            for param in inspect.signature(cls.__init__).parameters.values()
-            if param.name != "self"
-        ]
-
+    sig = _signature(declaration.target, node_type)
+    inputs, _ = _parameters(sig, declaration, node_type, method=False, constructor=True)
     return NodePorts(
         kind=CONSTRUCTOR,
-        inputs=_input_ports(params),
-        outputs=[Port("", cls)],
+        inputs=inputs,
+        outputs=[Port("", declaration.target)],
     )
 
 
-def _method_ports(cls: type, method_name: str, node_type: str) -> NodePorts:
+def _method_ports(cls: type, method: MethodDeclaration, node_type: str) -> NodePorts:
     """Ports of a method: the instance at port 0, then the declared parameters.
 
-    ``signature(cls.method)`` keeps ``self``, which is exactly the instance-at-port-0 convention;
-    it is re-emitted here annotated with ``cls`` so an edge feeding it can be type-checked.
+    The signature of the plain function keeps ``self``, which is exactly the instance-at-port-0
+    convention; it is re-emitted here annotated with ``cls`` so an edge feeding it can be
+    type-checked.
     """
-    method = getattr(cls, method_name)
-    sig = inspect.signature(method)
-    others = (param for param in sig.parameters.values() if param.name != "self")
+    declaration = method.declaration
+    sig = _signature(declaration.target, node_type)
+    inputs, return_annotation = _parameters(
+        sig, declaration, node_type, method=True, constructor=False
+    )
     return NodePorts(
         kind=METHOD,
-        inputs=[Port("self", cls), *_input_ports(others)],
-        outputs=_output_ports(method, sig.return_annotation, node_type),
+        inputs=[Port("self", cls), *inputs],
+        outputs=_output_ports(declaration.outputs, return_annotation, node_type),
+        attribute=method.attribute,
     )
 
 
 def build_port_table(
-    function_map: Mapping[str, Callable] = None,
-    class_map: Mapping[str, type] = None,
+    function_map: Mapping[str, Declaration] = None,
+    class_map: Mapping[str, ClassDeclaration] = None,
     primitives: Mapping[str, type] = None,
 ) -> Dict[str, NodePorts]:
     """Describe the connections of every node type reachable from the given maps.
 
     Args:
-        function_map: Mapping of function name -> callable.
-        class_map: Mapping of class name -> class; each contributes a constructor entry plus one
-            entry per public method, keyed ``Class.method``.
+        function_map: Mapping of function name -> declaration.
+        class_map: Mapping of class name -> class declaration; each contributes a constructor entry
+            plus one entry per declared method, keyed by its method node type.
         primitives: Mapping of primitive type name -> Python type (i.e. ``PRIMITIVES_MAP``). A
             primitive takes no input and yields one output, its own type.
 
@@ -266,8 +336,9 @@ def build_port_table(
         ValueError: if any callable returns a tuple without declaring its elements — see
             :func:`_outputs_from_return`. This fires while the table is built, so a badly annotated
             function in an installed plugin fails the host rather than yielding a wrong registry.
-            Also raised, for the same reason, if a callable's ``@outputs`` names do not match its
-            number of outputs, or a class's ``__init__`` carries ``@outputs``.
+            Also raised, for the same reason, if a callable has no readable signature or a
+            parameter that cannot be passed by position, or its declaration's labels do not fit
+            it — see :func:`_signature`, :func:`_parameters` and :func:`_output_ports`.
     """
     table: Dict[str, NodePorts] = {}
 
@@ -293,24 +364,24 @@ def build_port_table(
     for prim_name, prim_type in (primitives or {}).items():
         put(prim_name, NodePorts(kind=PRIMITIVE, inputs=[], outputs=[Port("", prim_type)]))
 
-    for func_name, func in (function_map or {}).items():
-        put(func_name, _function_ports(func, func_name))
+    for func_name, declaration in (function_map or {}).items():
+        put(func_name, _function_ports(declaration, func_name))
 
     # One class, one key: the key is the class's name wherever the class types a port.
     registered_as: Dict[type, str] = {}
-    for class_name, cls in (class_map or {}).items():
+    for class_name, declaration in (class_map or {}).items():
+        cls = declaration.target
         if cls in registered_as:
             raise DuplicateNodeTypeError(
                 f"class {cls.__name__!r} is registered as both {registered_as[cls]!r} and "
                 f"{class_name!r}"
             )
         registered_as[cls] = class_name
-        put(class_name, _constructor_ports(cls))
+        put(class_name, _constructor_ports(declaration, class_name))
 
-    for class_name, cls in (class_map or {}).items():
-        for method_name in _public_method_names(cls):
-            node_type = f"{class_name}.{method_name}"
-            put(node_type, _method_ports(cls, method_name, node_type))
+    for declaration in (class_map or {}).values():
+        for node_type, method in declaration.methods.items():
+            put(node_type, _method_ports(declaration.target, method, node_type))
 
     return table
 

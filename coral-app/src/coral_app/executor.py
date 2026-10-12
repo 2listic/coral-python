@@ -191,24 +191,26 @@ class WorkflowExecutor:
         produced by one of its own inputs, so it is only known at run time.
         """
         if kind == FUNCTION:
-            return self.function_map[node_type], values
+            return self.function_map[node_type].target, values
 
         if kind == CONSTRUCTOR:
-            return self.class_map[node_type], values
+            return self.class_map[node_type].target, values
 
         if kind == METHOD:
-            class_name, method_name = node_type.rsplit(".", 1)
+            class_name = node_type.rsplit(".", 1)[0]
             instance = values[0]
 
             # The only check left in the executor, because it is the only one about a value rather
             # than about wiring: port 0 must really hold an instance of the class.
-            if not isinstance(instance, self.class_map[class_name]):
+            if not isinstance(instance, self.class_map[class_name].target):
                 raise ValueError(
                     f"Method node {self.graph.describe(node_id)} expected instance of "
                     f"{class_name}, got {type(instance).__name__}"
                 )
 
-            return getattr(instance, method_name), values[1:]
+            # By attribute, not by node type: a method may be declared under another name. Looked
+            # up on the instance, so a subclass's override is what runs.
+            return getattr(instance, self.graph.ports_of(node_id).attribute), values[1:]
 
         raise ValueError(
             f"Unknown node kind: {kind}. Supported kinds: primitive, function, constructor, method"

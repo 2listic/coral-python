@@ -18,6 +18,7 @@ import pytest
 from coral_app import BUILTIN_FUNCTIONS, PRIMITIVES_MAP, build_class_map, build_function_map
 from coral_app.errors import DuplicateNodeTypeError
 from coral_app.registry import generate_registry, python_type_to_string, save_registry_to_file
+from host_suite import declared_classes, declared_functions
 from specimen import RIVAL, SPECIMEN
 
 GOLDEN = Path(__file__).parent / "golden" / "node_types.format.json"
@@ -332,7 +333,9 @@ class TestClassSockets:
             def ping(self) -> int:
                 return 0
 
-        registry = generate_registry({}, list(PRIMITIVES_MAP), {"Renamed": Custom})
+        registry = generate_registry(
+            {}, list(PRIMITIVES_MAP), declared_classes({"Renamed": Custom}, [Custom.ping])
+        )
 
         assert inputs_of(registry["Renamed.ping"])[0]["type"] == "Renamed"
 
@@ -354,7 +357,9 @@ class TestClassSockets:
             def __init__(self, engine: Engine):
                 self.engine = engine
 
-        registry = generate_registry({}, list(PRIMITIVES_MAP), {"Engine": Engine, "Car": Car})
+        registry = generate_registry(
+            {}, list(PRIMITIVES_MAP), declared_classes({"Engine": Engine, "Car": Car})
+        )
 
         assert inputs_of(registry["Car"]) == [
             {"connection_type": "input", "type": "Engine", "name": "engine"}
@@ -371,7 +376,11 @@ class TestClassSockets:
         def build() -> Engine:
             return Engine()
 
-        registry = generate_registry({"build": build}, list(PRIMITIVES_MAP), {"Engine": Engine})
+        registry = generate_registry(
+            declared_functions({"build": build}),
+            list(PRIMITIVES_MAP),
+            declared_classes({"Engine": Engine}),
+        )
 
         assert outputs_of(registry["build"]) == [
             {"connection_type": "output", "type": "Engine", "name": ""}
@@ -419,7 +428,9 @@ class TestBases:
         class D(A, B):
             pass
 
-        registry = generate_registry({}, list(PRIMITIVES_MAP), {"A": A, "B": B, "D": D})
+        registry = generate_registry(
+            {}, list(PRIMITIVES_MAP), declared_classes({"A": A, "B": B, "D": D})
+        )
 
         assert registry["D"]["bases"] == ["A", "B"]
 
@@ -440,7 +451,9 @@ class TestBases:
         class D(B, C):
             pass
 
-        registry = generate_registry({}, list(PRIMITIVES_MAP), {"A": A, "B": B, "C": C, "D": D})
+        registry = generate_registry(
+            {}, list(PRIMITIVES_MAP), declared_classes({"A": A, "B": B, "C": C, "D": D})
+        )
 
         assert registry["D"]["bases"] == ["B", "C", "A"]
 
@@ -458,7 +471,7 @@ class TestBases:
         class C(B):
             pass
 
-        registry = generate_registry({}, list(PRIMITIVES_MAP), {"A": A, "C": C})
+        registry = generate_registry({}, list(PRIMITIVES_MAP), declared_classes({"A": A, "C": C}))
 
         assert registry["C"]["bases"] == ["A"]
         assert registry["A"]["derived"] == ["C"]
@@ -474,7 +487,9 @@ class TestBases:
         class B(A):
             pass
 
-        registry = generate_registry({}, list(PRIMITIVES_MAP), {"Root": A, "B": B})
+        registry = generate_registry(
+            {}, list(PRIMITIVES_MAP), declared_classes({"Root": A, "B": B})
+        )
 
         assert registry["B"]["bases"] == ["Root"]
         assert registry["Root"]["derived"] == ["B"]
@@ -493,7 +508,9 @@ class TestBases:
         class C(A):
             pass
 
-        registry = generate_registry({}, list(PRIMITIVES_MAP), {"A": A, "C": C, "B": B})
+        registry = generate_registry(
+            {}, list(PRIMITIVES_MAP), declared_classes({"A": A, "C": C, "B": B})
+        )
 
         assert registry["A"]["derived"] == ["C", "B"]
 
@@ -505,7 +522,9 @@ class TestBases:
         class MyFloat(float):
             pass
 
-        registry = generate_registry({}, list(PRIMITIVES_MAP), {"MyFloat": MyFloat})
+        registry = generate_registry(
+            {}, list(PRIMITIVES_MAP), declared_classes({"MyFloat": MyFloat})
+        )
 
         assert "bases" not in registry["MyFloat"]
 
@@ -575,7 +594,11 @@ class TestPrimitiveEntries:
             pass
 
         with pytest.raises(DuplicateNodeTypeError):
-            generate_registry(dict(BUILTIN_FUNCTIONS), list(PRIMITIVES_MAP), {"int": Widget})
+            generate_registry(
+                build_function_map(include=[]),
+                list(PRIMITIVES_MAP),
+                declared_classes({"int": Widget}),
+            )
 
     def test_a_class_named_after_a_collection_is_refused(self):
         """GIVEN a class keyed ``set``
@@ -587,7 +610,11 @@ class TestPrimitiveEntries:
             pass
 
         with pytest.raises(DuplicateNodeTypeError):
-            generate_registry(dict(BUILTIN_FUNCTIONS), list(PRIMITIVES_MAP), {"set": Widget})
+            generate_registry(
+                build_function_map(include=[]),
+                list(PRIMITIVES_MAP),
+                declared_classes({"set": Widget}),
+            )
 
 
 class TestBuiltinCollectionEntries:

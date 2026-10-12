@@ -24,6 +24,7 @@ from coral_app import (
     load,
 )
 from coral_app.registry import save_registry_to_file
+from coral_core import Plugin
 from specimen import BUILTIN_CLASH, CLASS_CLASH, FUNCTION_CLASH, RIVAL, SPECIMEN
 
 
@@ -55,6 +56,41 @@ class TestLoadFailsLoud:
 
         with pytest.raises(TypeError):
             load("not-a-real-plugin")
+
+
+class TestLoadResolves:
+    """What ``load`` returns, for each kind of entry point a plugin may declare."""
+
+    @staticmethod
+    def resolving_to(monkeypatch, target):
+        """Make the one entry point ``load`` finds resolve to ``target``."""
+
+        class EntryPointStub:
+            def load(self):
+                return target
+
+        monkeypatch.setattr("coral_app.entry_points", lambda *a, **k: (EntryPointStub(),))
+
+    def test_a_plugin_instance_is_returned_as_is(self, monkeypatch):
+        """GIVEN an entry point resolving to a Plugin instance
+        WHEN load() resolves it
+        THEN that very instance is returned: its declarations live on it."""
+        plugin = Plugin()
+        self.resolving_to(monkeypatch, plugin)
+
+        assert load("not-a-real-plugin") is plugin
+
+    def test_a_plugin_subclass_is_instantiated(self, monkeypatch):
+        """GIVEN an entry point resolving to a Plugin subclass
+        WHEN load() resolves it
+        THEN an instance of it is returned."""
+
+        class Subclassing(Plugin):
+            pass
+
+        self.resolving_to(monkeypatch, Subclassing)
+
+        assert isinstance(load("not-a-real-plugin"), Subclassing)
 
 
 class TestBuildMapsFailLoud:
@@ -94,7 +130,9 @@ class TestHostWithoutPlugins:
         """GIVEN no plugin selected
         WHEN the function map is built
         THEN it is exactly the builtins: they need no plugin, and nothing else sneaks in."""
-        assert build_function_map(include=[]) == BUILTIN_FUNCTIONS
+        function_map = build_function_map(include=[])
+
+        assert {name: decl.target for name, decl in function_map.items()} == BUILTIN_FUNCTIONS
 
     def test_no_builtin_classes_without_plugins(self):
         """GIVEN no plugin selected
@@ -136,7 +174,7 @@ class TestMerge:
         THEN each builtin name still resolves to the host's own callable."""
         function_map = build_function_map(include=[SPECIMEN, RIVAL])
 
-        assert all(function_map[name] is func for name, func in BUILTIN_FUNCTIONS.items())
+        assert all(function_map[name].target is func for name, func in BUILTIN_FUNCTIONS.items())
 
 
 class TestDuplicateNodeTypeIsRefused:

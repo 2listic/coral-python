@@ -15,6 +15,7 @@ import pytest
 from coral_app.errors import DuplicateNodeTypeError
 from coral_app.executor import WorkflowExecutor
 from coral_app.nodestatus import FAILED, RUNNING, SUCCEEDED
+from coral_core import Plugin
 from specimen import COLLECTION_CLASH, SPECIMEN, Accumulator
 
 
@@ -835,3 +836,78 @@ class TestStatusMarkers:
 
         assert status.is_dir()
         assert list(status.iterdir()) == []
+
+
+@pytest.fixture
+def run_declared(write_graph, monkeypatch):
+    """Execute a graph against one plugin built with the decorators, handed to the host by name."""
+
+    def _run(plugin: Plugin, nodes: dict, edges: dict = None) -> dict:
+        monkeypatch.setattr("coral_app.load", lambda name: plugin)
+        path = write_graph(graph(nodes, edges))
+        return WorkflowExecutor(str(path), plugins=["declared"]).execute()
+
+    return _run
+
+
+class TestDeclaredMethods:
+    """A method node runs the attribute it was declared on, looked up on the instance."""
+
+    def test_a_renamed_method_runs_its_attribute(self, run_declared):
+        """GIVEN a method declared under a name other than its attribute
+        WHEN a graph calls it by that name
+        THEN the attribute's function runs."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Counter:
+            def __init__(self, start: int):
+                self.start = start
+
+            @plugin.method(name="current")
+            def get(self) -> int:
+                return self.start
+
+        results = run_declared(
+            plugin,
+            {
+                "0": {"type": "int", "value": 7},
+                "1": {"type": "Counter"},
+                "2": {"type": "Counter.current"},
+            },
+            {"0": edge("0", "1", 0), "1": edge("1", "2", 0)},
+        )
+
+        assert results["2"] == 7
+
+    def test_an_undeclared_override_runs_the_override(self, run_declared):
+        """GIVEN a declared method, overridden without a declaration in a registered subclass
+        WHEN a graph calls the subclass's method node
+        THEN the override runs, not the base's function."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            def __init__(self, start: int):
+                self.start = start
+
+            @plugin.method
+            def value(self) -> int:
+                return self.start
+
+        @plugin.cls
+        class Child(Base):
+            def value(self) -> int:
+                return -self.start
+
+        results = run_declared(
+            plugin,
+            {
+                "0": {"type": "int", "value": 7},
+                "1": {"type": "Child"},
+                "2": {"type": "Child.value"},
+            },
+            {"0": edge("0", "1", 0), "1": edge("1", "2", 0)},
+        )
+
+        assert results["2"] == -7
