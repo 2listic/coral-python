@@ -681,6 +681,37 @@ class TestSignatures:
 
         assert raised.value.__cause__ is not None
 
+    def test_a_method_s_first_parameter_is_its_instance_whatever_its_name(self):
+        """GIVEN a declared method whose first parameter is not called ``self``
+        WHEN the table is built
+        THEN that parameter is port 0, the instance, and is not an input of its own."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method
+            def scaled(this, factor: float) -> float:
+                return factor
+
+        table = build_port_table(class_map=plugin.classes())
+
+        assert table["Meter.scaled"].inputs == [Port("self", Meter), Port("factor", float)]
+
+    def test_a_method_without_parameters_is_refused(self):
+        """GIVEN a declared method taking no parameter at all
+        WHEN the table is built
+        THEN ValueError naming the node type: nothing could receive the instance."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method
+            def broken() -> float:
+                return 0.0
+
+        with pytest.raises(ValueError, match=r"'Meter.broken'.*instance"):
+            build_port_table(class_map=plugin.classes())
+
 
 class TestAnnotations:
     """``annotations=`` fills the types a signature leaves out, and nothing else."""
@@ -768,6 +799,21 @@ class TestAnnotations:
         class Meter:
             @plugin.method(annotations={"self": int})
             def read(self) -> float:
+                return 0.0
+
+        with pytest.raises(ValueError, match="instance"):
+            build_port_table(class_map=plugin.classes())
+
+    def test_a_differently_named_instance_is_refused_too(self):
+        """GIVEN a method whose first parameter is ``this``, declared with annotations= naming it
+        WHEN the table is built
+        THEN ValueError: it is port 0, the instance, whatever its name."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method(annotations={"this": int})
+            def read(this) -> float:
                 return 0.0
 
         with pytest.raises(ValueError, match="instance"):

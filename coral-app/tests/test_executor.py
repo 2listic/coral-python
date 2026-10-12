@@ -911,3 +911,32 @@ class TestDeclaredMethods:
         )
 
         assert results["2"] == -7
+
+    def test_a_method_whose_instance_is_not_called_self_runs(self, run_declared):
+        """GIVEN a declared method whose first parameter is called ``this``, wired with its
+             instance and one argument
+        WHEN the graph executes
+        THEN the method receives the instance and the argument, each once."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Counter:
+            def __init__(self, start: int):
+                self.start = start
+
+            @plugin.method
+            def scaled(this, factor: int) -> int:
+                return this.start * factor
+
+        results = run_declared(
+            plugin,
+            {
+                "0": {"type": "int", "value": 7},
+                "1": {"type": "Counter"},
+                "2": {"type": "int", "value": 3},
+                "3": {"type": "Counter.scaled"},
+            },
+            {"0": edge("0", "1", 0), "1": edge("1", "3", 0), "2": edge("2", "3", 1)},
+        )
+
+        assert results["3"] == 21

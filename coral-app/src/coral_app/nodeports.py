@@ -127,22 +127,30 @@ def _parameters(
     the code. ``inputs=`` relabels the ports it names, and the labels must stay distinct, because
     the editor tells ports apart by them.
 
-    For a method, the parameter ``self`` is left out: it is port 0, the instance, which the caller
-    adds. It can be neither relabelled nor annotated.
+    For a method, the first parameter is left out, whatever its name: it is port 0, the instance,
+    which the caller adds. It can be neither relabelled nor annotated.
 
     Raises:
-        ValueError: if a key names no parameter (``self`` included, for a method), ``"return"`` is
-            annotated on a constructor, a key's parameter is already annotated, or two input ports
-            end up with one label.
+        ValueError: if a method has no parameter to receive its instance, a key names no parameter
+            (a method's first included), ``"return"`` is annotated on a constructor, a key's
+            parameter is already annotated, or two input ports end up with one label.
     """
-    params = [p for p in sig.parameters.values() if not (method and p.name == "self")]
+    params = list(sig.parameters.values())
+    instance = None
+    if method:
+        if not params:
+            raise ValueError(
+                f"Node type {node_type!r} has no parameter to receive its instance; a method's "
+                f"first parameter is port 0, the instance."
+            )
+        instance, params = params[0].name, params[1:]
     by_name = {param.name: param for param in params}
 
     def check_key(option: str, key: str) -> None:
-        if method and key == "self":
+        if key == instance:
             raise ValueError(
-                f"Node type {node_type!r}: {option}= names 'self', which is port 0, the instance; "
-                f"it cannot be relabelled or annotated."
+                f"Node type {node_type!r}: {option}= names {key!r}, which is port 0, the "
+                f"instance; it cannot be relabelled or annotated."
             )
         if key not in by_name:
             raise ValueError(
@@ -292,9 +300,9 @@ def _constructor_ports(declaration: ClassDeclaration, node_type: str) -> NodePor
 def _method_ports(cls: type, method: MethodDeclaration, node_type: str) -> NodePorts:
     """Ports of a method: the instance at port 0, then the declared parameters.
 
-    The signature of the plain function keeps ``self``, which is exactly the instance-at-port-0
-    convention; it is re-emitted here annotated with ``cls`` so an edge feeding it can be
-    type-checked.
+    The signature of the plain function keeps its first parameter, the instance, whatever it is
+    called: exactly the instance-at-port-0 convention. It is re-emitted here as ``self``, annotated
+    with ``cls``, so an edge feeding it can be type-checked.
     """
     declaration = method.declaration
     sig = _signature(declaration.target, node_type)
