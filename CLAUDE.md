@@ -308,10 +308,11 @@ it finds them at runtime via entry-point discovery.
    matter: for each declared class the MRO is walked, and an attribute is a method node when some
    class in it holds a function this plugin declared under that attribute. A subclass therefore has
    its bases' declared methods (registered or not); an undeclared override keeps the node and its
-   `name=` / `inputs=` / `outputs=`, but not `annotations=`, which describe one function's signature.
+   `name=` / `inputs=` / `outputs=`, but cannot keep `annotations=`, which describe one function's
+   signature: when the declaration has them, the override must be declared itself.
    Declarations are not inherited across plugins. `classes()` raises if a declared method belongs to
    no registered class, if two of a class's methods resolve to one node name, or if an override is
-   not a function.
+   not a function or replaces a method declared with `annotations=` without a declaration of its own.
 
    What the host receives are frozen dataclasses: `functions()` -> `{node type: Declaration(target,
    inputs, outputs, annotations)}`, `classes()` -> `{class key: ClassDeclaration(target, inputs,

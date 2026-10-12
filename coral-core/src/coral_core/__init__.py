@@ -118,7 +118,7 @@ class ClassDeclaration:
 class _Mark:
     """What ``Plugin.method`` was told about one function, before any class is known."""
 
-    name: str | None
+    name: str
     inputs: dict[str, str]
     outputs: tuple[str, ...] | None
     annotations: dict[str, Any]
@@ -280,7 +280,7 @@ class Plugin:
             if func in self._marks:
                 raise ValueError(f"{where}: the method is already declared in this plugin")
             self._marks[func] = _Mark(
-                None if name is None else _name(name, func, where, dotted=False),
+                _name(name, func, where, dotted=False),
                 _inputs(inputs, where),
                 _outputs(outputs, where),
                 _annotations(annotations, where),
@@ -303,7 +303,9 @@ class Plugin:
             TypeError: if a registered class overrides a declared method with something that is
                 not a function.
             ValueError: if two of one class's methods resolve to one node type, or a declared method
-                belongs to no registered class.
+                belongs to no registered class, or an undeclared override replaces a method
+                declared with ``annotations=``, or a class holds a declared method as its
+                constructor.
         """
         resolved = {}
         for key, declaration in self._classes.items():
@@ -350,10 +352,14 @@ class Plugin:
         It gives one when some class in the MRO holds a declared function under that attribute.
         The nearest such declaration supplies the labels; the function an instance actually runs
         is whatever the nearest class holding the attribute holds. When those differ, the function
-        is an undeclared override: it keeps the node, with the labels but not the annotations.
+        is an undeclared override: it keeps the node and the labels. It cannot keep
+        ``annotations=``, which describe the declared function's signature, so a declaration with
+        ``annotations=`` refuses an undeclared override.
 
         Raises:
             TypeError: if that nearest attribute is not a function.
+            ValueError: if it is an undeclared override of a declaration with ``annotations=``, or
+                the attribute is the constructor.
         """
         holders = [owner for owner in klass.__mro__ if attribute in vars(owner)]
         declared = next(
@@ -368,18 +374,36 @@ class Plugin:
         if declared is None:
             return None
 
-        func = vars(holders[0])[attribute]
+        if attribute in _CONSTRUCTORS:
+            raise ValueError(
+                f"class {key!r} holds the declared method {declared.__qualname__!r} as its "
+                f"constructor {attribute!r}; the constructor is the class's own node type, so it "
+                f"cannot be a method"
+            )
+
+        holder = holders[0]
+        overrider = (
+            f"class {key!r}"
+            if holder is klass
+            else f"class {key!r}: its base {self._class_keys.get(holder, holder.__qualname__)!r}"
+        )
+        func = vars(holder)[attribute]
         if not inspect.isfunction(func):
             raise TypeError(
-                f"class {klass.__qualname__!r} overrides the method {attribute!r} with {func!r}, "
-                f"which is not a function"
+                f"{overrider} overrides the method {attribute!r} with {func!r}, which is not a "
+                f"function"
             )
 
         mark = self._marks[declared]
-        node_type = f"{key}.{mark.name if mark.name is not None else declared.__name__}"
-        annotations = mark.annotations if func is declared else {}
+        if func is not declared and mark.annotations:
+            raise ValueError(
+                f"{overrider} overrides the method {attribute!r}, whose "
+                f"declaration types {list(mark.annotations)} with annotations=; annotations "
+                f"describe one function, so declare the override itself with plugin.method"
+            )
+        node_type = f"{key}.{mark.name}"
         return node_type, MethodDeclaration(
-            attribute, Declaration(func, dict(mark.inputs), mark.outputs, dict(annotations))
+            attribute, Declaration(func, dict(mark.inputs), mark.outputs, dict(mark.annotations))
         )
 
 
@@ -404,20 +428,22 @@ def _describe(target: Any) -> str:
 
 
 def _name(name: str | None, target: Any, where: str, *, dotted: bool) -> str:
-    """The node name: ``name`` checked, or the target's ``__name__`` when it is omitted."""
+    """The node name: ``name``, or the target's ``__name__`` when omitted; checked either way."""
     if name is None:
         name = getattr(target, "__name__", None)
         if not isinstance(name, str):
             raise TypeError(f"{where}: the target has no __name__; pass name=")
-        return name
-    if not isinstance(name, str):
+        source, hint = "its __name__", "; pass name="
+    elif not isinstance(name, str):
         raise TypeError(f"{where}: name= takes a string, got {name!r}")
+    else:
+        source, hint = "name=", ""
     if not name:
-        raise ValueError(f"{where}: name= cannot be empty")
+        raise ValueError(f"{where}: {source} cannot be empty{hint}")
     if not dotted and "." in name:
         raise ValueError(
-            f"{where}: name= cannot contain '.', which separates a class from its method in a "
-            f"node type; got {name!r}"
+            f"{where}: {source} cannot contain '.', which separates a class from its method in a "
+            f"node type; got {name!r}{hint}"
         )
     return name
 

@@ -328,16 +328,17 @@ class TestInheritance:
         assert list(plugin.classes()) == ["Child"]
         assert list(plugin.classes()["Child"].methods) == ["Child.value"]
 
-    def test_an_undeclared_override_keeps_the_labels_but_not_the_annotations(self):
-        """GIVEN a declared method with every option, overridden without a declaration
+    def test_an_undeclared_override_keeps_the_labels(self):
+        """GIVEN a method declared with name=, inputs= and outputs=, overridden without a
+             declaration
         WHEN the subclass's methods are read
-        THEN the node runs the override, with the name, inputs and outputs but no annotations."""
+        THEN the node runs the override, with the base's name, inputs and outputs."""
         plugin = Plugin()
 
         @plugin.cls
         class Base:
-            @plugin.method(name="get", inputs={"x": "ex"}, outputs="v", annotations={"x": int})
-            def value(self, x) -> int: ...
+            @plugin.method(name="get", inputs={"x": "ex"}, outputs="v")
+            def value(self, x: int) -> int: ...
 
         @plugin.cls
         class Child(Base):
@@ -346,6 +347,25 @@ class TestInheritance:
         assert plugin.classes()["Child"].methods == {
             "Child.get": MethodDeclaration("value", Declaration(Child.value, {"x": "ex"}, ("v",)))
         }
+
+    def test_an_undeclared_override_of_an_annotated_declaration_is_refused(self):
+        """GIVEN a method declared with annotations=, overridden without a declaration
+        WHEN the subclass's methods are read
+        THEN ValueError naming the class, the attribute and the annotated slots: annotations
+             describe one function, so the override must be declared itself."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method(annotations={"x": int})
+            def value(self, x) -> int: ...
+
+        @plugin.cls
+        class Child(Base):
+            def value(self, x: int) -> int: ...
+
+        with pytest.raises(ValueError, match=r"'Child'.*'value'.*\['x'\].*plugin\.method"):
+            plugin.classes()
 
     def test_a_redeclared_override_replaces_the_labels(self):
         """GIVEN a declared method, overridden in a subclass with a declaration of its own
@@ -404,6 +424,51 @@ class TestInheritance:
             value = None
 
         with pytest.raises(TypeError, match="Child.*'value'"):
+            plugin.classes()
+
+    def test_a_non_function_override_in_an_unregistered_base_names_both_classes(self):
+        """GIVEN a declared method, overridden by a property in an unregistered intermediate class
+        WHEN a registered subclass of that class is read
+        THEN TypeError naming the registered class and the class holding the override."""
+        plugin = Plugin()
+
+        class Base:
+            @plugin.method
+            def value(self) -> int: ...
+
+        class Mid(Base):
+            value = property(lambda self: 0)
+
+        @plugin.cls
+        class Leaf(Mid):
+            pass
+
+        with pytest.raises(
+            TypeError, match=r"'Leaf': its base '.*Mid' overrides the method 'value'"
+        ):
+            plugin.classes()
+
+    def test_an_annotated_override_in_an_unregistered_base_names_both_classes(self):
+        """GIVEN a method declared with annotations=, overridden without a declaration in an
+             unregistered intermediate class
+        WHEN a registered subclass of that class is read
+        THEN ValueError naming the registered class and the class holding the override."""
+        plugin = Plugin()
+
+        class Base:
+            @plugin.method(annotations={"x": int})
+            def value(self, x) -> int: ...
+
+        class Mid(Base):
+            def value(self, x: int) -> int: ...
+
+        @plugin.cls
+        class Leaf(Mid):
+            pass
+
+        with pytest.raises(
+            ValueError, match=r"'Leaf': its base '.*Mid' overrides the method 'value'"
+        ):
             plugin.classes()
 
 
@@ -505,6 +570,22 @@ class TestTargetsAreRefused:
         with pytest.raises(ValueError, match="plugin.cls"):
             Plugin().method(func)
 
+    def test_a_declared_method_held_as_the_constructor_is_refused(self):
+        """GIVEN a function declared with plugin.method, then assigned as a class's __init__
+        WHEN the class's methods are resolved
+        THEN ValueError naming the class: the constructor is the class's own node type."""
+        plugin = Plugin()
+
+        @plugin.method
+        def setup(self, size: float): ...
+
+        @plugin.cls
+        class Box:
+            __init__ = setup
+
+        with pytest.raises(ValueError, match=r"'Box'.*'__init__'"):
+            plugin.classes()
+
     def test_a_callable_without_a_name_needs_one(self):
         """GIVEN a callable with no __name__
         WHEN it is declared with plugin.function without name=
@@ -554,6 +635,32 @@ class TestOptionsAreRefused:
         plugin = Plugin()
         plugin.function(add, name="math.add")
         assert list(plugin.functions()) == ["math.add"]
+
+    @pytest.mark.parametrize("decorator", ["function", "cls", "method"])
+    def test_an_empty_default_name_is_refused(self, decorator):
+        """GIVEN a target whose __name__ is empty, declared without name=
+        WHEN any decorator is applied
+        THEN ValueError asking for name=."""
+
+        def func(self): ...
+
+        func.__name__ = ""
+        target = type("", (), {}) if decorator == "cls" else func
+        with pytest.raises(ValueError, match="cannot be empty; pass name="):
+            getattr(Plugin(), decorator)(target)
+
+    @pytest.mark.parametrize("decorator", ["cls", "method"])
+    def test_a_dotted_default_name_is_refused_for_a_class_or_method(self, decorator):
+        """GIVEN a class or method whose __name__ contains a dot, declared without name=
+        WHEN the decorator is applied
+        THEN ValueError asking for name=: the default obeys the rule an explicit name does."""
+
+        def func(self): ...
+
+        func.__name__ = "a.b"
+        target = type("a.b", (), {}) if decorator == "cls" else func
+        with pytest.raises(ValueError, match=r"cannot contain '\.'.*pass name="):
+            getattr(Plugin(), decorator)(target)
 
     @pytest.mark.parametrize(
         "outputs",

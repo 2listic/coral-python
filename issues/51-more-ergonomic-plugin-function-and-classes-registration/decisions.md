@@ -112,8 +112,11 @@ math = "coral_plugin_math:plugin"      # the instance; the entry-point name is u
 - A registered subclass gets every method marked in its MRO (whether or not the base class is
   registered).
 - An **unmarked override** keeps the node. It inherits `name=`, `inputs=` and `outputs=` from the
-  nearest mark, but **not** `annotations=`, which describes one specific function's signature.
-  Its ports come from the override itself.
+  nearest mark, and its ports come from the override itself. `annotations=` describes one
+  specific function's signature, so it cannot carry over: when the nearest mark has
+  `annotations=`, an unmarked override raises `ValueError` in `classes()`, naming the class, the
+  attribute and the annotated slots, and must be re-marked. Dropping the types silently would
+  leave a parameter `Any`, or break the `outputs=` count for the whole plugin.
 - A **re-marked override** replaces the labels for that class and its descendants.
 - At run time, `getattr(instance, attribute)` runs the override (polymorphism, as today).
 - A mark counts as **collected** when its function is found in `vars(K)` for some `K` in the MRO
@@ -177,9 +180,11 @@ math = "coral_plugin_math:plugin"      # the instance; the entry-point name is u
 | marked method in no registered class's MRO | `coral_core` | `classes()` | `ValueError` |
 | two methods of one class resolving to one node name | `coral_core` | `classes()` | `ValueError` |
 | inherited mark on a non-function attribute | `coral_core` | `classes()` | `TypeError` |
+| unmarked override of a mark with `annotations=` | `coral_core` | `classes()` | `ValueError` |
 | no signature (`max`) | `nodeports` | `build_port_table` | `ValueError` |
 | keyword-only / `*args` / `**kwargs` parameter | `nodeports` | `build_port_table` | `ValueError` |
-| `inputs=` / `annotations=` key not a parameter; key `self`; `"return"` on `cls` | `nodeports` | `build_port_table` | `ValueError` |
+| `inputs=` / `annotations=` key not a parameter; key naming a method's instance (its first parameter, whatever its name); `"return"` on `cls` | `nodeports` | `build_port_table` | `ValueError` |
+| a declared method with no parameter for its instance | `nodeports` | `build_port_table` | `ValueError` |
 | `annotations=` key already annotated | `nodeports` | `build_port_table` | `ValueError` |
 | two input ports with one label | `nodeports` | `build_port_table` | `ValueError` |
 | `outputs=` count differs from output ports | `nodeports` | `build_port_table` | `ValueError` (as today) |
