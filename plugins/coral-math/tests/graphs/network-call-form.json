@@ -2,7 +2,7 @@
   "workflow": {
     "nodes": {
       "0": { "qualified_id": "0", "type": "float", "value": "1.0", "name": "y" },
-      "1": { "qualified_id": "1", "type": "float", "value": "1.0", "name": "x" },
+      "1": { "qualified_id": "1", "type": "float", "value": "0.0", "name": "x" },
       "2": { "qualified_id": "2", "type": "math.atan2", "name": "angle" },
       "3": { "qualified_id": "3", "type": "int", "value": "3141592", "name": "numerator" },
       "4": { "qualified_id": "4", "type": "int", "value": "1000000", "name": "denominator" },

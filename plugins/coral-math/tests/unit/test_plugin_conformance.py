@@ -74,14 +74,15 @@ class TestDeclaredSurface:
     def test_every_declared_method_is_annotated(self):
         """GIVEN this plugin's classes
         WHEN their declared methods and constructors are read with their ``annotations=``
-        THEN every parameter is typed, for the same reason as the functions."""
+        THEN every parameter, and every method's return, is typed, for the same reason as the
+             functions; a constructor's output is the instance, so it has no return to type."""
         for class_name, declaration in plugin.classes().items():
             bare = _bare(declaration.target, declaration.annotations, with_return=False)
             assert bare == [], f"{class_name}: {bare}"
             for node_type, method in declaration.methods.items():
                 method_declaration = method.declaration
                 bare = _bare(
-                    method_declaration.target, method_declaration.annotations, with_return=False
+                    method_declaration.target, method_declaration.annotations, with_return=True
                 )
                 assert bare == [], f"{node_type}: {bare}"
 

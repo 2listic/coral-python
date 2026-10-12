@@ -403,7 +403,7 @@ class Plugin:
             )
         node_type = f"{key}.{mark.name}"
         return node_type, MethodDeclaration(
-            attribute, Declaration(func, dict(mark.inputs), mark.outputs, dict(mark.annotations))
+            attribute, Declaration(func, mark.inputs, mark.outputs, mark.annotations)
         )
 
 

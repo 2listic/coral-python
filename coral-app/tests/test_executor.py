@@ -940,3 +940,30 @@ class TestDeclaredMethods:
         )
 
         assert results["3"] == 21
+
+    def test_a_renamed_class_runs(self, run_declared):
+        """GIVEN a class registered under a key other than its name, with a declared method
+        WHEN a graph builds an instance and calls the method by that key
+        THEN both run: the method's instance is checked against the class, whatever its key."""
+        plugin = Plugin()
+
+        @plugin.cls(name="Renamed")
+        class Counter:
+            def __init__(self, start: int):
+                self.start = start
+
+            @plugin.method
+            def get(self) -> int:
+                return self.start
+
+        results = run_declared(
+            plugin,
+            {
+                "0": {"type": "int", "value": 7},
+                "1": {"type": "Renamed"},
+                "2": {"type": "Renamed.get"},
+            },
+            {"0": edge("0", "1", 0), "1": edge("1", "2", 0)},
+        )
+
+        assert results["2"] == 7

@@ -100,9 +100,10 @@ def _signature(target, node_type: str) -> inspect.Signature:
     """The signature the node's ports are read from.
 
     Raises:
-        ValueError: if there is none to read (a builtin such as ``max``, a C extension class), or a
-            parameter cannot be passed by position — keyword-only, ``*args``, ``**kwargs``. The
-            executor passes every port by position, so such a parameter could never be wired.
+        ValueError: if there is none to read (a builtin such as ``max``, many C extension
+            classes), or a parameter cannot be passed by position — keyword-only, ``*args``,
+            ``**kwargs``. The executor passes every port by position, so such a parameter could
+            never be wired.
     """
     try:
         sig = inspect.signature(target)

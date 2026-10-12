@@ -6,8 +6,7 @@ names without importing any of them; :func:`load` imports only the requested
 one. The host never imports a plugin module directly — it finds
 them at runtime through standard metadata.
 
-``build_function_map`` / ``build_class_map`` keep the same signatures they had
-in the old ``definitions`` package, but are now re-backed by discovery: each
+``build_function_map`` / ``build_class_map`` are backed by discovery: each
 selected plugin is loaded and its declarations (``functions()`` / ``classes()``)
 merged in selection order. **A node type may have exactly one owner**: two contributors
 declaring the same name raise :class:`DuplicateNodeTypeError`. The two surfaces

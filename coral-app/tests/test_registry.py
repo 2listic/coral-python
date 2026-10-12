@@ -18,6 +18,7 @@ import pytest
 from coral_app import BUILTINS, PRIMITIVES_MAP, build_class_map, build_function_map
 from coral_app.errors import DuplicateNodeTypeError
 from coral_app.registry import generate_registry, python_type_to_string, save_registry_to_file
+from coral_core import Plugin
 from host_suite import declared_classes, declared_functions
 from specimen import RIVAL, SPECIMEN
 
@@ -318,6 +319,44 @@ class TestOutputNames:
         }
 
         assert {node_type: n for node_type, n in names.items() if any(n)} == {}
+
+
+class TestDeclaredNames:
+    """What ``name=`` and ``inputs=`` declare reaches the file: an entry's key, an input's name."""
+
+    def test_an_input_label_is_the_argument_s_name(self):
+        """GIVEN a function declared with inputs= relabelling one parameter
+        WHEN the registry is generated
+        THEN that input argument's name is the label, and the other keeps its parameter's."""
+        plugin = Plugin()
+
+        def scale(value: float, factor: float) -> float:
+            return value * factor
+
+        plugin.function(scale, inputs={"factor": "by"})
+        registry = generate_registry(plugin.functions(), list(PRIMITIVES_MAP))
+
+        assert [arg["name"] for arg in inputs_of(registry["scale"])] == ["value", "by"]
+
+    def test_a_renamed_method_is_keyed_by_its_declared_name(self):
+        """GIVEN a method declared under a name other than its attribute
+        WHEN the registry is generated
+        THEN its entry is keyed and typed by the declared name, and the attribute's name is no key."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Counter:
+            def __init__(self, start: int):
+                self.start = start
+
+            @plugin.method(name="current")
+            def get(self) -> int:
+                return self.start
+
+        registry = generate_registry({}, list(PRIMITIVES_MAP), plugin.classes())
+
+        assert "Counter.get" not in registry
+        assert registry["Counter.current"]["type"] == "Counter.current"
 
 
 class TestClassSockets:

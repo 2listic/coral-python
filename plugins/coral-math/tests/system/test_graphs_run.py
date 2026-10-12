@@ -192,10 +192,11 @@ class TestTheCallFormGraph:
         return lambda name: executor.results[node_named(executor.graph, name)]
 
     def test_atan2_runs_the_builtin(self, result):
-        """GIVEN ``math.atan2`` fed ``y = 1.0`` and ``x = 1.0``
+        """GIVEN ``math.atan2`` fed ``y = 1.0`` and ``x = 0.0``
         WHEN the graph is executed
-        THEN the angle is exactly ``pi / 4``: the builtin itself ran, with its arguments in order."""
-        assert result("angle") == math.pi / 4
+        THEN the angle is exactly ``pi / 2``: the builtin itself ran, with its arguments in order —
+             swapped, it would be 0."""
+        assert result("angle") == math.pi / 2
 
     def test_the_fraction_is_built_and_its_method_runs(self, result):
         """GIVEN a ``Fraction`` built from 3141592 / 1000000 and limited to denominators <= 1000

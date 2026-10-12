@@ -72,6 +72,10 @@ class TestDeclaredSurface:
                     assert parameter.annotation is not inspect.Signature.empty, (
                         f"{class_name}.{method_name}:{parameter}"
                     )
+                if method_name != "__init__":
+                    assert signature.return_annotation is not inspect.Signature.empty, (
+                        f"{class_name}.{method_name}: return"
+                    )
 
     def test_no_declared_port_is_annotated_any(self):
         """GIVEN this plugin's constructors and declared methods

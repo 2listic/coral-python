@@ -87,6 +87,18 @@ class TestTheThreeForms:
         assert plugin.classes()["Counter"].target is Counter
         assert Counter(1).bump() == 2
 
+    @pytest.mark.parametrize("decorator", ["cls", "method"])
+    def test_the_call_form_returns_its_target(self, decorator):
+        """GIVEN a class, or a plain function, declared with plugin.cls or plugin.method as a call
+             with an option
+        WHEN the call returns
+        THEN it returns that very object."""
+
+        def scale(self, factor: float) -> float: ...
+
+        target = Fraction if decorator == "cls" else scale
+        assert getattr(Plugin(), decorator)(target, name="renamed") is target
+
 
 class TestClassDeclarations:
     """What ``classes()`` hands the host."""
@@ -266,7 +278,7 @@ class TestResolutionIsLazy:
             @plugin.method
             def make() -> int: ...
 
-        with pytest.raises(ValueError, match="staticmethod"):
+        with pytest.raises(ValueError, match=r"Counter\.make"):
             plugin.classes()
 
     def test_two_methods_on_one_node_type_are_refused(self):
@@ -512,6 +524,17 @@ class TestAcrossPlugins:
         assert plugin_b.classes()["Child"].methods["Child.value"].declaration.outputs == ("b",)
         assert plugin_a.classes()["Base"].methods["Base.value"].declaration.outputs == ("a",)
 
+    def test_each_plugin_holds_only_its_own_declarations(self):
+        """GIVEN two plugins, one declaring a function and the other a class
+        WHEN each is read
+        THEN each holds only what was declared on it: there is no shared registry."""
+        first, second = Plugin(), Plugin()
+        first.function(add)
+        second.cls(Fraction)
+
+        assert list(first.functions()) == ["add"] and first.classes() == {}
+        assert second.functions() == {} and list(second.classes()) == ["Fraction"]
+
 
 class TestTargetsAreRefused:
     """Each decorator takes one kind of object, and refuses the others at once."""
@@ -662,29 +685,31 @@ class TestOptionsAreRefused:
         with pytest.raises(ValueError, match=r"cannot contain '\.'.*pass name="):
             getattr(Plugin(), decorator)(target)
 
+    @pytest.mark.parametrize("decorator", ["function", "method"])
     @pytest.mark.parametrize(
         "outputs",
         [3, ("a", 3), {"a": "b"}],
         ids=["not-a-sequence", "non-string-name", "a-dict"],
     )
-    def test_outputs_must_be_strings(self, outputs):
+    def test_outputs_must_be_strings(self, outputs, decorator):
         """GIVEN outputs= that is not a name or a sequence of names
-        WHEN the decorator is applied
+        WHEN plugin.function or plugin.method is applied
         THEN TypeError."""
         with pytest.raises(TypeError, match="outputs= takes"):
-            Plugin().function(add, outputs=outputs)
+            getattr(Plugin(), decorator)(add, outputs=outputs)
 
+    @pytest.mark.parametrize("decorator", ["function", "method"])
     @pytest.mark.parametrize(
         "outputs, message",
         [((), "at least one"), (("a", ""), "cannot be empty"), (("a", "a"), "distinct")],
         ids=["none", "empty", "repeated"],
     )
-    def test_outputs_must_be_distinct_non_empty_names(self, outputs, message):
+    def test_outputs_must_be_distinct_non_empty_names(self, outputs, message, decorator):
         """GIVEN no output name, an empty one, or a repeated one
-        WHEN the decorator is applied
+        WHEN plugin.function or plugin.method is applied
         THEN ValueError."""
         with pytest.raises(ValueError, match=message):
-            Plugin().method(add, outputs=outputs)
+            getattr(Plugin(), decorator)(add, outputs=outputs)
 
     def test_a_plain_string_is_one_output_name(self):
         """GIVEN outputs= as a plain string
@@ -694,6 +719,14 @@ class TestOptionsAreRefused:
         plugin.function(add, outputs="sum")
         assert plugin.functions()["add"].outputs == ("sum",)
 
+    def test_a_list_of_names_is_accepted(self):
+        """GIVEN outputs= as a list of names
+        WHEN the function is declared
+        THEN the names are kept, in order, as a tuple."""
+        plugin = Plugin()
+        plugin.function(add, outputs=["sum", "carry"])
+        assert plugin.functions()["add"].outputs == ("sum", "carry")
+
     def test_a_class_takes_no_outputs(self):
         """GIVEN outputs= on plugin.cls
         WHEN it is applied
@@ -701,32 +734,38 @@ class TestOptionsAreRefused:
         with pytest.raises(TypeError):
             Plugin().cls(Fraction, outputs="value")
 
+    @pytest.mark.parametrize("decorator", ["function", "cls", "method"])
     @pytest.mark.parametrize(
         "inputs",
         [["a"], {1: "one"}, {"a": 1}],
         ids=["not-a-dict", "non-string-key", "non-string-label"],
     )
-    def test_inputs_must_map_strings_to_strings(self, inputs):
+    def test_inputs_must_map_strings_to_strings(self, inputs, decorator):
         """GIVEN inputs= that is not a dict of str -> str
-        WHEN the decorator is applied
+        WHEN any decorator is applied
         THEN TypeError."""
+        target = Fraction if decorator == "cls" else add
         with pytest.raises(TypeError, match="inputs= takes"):
-            Plugin().function(add, inputs=inputs)
+            getattr(Plugin(), decorator)(target, inputs=inputs)
 
-    def test_an_input_label_cannot_be_empty(self):
+    @pytest.mark.parametrize("decorator", ["function", "cls", "method"])
+    def test_an_input_label_cannot_be_empty(self, decorator):
         """GIVEN inputs= with an empty label
-        WHEN the decorator is applied
+        WHEN any decorator is applied
         THEN ValueError naming the parameter."""
+        target = Fraction if decorator == "cls" else add
         with pytest.raises(ValueError, match="'a'"):
-            Plugin().function(add, inputs={"a": ""})
+            getattr(Plugin(), decorator)(target, inputs={"a": ""})
 
+    @pytest.mark.parametrize("decorator", ["function", "cls", "method"])
     @pytest.mark.parametrize("annotations", [[float], {1: float}], ids=["not-a-dict", "int-key"])
-    def test_annotations_must_be_keyed_by_strings(self, annotations):
+    def test_annotations_must_be_keyed_by_strings(self, annotations, decorator):
         """GIVEN annotations= that is not a dict with str keys
-        WHEN the decorator is applied
+        WHEN any decorator is applied
         THEN TypeError."""
+        target = Fraction if decorator == "cls" else add
         with pytest.raises(TypeError, match="annotations= takes"):
-            Plugin().function(add, annotations=annotations)
+            getattr(Plugin(), decorator)(target, annotations=annotations)
 
 
 class TestDuplicatesInOnePlugin:
@@ -767,6 +806,19 @@ class TestDuplicatesInOnePlugin:
         plugin.cls(Fraction)
         with pytest.raises(ValueError, match="'Fraction'"):
             plugin.cls(Fraction, name="Ratio")
+
+    def test_one_key_for_two_classes_is_refused(self):
+        """GIVEN a class registered under its name
+        WHEN a different class is registered under the same key
+        THEN ValueError: one key names one constructor node type."""
+        plugin = Plugin()
+
+        class Other:
+            pass
+
+        plugin.cls(Fraction)
+        with pytest.raises(ValueError, match="already declared"):
+            plugin.cls(Other, name="Fraction")
 
     def test_a_method_declared_twice_is_refused(self):
         """GIVEN a method declared once
@@ -825,3 +877,25 @@ class TestDeclarationsAreReadOnly:
 
         assert plugin.classes()["Box"].inputs == {"size": "side"}
         assert plugin.classes()["Box"].annotations == {"size": float}
+
+    def test_a_method_s_options_cannot_be_changed_through_classes(self):
+        """GIVEN a method declared with inputs= and annotations=
+        WHEN a caller tries to change them on what classes() returned
+        THEN TypeError, and the plugin still holds what was declared."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method(inputs={"scale": "factor"}, annotations={"scale": float})
+            def read(self, scale) -> float: ...
+
+        declaration = plugin.classes()["Meter"].methods["Meter.read"].declaration
+
+        with pytest.raises(TypeError):
+            declaration.inputs["scale"] = "changed"
+        with pytest.raises(TypeError):
+            declaration.annotations["scale"] = int
+
+        method = plugin.classes()["Meter"].methods["Meter.read"].declaration
+        assert method.inputs == {"scale": "factor"}
+        assert method.annotations == {"scale": float}

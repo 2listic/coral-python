@@ -49,11 +49,11 @@ pytest plugins/coral-math/tests/unit    # selection is by path, not by marker
 
 | marker | means | carried by |
 | --- | --- | --- |
-| `slow` | costs real time | the phiflow simulation (~33s), the wheel acceptance test |
+| `slow` | costs real time | the two simulations, phiflow's (~33s) and pypde's (~12s), and the wheel acceptance test |
 | `network` | needs the internet | the wheel acceptance test only |
 
-Two cost rules: **no unmarked test may run a simulation** — exactly one does and it is `slow`, every
-other phiflow graph is validated without executing — and **a test that runs something asserts a
+Two cost rules: **no unmarked test may run a simulation** — exactly one per solver does, phiflow's and
+pypde's, both `slow`; every other simulation graph is validated without executing — and **a test that runs something asserts a
 value**.
 
 ## What must not weaken

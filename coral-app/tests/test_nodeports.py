@@ -303,10 +303,9 @@ class TestMethodEnumeration:
         assert table["Widget.resize"].attribute == "resize"
 
     def test_a_c_extension_class_is_refused(self):
-        """GIVEN a C extension class, from which no signature can be read
+        """GIVEN a C extension class from which no signature can be read
         WHEN the table is built
-        THEN ValueError naming the node type: its constructor would be a placeholder, two ``Any``
-        ports for ``*args`` / ``**kwargs``, which no graph could wire."""
+        THEN ValueError naming the node type: without a signature there are no ports to read."""
         with pytest.raises(ValueError, match="'date'"):
             build_port_table(class_map=declared_classes({"date": datetime.date}))
 
@@ -761,6 +760,25 @@ class TestAnnotations:
 
         assert table["Box"].inputs == [Port("size", float)]
 
+    def test_a_method_parameter_is_filled(self):
+        """GIVEN a method whose parameter is unannotated, declared with annotations=
+        WHEN the table is built
+        THEN the parameter's port, after the instance, carries the declared type."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method(annotations={"scale": float})
+            def read(self, scale) -> float:
+                return scale
+
+        table = build_port_table(class_map=plugin.classes())
+
+        assert table["Meter.read"].inputs == [
+            Port("self", Meter, instance=True),
+            Port("scale", float),
+        ]
+
     @pytest.mark.parametrize("key", ["a", "return"])
     def test_an_annotated_slot_is_refused(self, key):
         """GIVEN a parameter or return the code already annotates
@@ -841,6 +859,22 @@ class TestAnnotations:
         with pytest.raises(ValueError, match="constructor"):
             build_port_table(class_map=plugin.classes())
 
+    @pytest.mark.parametrize("option", ["inputs", "annotations"])
+    def test_self_is_not_a_constructor_parameter(self, option):
+        """GIVEN a class declared with inputs= or annotations= naming ``self``
+        WHEN the table is built
+        THEN ValueError naming it: a constructor's ports are its parameters after the instance."""
+
+        class Box:
+            def __init__(self, size: float):
+                self.size = size
+
+        plugin = Plugin()
+        plugin.cls(Box, **{option: {"self": "box" if option == "inputs" else float}})
+
+        with pytest.raises(ValueError, match="'self'"):
+            build_port_table(class_map=plugin.classes())
+
 
 class TestInputLabels:
     """``inputs=`` relabels input ports; the editor tells ports apart by their labels."""
@@ -905,3 +939,24 @@ class TestInputLabels:
 
         with pytest.raises(ValueError, match="distinct"):
             build_port_table(class_map=plugin.classes())
+
+    def test_a_parameter_can_be_both_relabelled_and_typed(self):
+        """GIVEN an unannotated parameter declared with both inputs= and annotations=
+        WHEN the table is built
+        THEN its port carries the label and the declared type."""
+        plugin = Plugin()
+        plugin.function(unannotated, inputs={"x": "value"}, annotations={"x": float})
+
+        table = build_port_table(function_map=plugin.functions())
+
+        assert table["unannotated"].inputs == [Port("value", float)]
+
+    def test_annotations_are_keyed_by_parameter_not_by_label(self):
+        """GIVEN a parameter relabelled with inputs=, and annotations= keyed by the label
+        WHEN the table is built
+        THEN ValueError naming the label: annotations= names parameters, and a label is not one."""
+        plugin = Plugin()
+        plugin.function(unannotated, inputs={"x": "value"}, annotations={"value": float})
+
+        with pytest.raises(ValueError, match="'value'"):
+            build_port_table(function_map=plugin.functions())

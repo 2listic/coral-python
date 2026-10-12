@@ -149,8 +149,10 @@ math = "coral_plugin_math:plugin"      # the instance; the entry-point name is u
 - The executor calls positionally (`target(*values)`). `build_port_table` therefore raises
   `ValueError`, naming the node, for any keyword-only, `*args` or `**kwargs` parameter.
 - Consequence: a class whose constructor has one cannot be registered at all, not even for its
-  methods. This includes every C-extension class, which used to register a placeholder `args` /
-  `kwargs` constructor. Such a class needs a wrapper.
+  methods. So is a class with no readable signature, which includes many C-extension classes
+  (`datetime.date`); they used to register a placeholder `args` / `kwargs` constructor. A
+  C-extension class with a readable, positional signature (`decimal.Decimal`) still registers its
+  constructor. Either way its methods cannot be declared, so it needs a wrapper to expose them.
 
 ### D11 — Migration
 - The old subclass style is **removed**, not kept alongside. Migrate the four plugins, their
@@ -194,7 +196,7 @@ math = "coral_plugin_math:plugin"      # the instance; the entry-point name is u
 the host.
 
 ## Out of scope
-- Methods of C-extension classes (still not registrable; the class itself is now refused by D10).
+- Methods of C-extension classes (still not declarable; many such classes are now refused outright).
 - Hiding an inherited method node.
 - Replacing the existing wrappers.
 

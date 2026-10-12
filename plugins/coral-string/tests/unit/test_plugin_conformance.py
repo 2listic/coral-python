@@ -90,6 +90,10 @@ class TestDeclaredSurface:
                     assert parameter.annotation is not inspect.Signature.empty, (
                         f"{class_name}.{method_name}:{parameter}"
                     )
+                if method_name != "__init__":
+                    assert signature.return_annotation is not inspect.Signature.empty, (
+                        f"{class_name}.{method_name}: return"
+                    )
 
     def test_no_function_name_collides_with_a_class_name(self):
         """GIVEN this plugin's two surfaces

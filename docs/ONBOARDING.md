@@ -98,13 +98,16 @@ one — be found and loaded purely from its installed metadata.
 a class or a method becomes a node type by being declared on it with `@plugin.function`, `@plugin.cls`
 or `@plugin.method`, which also carry that node's options — its name, input labels, output names, and
 the types its signature lacks. Only declared methods are nodes. What can be checked without a
-signature is checked by the decorator, at import. There is no `name` method — the entry-point name
+signature is checked by the decorator, at import, or — when it needs every class, as which methods a
+class ends up with does — by `classes()`. There is no `name` method — the entry-point name
 (`math` / `string` / `phiflow` / `pypde`) *is* the plugin's identity, and it's the string the platform's
 `-p` contract passes.
 
-Inside the host, `registry.py` and `executor.py` **do not import each other.** Both import only from
-`coral_app` (`from coral_app import PRIMITIVES_MAP, build_function_map, build_class_map` — identical line in
-both files). This is deliberate: the registry's job is to *describe* what's callable; the executor's job is to
+Inside the host, `registry.py` and `executor.py` **do not import each other** (a guard in
+`tests/invariants/test_source_rules.py` fails if one does). Both reach the plugins through the same line,
+`from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover`, and both turn what it
+returns into the port table with `nodeports.build_port_table`. This is deliberate: the registry's job is to
+*describe* what's callable; the executor's job is to
 *run* it. See [Extending internals](#extending-internals-or-contracts-persona-b) for why this decoupling
 matters.
 
@@ -172,7 +175,7 @@ explains why most libraries need their types written by hand.
 
 **How it works.** `nodeports.py` calls `inspect.signature(...)` on each declared callable — a function
 (`_function_ports`), a class for its constructor (`_constructor_ports`), or a method (`_method_ports`); a
-callable with no readable signature, such as a C extension type, is refused. It walks `sig.parameters`
+callable with no readable signature, such as many C extension types (`datetime.date`), is refused. It walks `sig.parameters`
 (ordered, each carrying a `.annotation`) plus `sig.return_annotation`, lets the declaration's
 `annotations=` fill the slots left empty, and stores the result as that node type's **port table**
 entry: one `Port(name, annotation, instance)` per input and per output — an input named by its parameter (or its
@@ -264,19 +267,20 @@ function of the graph rather than of JSON key order. (Those ready batches are al
 executing independent branches concurrently, which nothing does today.)
 
 **Recovering what a node is.** Because lean nodes carry only `{type, value?}`, something has to recover each
-node's *kind*. `nodeports.build_port_table()` decides it once per node **type** — not per node — by membership,
-in this precedence order:
+node's *kind*. `nodeports.build_port_table()` decides it once per node **type** — not per node — by where the
+type comes from:
 
 ```
 primitive     type in PRIMITIVES_MAP
 function      type in function_map
 constructor   type in class_map
-method        type splits on the last "." into a known class + a method name
+method        type is one of a class's declared methods, keyed "<class key>.<name>"
 ```
 
-Precedence matters: a dotted *function* name such as `math.sqrt` is tested against `function_map` before the
-`Class.method` split is attempted, so it stays a function even if some class were also called `math`. The
-executor reads the answer back as `graph.ports_of(node_id).kind` and never re-derives it.
+The first three are declared names, so one name declared as two of them raises `DuplicateNodeTypeError`. A
+method key is derived from a class, not declared, so it yields instead: a dotted *function* name such as
+`math.sqrt` stays a function even if some class were also called `math` with a `sqrt` method. The executor
+reads the answer back as `graph.ports_of(node_id).kind` and never re-derives it.
 
 Two things worth being precise about:
 
@@ -436,9 +440,10 @@ This comes up immediately once you look at `coral-plugin-math` — `math.sqrt` i
 instead there's a `math_sqrt(x: float) -> float` wrapper that calls it. The reason is structural,
 not stylistic:
 
-The registry (`registry.py:generate_registry`) is **annotation-driven**. For every parameter and
-return value it calls `inspect.signature(func)` and converts the annotation to a protocol type
-string via `python_type_to_string`:
+The registry is **annotation-driven**. `nodeports.build_port_table` calls `inspect.signature(func)`
+on every declared callable and records each parameter's and the return value's annotation; the
+registry (`registry.py:generate_registry`) then converts each one to a protocol type string via
+`python_type_to_string`:
 
 ```python
 def python_type_to_string(py_type, class_names=None) -> str:
@@ -471,13 +476,13 @@ annotations={"x": float, "return": float})` would do, and is exactly how the mat
 `math.atan2`. Or a typed wrapper can: that is what `math_sqrt` is, and it is also a convenient place
 for logging and type coercion (e.g. converting a NumPy scalar back to a Python `float`). A wrapper is
 still the only fix when no signature can be read at all (`inspect.signature(math.log)` raises), when a
-parameter cannot be passed by position (`math.hypot(*coordinates)`), or when the API needs adapting.
+signature has no fixed set of positional ports (`math.hypot(*coordinates)`), or when the API needs adapting.
 This is a real, structural constraint — not a stopgap — whenever you're exposing a C extension or an
 unannotated library.
 
 **When you don't need either:** if the function or class is pure Python *and already carries
 type hints*, declare it directly — nothing to add. That's exactly what `Calculator` in
-`coral-plugin-math` does: its `__init__` and methods are annotated Python, so `registry.py` introspects
+`coral-plugin-math` does: its `__init__` and methods are annotated Python, so `nodeports.py` reads
 them without any adapter.
 
 ---
@@ -510,8 +515,8 @@ decides anything about a node type on its own. Both read the port table built by
 `nodeports.build_port_table`, the single place that decides a node's kind, its arity and its port
 order: for instance, that a dotted name like `"math.sqrt"` is a function, not a method (see the
 comment in `nodeports.py`'s `put`), and that a method's instance is always input index 0. A
-change to those rules is therefore made once; `tests/invariants/test_source_rules.py` keeps the two
-consumers from importing each other or introspecting callables again.
+change to those rules is therefore made once, and `tests/invariants/test_source_rules.py` keeps it
+that way: the two consumers may not import each other, and `executor.py` may not import `inspect`.
 
 ### Concrete extension points
 
@@ -538,8 +543,9 @@ consumers from importing each other or introspecting callables again.
   exception — are in [Per-node execution status](../CLAUDE.md#per-node-execution-status).
 *(Two entries that used to sit here — "enforcing the registry/executor convention" and "linear-time
 execution" — were resolved by issue #23. The port table is now the single source of a node type's kind and
-arity, which both `registry.py` and `executor.py` read and neither re-derives, and `tests/test_core_contract.py`
-enforces that boundary; ordering moved to `graphlib.TopologicalSorter` and incoming edges are bucketed once. See
+arity, which both `registry.py` and `executor.py` read and neither re-derives, and `TestStageSeparation` in
+`tests/invariants/test_source_rules.py` enforces that boundary; ordering moved to `graphlib.TopologicalSorter`
+and incoming edges are bucketed once. See
 [How a lean graph becomes results](#how-a-lean-graph-becomes-results--ordering-and-recovering-what-a-node-is).)*
 
 ---
@@ -557,10 +563,11 @@ hand, in `annotations=` or in a wrapper. Pure Python functions and classes *with
 ### Does the registry/executor decoupling really let someone rewrite the discovery layer under the same contract?
 
 Yes — see [Extending internals](#the-decoupling-is-real-and-its-your-extension-point) above. It's a
-genuine architectural property (verified: neither module imports the other; both only touch
-`coral_app`'s public surface), with one honest caveat: the split *between `registry.py` and
-`executor.py`* is convention-based, not contract-enforced, so changes on one side need a matching check
-on the other. (The *plugin* contract, by contrast, is checked by its decorators — see below.)
+genuine architectural property, and an enforced one: neither module imports the other
+(`tests/invariants/test_source_rules.py` fails if one does), both only touch `coral_app`'s public
+surface, and the rules they share — a node's kind, arity and port order — live in one place, the
+port table, instead of being encoded on each side. (The *plugin* contract is checked by its
+decorators — see below.)
 
 ### Why discover plugins via entry points instead of a `_MODULES` dict in one package?
 
@@ -671,12 +678,10 @@ operations can. Parity is of the *model*, not of the JSON: the type string is `s
 - **Annotation asymmetry** — a missing parameter annotation becomes `"any"` (still usable), but a
   missing return annotation produces *no output socket* (the node becomes a dead end). Easy to trip
   over when writing a new wrapper.
-- **C-extension classes are refused.** No signature can be read from their constructor, and their
-  methods are not plain functions, so a C-implemented class (e.g. `datetime.date`) cannot be
-  registered at all. Wrapping in a pure-Python class is the only workaround.
-- **Convention, not contract, between `registry.py` and `executor.py`** (see above) — they independently
-  encode the same `type`-classification assumptions. The *plugin* contract is checked by its decorators, but this
-  internal host seam is still convention-based — a latent risk for future changes.
+- **C-extension classes are only partly usable.** One registers its constructor only if a signature
+  can be read from it and every parameter is positional (`decimal.Decimal` can; `datetime.date`
+  cannot), and none of its methods can be declared, since they are not plain functions. Wrapping in
+  a pure-Python class is the only workaround.
 - **Hand-written types** are the price of the annotation-driven registry: `annotations=` removes the
   wrapper where only types are missing, but every slot is still written by hand, which doesn't scale to
   "expose an entire large library" without some repetition.

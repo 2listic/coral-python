@@ -11,7 +11,7 @@ dependencies = ["coral-core"]
 
 # The entry point is how this plugin declares itself at install time and how the host finds it at
 # runtime. The name `math` is the identity the platform's `-p` contract references; it must not
-# change. It resolves to the plugin *class*, which the host instantiates.
+# change. It resolves to the `Plugin` instance the node types are declared on.
 [project.entry-points."coral.plugins"]
 math = "coral_plugin_math:plugin"
 

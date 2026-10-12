@@ -252,7 +252,7 @@ coral-app/                         # the host: discovery, node types, graph, exe
     ├── executor.py                # graph execution: walk the order, call each node
     ├── nodestatus.py              # the per-node status markers: qualified ids + the marker files
     └── cli.py                     # register / run subcommands; console script `coral`
-plugins/                           # the open set: a third-party plugin is a peer of these three
+plugins/                           # the open set: a third-party plugin is a peer of these four
 ├── coral-math/                    # entry point `math`  -> coral_plugin_math:plugin
 ├── coral-string/                  # entry point `string`-> coral_plugin_string:plugin
 ├── coral-phiflow/                 # entry point `phiflow` -> coral_plugin_phiflow:plugin (owns phiflow/jax/h5py)
@@ -296,7 +296,8 @@ it finds them at runtime via entry-point discovery.
    There is no `name`/`describe` — a plugin's **entry-point name** is its identity. The options are
    `name=` (the node name; default `__name__`; a class's or method's may not contain `.`),
    `inputs=` (`{parameter: label}`), `outputs=` (output names in port order; not on `cls`) and
-   `annotations=` (types for the parameters, and `"return"`, the signature leaves unannotated). All
+   `annotations=` (types for the parameters, and `"return"` except on `cls`, the signature leaves
+   unannotated). All
    are **labels only**: wiring stays positional. They are kept in the plugin, never on the target.
    What can be checked without a signature is checked at the decorator: the target's kind (`function`
    takes any non-class callable, `cls` a class, `method` a plain function other than `__init__` /
@@ -364,8 +365,9 @@ it finds them at runtime via entry-point discovery.
      in that order; a key naming no parameter, or a method's instance, raises. An input's name is its
      parameter's or its label; an output's is the one declared with `outputs=`, else `""`. Every
      port is passed by position, so a callable with no readable signature, or with a keyword-only,
-     `*args` or `**kwargs` parameter, raises `ValueError` — which refuses every C-extension class,
-     constructor included. The **single place** that derives a node's
+     `*args` or `**kwargs` parameter, raises `ValueError` — which refuses many C-extension classes
+     (`datetime.date`), though not all (`decimal.Decimal` has a readable, positional signature).
+     The **single place** that derives a node's
      arity from a callable, so the registry and the executor can no longer disagree about it. A
      method's port 0 is its instance: its first parameter, whatever its name, re-emitted as
      `Port("self", cls, instance=True)`; a method with no parameter at all raises. A missing
@@ -509,9 +511,11 @@ Edge format:
 ### Node Execution Model
 
 Each node's kind is read from the port table — `graph.ports_of(node_id).kind`, one of `primitive` /
-`function` / `constructor` / `method`. The kind is decided in `nodeports.build_port_table()` by
-membership in `PRIMITIVES_MAP` / `function_map` / `class_map` plus the `Class.method` split, in that
-precedence order (so a dotted function name like `math.sqrt` stays a function).
+`function` / `constructor` / `method`. The kind is decided in `nodeports.build_port_table()` by where
+the entry comes from — `PRIMITIVES_MAP`, `function_map`, `class_map` (the constructor) or a class's
+declared methods, already keyed `Class.method`; no type name is split. One name declared as two of
+the first three raises `DuplicateNodeTypeError`; a method key yields to any of them, so a dotted
+function name like `math.sqrt` stays a function.
 
 **Primitive nodes** are the one special case, and they return early with the value `Graph` already
 read (`graph.literals`): `primitives.read_literal` reads the node's `value` the way its declared
@@ -559,7 +563,7 @@ verified before execution began.
 
 | check | when | what |
 | --- | --- | --- |
-| **instance** | resolving a method's callable | input port 0 must really hold an instance of the named class (`isinstance(instance, class_map[class_name].target)`) |
+| **instance** | resolving a method's callable | input port 0 must really hold an instance of the class it is annotated with (`isinstance(instance, ports.inputs[0].annotation)`), the annotation check 8 validated the edge against |
 | **output arity** | right after a node returns | a node declaring n > 1 outputs must have returned a tuple of exactly n |
 
 The **output arity** check exists because the port table's arity comes from a return annotation,
@@ -871,13 +875,18 @@ is what provides their node types. The
   Keep the reasoning, drop the citation: reword the sentence so it stands on its own. `issues/` is
   the historical record and is exempt.
 - **Naming conventions**:
-  - Functions: Use simple names in the function map (e.g., `"add"`, `"math.sqrt"`)
-  - Methods: Use fully qualified names (e.g., `"Calculator.add_to_value"`)
-  - Classes: Class name becomes the `type` field for constructors (e.g., `"Calculator"`)
+  - Functions: the node type is `__name__`, or `name=`, which may contain `.` (e.g., `"add"`,
+    `"math.sqrt"`)
+  - Classes: the class key is `__name__`, or `name=`, without `.`; it is the constructor's `type`
+    (e.g., `"Calculator"`)
+  - Methods: the node type is derived as `<class key>.<name>`, `name` being `__name__` or `name=`
+    without `.` (e.g., `"Calculator.add_to_value"`); it is never written whole
   - Plugin entry-point names (`math` / `string` / `phiflow` / `pypde`) are the platform-facing identity — do not change them.
-- **Type hint requirement**: All functions/methods must have type hints for proper registry generation
-- **C extension limitation**: a C-extension class (like `datetime.date`) cannot be registered at all: its
-  constructor has no readable signature, and its methods are not plain functions. Wrap it in a
+- **Type hint requirement**: every parameter and return must be typed, in the code or with
+  `annotations=`, for proper registry generation
+- **C extension limitation**: a C-extension class registers its constructor only if a signature
+  can be read from it and every parameter is positional (`decimal.Decimal` can; `datetime.date`
+  cannot). None of its methods can be declared: they are not plain functions. Wrap it in a
   pure-Python class
 
 ## Adding a New Plugin
@@ -1010,8 +1019,9 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
 **Limitations:**
 - Every port is passed by position, so a parameter that is keyword-only, `*args` or `**kwargs` is
   refused, and the whole node type with it.
-- C-extension classes (like `datetime.date`) cannot be registered: no signature can be read from
-  their constructor, and their methods are not plain functions. Create a pure-Python wrapper class.
+- A C-extension class registers its constructor only if a signature can be read from it and every
+  parameter is positional (`decimal.Decimal` can; `datetime.date` cannot). None of its methods can
+  be declared: they are not plain functions. Create a pure-Python wrapper class.
 
 ### Type Hint Requirements
 

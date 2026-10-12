@@ -28,7 +28,7 @@ def specimen_plugins(monkeypatch):
     The specimen is deliberately not a distribution, so this patches exactly that one lookup —
     name -> ``Plugin`` instance — and nothing else. Everything downstream runs as production code:
     the merge in ``build_function_map`` (including its duplicate-name refusal), the port table, the
-    registry renderer, all seven graph checks, and the executor.
+    registry renderer, all ten graph checks, and the executor.
 
     Requested explicitly, never autouse: the tests about ``load`` and ``discover`` themselves must
     see the real ones.
