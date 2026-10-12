@@ -74,7 +74,7 @@ Each: `plugin = Plugin()` with decorators; entry point -> `:plugin`; `uv sync`; 
 marked methods" (D3); **its golden byte-identical**.
 - [x] 3.1 `coral-string`.
 - [x] 3.2 `coral-math` (`@outputs` -> `outputs=`).
-- [ ] 3.3 `coral-pypde` (`_holding` stays unmarked).
+- [x] 3.3 `coral-pypde` (`_holding` stays unmarked).
 - [ ] 3.4 `coral-phiflow` (`@outputs` -> `outputs=`).
 - [ ] 3.5 `coral-app/tests/specimen.py`: the six specimen plugins become instances; every
       currently public method marked (`_hidden` stays unmarked); `@outputs` -> `outputs=`;
