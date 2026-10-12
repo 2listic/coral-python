@@ -72,7 +72,7 @@ Each: `plugin = Plugin()` with decorators; entry point -> `:plugin`; `uv sync`; 
 `plugin`); its `tests/system/test_registry.py` on `plugin.functions()` / `plugin.classes()`, with
 "every public method is a method node" rewritten as "a class's `Class.*` entries are exactly its
 marked methods" (D3); **its golden byte-identical**.
-- [ ] 3.1 `coral-string`.
+- [x] 3.1 `coral-string`.
 - [ ] 3.2 `coral-math` (`@outputs` -> `outputs=`).
 - [ ] 3.3 `coral-pypde` (`_holding` stays unmarked).
 - [ ] 3.4 `coral-phiflow` (`@outputs` -> `outputs=`).
