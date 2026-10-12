@@ -104,14 +104,14 @@ marked methods" (D3); **its golden byte-identical**.
       byte-identical.
 
 ### 6. New math nodes (D11)
-- [ ] 6.1 `math.atan2`, `Fraction`, `Fraction.limit_denominator` via the call form.
-- [ ] 6.2 Unit tests. The conformance test "every port annotated" reads the plugin's declarations
+- [x] 6.1 `math.atan2`, `Fraction`, `Fraction.limit_denominator` via the call form.
+- [x] 6.2 Unit tests. The conformance test "every port annotated" reads the plugin's declarations
       (the signature plus `annotations=`), without the host, so `annotations=` counts.
-- [ ] 6.3 An example graph in `plugins/coral-math/tests/graphs/` (every node with a
+- [x] 6.3 An example graph in `plugins/coral-math/tests/graphs/` (every node with a
       `qualified_id`), validated and run in `tests/system/`, with value assertions, e.g.
       `math.atan2(1.0, 1.0) == pi/4` and
       `Fraction(3141592, 1000000).limit_denominator(1000) == Fraction(355, 113)`.
-- [ ] 6.4 Regenerate the math golden: the diff is **additions only** (the three entries).
+- [x] 6.4 Regenerate the math golden: the diff is **additions only** (the three entries).
 
 ### 7. Documentation
 - [ ] 7.1 `CLAUDE.md`: Project Overview and Package layout (the ABC, `@outputs`); Running Tests

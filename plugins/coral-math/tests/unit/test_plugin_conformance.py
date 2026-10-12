@@ -60,36 +60,30 @@ class TestDeclaredSurface:
 
     def test_every_function_parameter_is_annotated(self):
         """GIVEN this plugin's functions
-        WHEN their signatures are read
-        THEN every parameter and every return carries an annotation.
+        WHEN their signatures are read together with their declared ``annotations=``
+        THEN every parameter and every return is typed by one or the other.
 
         This is the bargain the host's registry and graph checks rest on: an unannotated port renders
         as `any` and makes the edge check *skip*, so a wrong wire is only found when the graph runs.
         Whether that happens is the plugin author's choice, and this plugin's choice is to annotate.
         """
         for name, declaration in plugin.functions().items():
-            signature = inspect.signature(declaration.target)
-            for parameter in signature.parameters.values():
-                assert parameter.annotation is not inspect.Signature.empty, f"{name}:{parameter}"
-            assert signature.return_annotation is not inspect.Signature.empty, name
+            bare = _bare(declaration.target, declaration.annotations, with_return=True)
+            assert bare == [], f"{name}: {bare}"
 
     def test_every_declared_method_is_annotated(self):
         """GIVEN this plugin's classes
-        WHEN their declared methods and constructors are read
-        THEN every parameter and return is annotated, for the same reason as the functions."""
+        WHEN their declared methods and constructors are read with their ``annotations=``
+        THEN every parameter is typed, for the same reason as the functions."""
         for class_name, declaration in plugin.classes().items():
-            members = [("__init__", declaration.target.__init__)] + [
-                (node_type, method.declaration.target)
-                for node_type, method in declaration.methods.items()
-            ]
-            for method_name, method in members:
-                signature = inspect.signature(method)
-                for parameter in signature.parameters.values():
-                    if parameter.name == "self":
-                        continue
-                    assert parameter.annotation is not inspect.Signature.empty, (
-                        f"{class_name}.{method_name}:{parameter}"
-                    )
+            bare = _bare(declaration.target, declaration.annotations, with_return=False)
+            assert bare == [], f"{class_name}: {bare}"
+            for node_type, method in declaration.methods.items():
+                method_declaration = method.declaration
+                bare = _bare(
+                    method_declaration.target, method_declaration.annotations, with_return=False
+                )
+                assert bare == [], f"{node_type}: {bare}"
 
     def test_no_function_name_collides_with_a_class_name(self):
         """GIVEN this plugin's two surfaces
@@ -100,3 +94,27 @@ class TestDeclaredSurface:
         second declaration is made, and the host refuses it again in ``build_port_table``; asserting
         it here keeps the guarantee visible in the plugin that would break it."""
         assert not set(plugin.functions()) & set(plugin.classes())
+
+
+def _bare(target, annotations, *, with_return):
+    """The parameters of ``target`` — and its return, if ``with_return`` — that neither its
+    signature nor its declared ``annotations=`` types.
+
+    ``self`` is never bare: it is port 0, typed by its class. A class's signature is its
+    constructor's, which already omits ``self``.
+    """
+    signature = inspect.signature(target)
+    bare = [
+        parameter.name
+        for parameter in signature.parameters.values()
+        if parameter.name != "self"
+        and parameter.annotation is inspect.Parameter.empty
+        and parameter.name not in annotations
+    ]
+    if (
+        with_return
+        and signature.return_annotation is inspect.Signature.empty
+        and "return" not in annotations
+    ):
+        bare.append("return")
+    return bare

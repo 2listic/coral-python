@@ -1,0 +1,22 @@
+{
+  "workflow": {
+    "nodes": {
+      "0": { "qualified_id": "0", "type": "float", "value": "1.0", "name": "y" },
+      "1": { "qualified_id": "1", "type": "float", "value": "1.0", "name": "x" },
+      "2": { "qualified_id": "2", "type": "math.atan2", "name": "angle" },
+      "3": { "qualified_id": "3", "type": "int", "value": "3141592", "name": "numerator" },
+      "4": { "qualified_id": "4", "type": "int", "value": "1000000", "name": "denominator" },
+      "5": { "qualified_id": "5", "type": "Fraction", "name": "ratio" },
+      "6": { "qualified_id": "6", "type": "int", "value": "1000", "name": "max_denominator" },
+      "7": { "qualified_id": "7", "type": "Fraction.limit_denominator", "name": "limited" }
+    },
+    "edges": {
+      "0": { "source": 0, "target": 2, "source_output": 0, "target_input": 0 },
+      "1": { "source": 1, "target": 2, "source_output": 0, "target_input": 1 },
+      "2": { "source": 3, "target": 5, "source_output": 0, "target_input": 0 },
+      "3": { "source": 4, "target": 5, "source_output": 0, "target_input": 1 },
+      "4": { "source": 5, "target": 7, "source_output": 0, "target_input": 0 },
+      "5": { "source": 6, "target": 7, "source_output": 0, "target_input": 1 }
+    }
+  }
+}

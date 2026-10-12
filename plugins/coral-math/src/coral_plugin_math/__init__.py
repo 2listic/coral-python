@@ -2,9 +2,13 @@
 
 Every node type is declared on :data:`plugin`, the ``coral_core.Plugin`` instance registered
 under the ``coral.plugins`` entry-point group as ``math`` (see pyproject.toml).
+
+Three of them are callables defined elsewhere — ``math.atan2``, ``fractions.Fraction`` and its
+``limit_denominator`` — declared as they are, with no wrapper: the living example of the call form.
 """
 
 import math
+from fractions import Fraction
 from typing import Tuple
 
 from coral_core import Plugin
@@ -130,3 +134,14 @@ class Calculator:
         """Get current value"""
         print(f"Calculator.get_value() = {self.value}")
         return self.value
+
+
+# Callables defined elsewhere, declared as they are. Neither the builtin nor the standard-library
+# class can be decorated where it is defined, and their signatures carry no types, so
+# `annotations=` supplies them.
+
+plugin.function(
+    math.atan2, name="math.atan2", annotations={"y": float, "x": float, "return": float}
+)
+plugin.cls(Fraction, annotations={"numerator": int, "denominator": int})
+plugin.method(Fraction.limit_denominator, annotations={"max_denominator": int, "return": Fraction})

@@ -294,6 +294,34 @@
     "node_type": "function",
     "type": "test_tuple_return"
   },
+  "math.atan2": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "y"
+      },
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "x"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "math.atan2"
+  },
   "list_new": {
     "arguments": [
       {
@@ -674,6 +702,29 @@
     "node_type": "constructor",
     "type": "Calculator"
   },
+  "Fraction": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "numerator"
+      },
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "denominator"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "Fraction"
+  },
   "Calculator.add_to_value": {
     "arguments": [
       {
@@ -751,5 +802,33 @@
     ],
     "node_type": "method",
     "type": "Calculator.multiply_value"
+  },
+  "Fraction.limit_denominator": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Fraction",
+        "name": "self"
+      },
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "max_denominator"
+      },
+      {
+        "connection_type": "output",
+        "type": "Fraction",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "method",
+    "type": "Fraction.limit_denominator"
   }
 }

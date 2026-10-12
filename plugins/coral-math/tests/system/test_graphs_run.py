@@ -4,11 +4,13 @@ The graphs are the same files ``test_graphs_validate.py`` constructs; here they 
 asserts **values**, not that execution "did not raise": three of these were previously executed by
 tests that asserted nothing at all, which is a wall-clock cost with no failure mode.
 
-Three files are real editor exports and one is the collections/math interop graph. Their arithmetic is
-this plugin's business, which is why the expected numbers live here rather than in the host's suite.
+Three files are real editor exports, one is the collections/math interop graph and one runs the
+nodes declared on callables defined elsewhere. Their arithmetic is this plugin's business, which is
+why the expected numbers live here rather than in the host's suite.
 """
 
 import math
+from fractions import Fraction
 
 import pytest
 from coral_app.executor import WorkflowExecutor
@@ -176,3 +178,28 @@ class TestTheCollectionsInteropGraph:
         assert result("first") == 3.0
         assert result("second") == 4.0
         assert result("total") == 7.0
+
+
+class TestTheCallFormGraph:
+    """``network-call-form.json`` — ``math.atan2``, a ``Fraction`` and its ``limit_denominator``:
+    the nodes declared on callables defined elsewhere, run through the host like any other."""
+
+    @pytest.fixture(scope="class")
+    def result(self):
+        """Execute the graph once, returning a lookup from a node's ``name`` to its result."""
+        executor = WorkflowExecutor(str(GRAPHS / "network-call-form.json"), plugins=[PLUGIN_NAME])
+        executor.execute()
+        return lambda name: executor.results[node_named(executor.graph, name)]
+
+    def test_atan2_runs_the_builtin(self, result):
+        """GIVEN ``math.atan2`` fed ``y = 1.0`` and ``x = 1.0``
+        WHEN the graph is executed
+        THEN the angle is exactly ``pi / 4``: the builtin itself ran, with its arguments in order."""
+        assert result("angle") == math.pi / 4
+
+    def test_the_fraction_is_built_and_its_method_runs(self, result):
+        """GIVEN a ``Fraction`` built from 3141592 / 1000000 and limited to denominators <= 1000
+        WHEN the graph is executed
+        THEN the constructor holds the exact ratio, and ``limit_denominator`` returns 355/113."""
+        assert result("ratio") == Fraction(3141592, 1000000)
+        assert result("limited") == Fraction(355, 113)
