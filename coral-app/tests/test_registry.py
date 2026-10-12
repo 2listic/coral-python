@@ -814,7 +814,7 @@ class TestFormatGolden:
         uv run python -c "
         import sys; sys.path.insert(0, 'coral-app/tests')
         import coral_app, specimen
-        coral_app.load = lambda n: specimen.PLUGINS[n]()
+        coral_app.load = lambda n: specimen.PLUGINS[n]
         from coral_app.registry import save_registry_to_file
         save_registry_to_file('coral-app/tests/golden/node_types.format.json',
                               plugins=[specimen.SPECIMEN, specimen.RIVAL])"

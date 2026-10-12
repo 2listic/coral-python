@@ -37,7 +37,7 @@ def specimen_plugins(monkeypatch):
     def load(name: str):
         if name not in specimen.PLUGINS:
             raise LookupError(f"no plugin registered under {name!r} (specimen suite)")
-        return specimen.PLUGINS[name]()
+        return specimen.PLUGINS[name]
 
     monkeypatch.setattr("coral_app.load", load)
 
