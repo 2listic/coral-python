@@ -282,7 +282,7 @@ class TestConstructorAndMethodEntries:
 
 
 class TestOutputNames:
-    """An output's ``name`` is what ``@outputs`` declared, or ``""``; the editor shows it as the label."""
+    """An output's ``name`` is what ``outputs=`` declared, or ``""``; the editor shows it as the label."""
 
     def test_a_function_s_declared_names_are_written(self, registry):
         """GIVEN a specimen function decorated with three output names
@@ -307,7 +307,7 @@ class TestOutputNames:
         assert names == ["total"]
 
     def test_every_undecorated_output_is_unnamed(self, registry):
-        """GIVEN the specimen registry, where only four entries carry @outputs
+        """GIVEN the specimen registry, where only four entries carry outputs=
         WHEN every other entry's output arguments are read
         THEN each has the name "": a name nobody declared is never invented."""
         decorated = {"split_triple", "Accumulator.add", "PreciseAccumulator.add", "Ledger.add"}

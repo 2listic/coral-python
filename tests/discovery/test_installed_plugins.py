@@ -89,10 +89,10 @@ class TestLoad:
     def test_load_returns_plugin_instance(self):
         """GIVEN any installed plugin
         WHEN load() is called for it
-        THEN it returns a live plugin whose surface methods return dicts."""
+        THEN it returns a live plugin whose declarations resolve to dicts."""
         plugin = load(INSTALLED[0])
-        assert isinstance(plugin.get_functions(), dict)
-        assert isinstance(plugin.get_classes(), dict)
+        assert isinstance(plugin.functions(), dict)
+        assert isinstance(plugin.classes(), dict)
 
     @requires_two_plugins
     def test_load_is_lazy(self):
@@ -155,7 +155,7 @@ class TestPluginAddsNodes:
         out = tmp_path / f"node_types.{name}.json"
         registry = save_registry_to_file(str(out), plugins=[name])
 
-        for func_name in plugin.get_functions():
+        for func_name in plugin.functions():
             assert registry[func_name]["node_type"] == "function"
-        for class_name in plugin.get_classes():
+        for class_name in plugin.classes():
             assert registry[class_name]["node_type"] == "constructor"

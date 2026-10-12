@@ -26,7 +26,6 @@ from typing import Dict, List, Optional
 
 from coral_core import ClassDeclaration, Declaration, Plugin
 
-from coral_app import legacy
 from coral_app.builtin_nodes import BUILTINS
 from coral_app.errors import DuplicateNodeTypeError
 from coral_app.primitives import PRIMITIVES_MAP
@@ -55,38 +54,20 @@ def load(name: str) -> Plugin:
     """Import and return the plugin registered under ``name``.
 
     Imports only the requested plugin. The entry point resolves to a ``coral_core.Plugin``
-    instance, returned as is, or to a ``Plugin`` subclass written against the subclassing
-    contract, which is instantiated. Raises ``LookupError`` if no plugin is registered under
-    ``name`` — fail loud, never skip silently — and ``TypeError`` if the entry point resolves to
-    anything else.
+    instance — the one its node types are declared on — which is returned as is. Raises
+    ``LookupError`` if no plugin is registered under ``name`` — fail loud, never skip silently —
+    and ``TypeError`` if the entry point resolves to anything else, a ``Plugin`` subclass included.
     """
     matches = entry_points(group=PLUGIN_GROUP, name=name)
     if not matches:
         raise LookupError(f"no plugin registered under {name!r} in group {PLUGIN_GROUP!r}")
     ep = next(iter(matches))
     target = ep.load()
-    if isinstance(target, Plugin):
-        return target
-    if isinstance(target, type) and issubclass(target, Plugin):
-        return target()
-    raise TypeError(
-        f"plugin {name!r} resolved to {target!r}, which is neither a coral_core.Plugin instance "
-        f"nor a Plugin subclass"
-    )
-
-
-def _functions_of(plugin: Plugin) -> Dict[str, Declaration]:
-    """A plugin's function declarations, whichever contract it is written against."""
-    if legacy.is_legacy(plugin):
-        return legacy.function_declarations(plugin.get_functions())
-    return plugin.functions()
-
-
-def _classes_of(plugin: Plugin) -> Dict[str, ClassDeclaration]:
-    """A plugin's class declarations, whichever contract it is written against."""
-    if legacy.is_legacy(plugin):
-        return legacy.class_declarations(plugin.get_classes())
-    return plugin.classes()
+    if not isinstance(target, Plugin):
+        raise TypeError(
+            f"plugin {name!r} resolved to {target!r}, which is not a coral_core.Plugin instance"
+        )
+    return target
 
 
 def _selected(include: Optional[List[str]], exclude: Optional[List[str]]) -> List[str]:
@@ -130,7 +111,7 @@ def build_function_map(
     owner: Dict[str, str] = {}  # node type -> the plugin that declared it
 
     for name in _selected(include, exclude):
-        for node_type, declaration in _functions_of(load(name)).items():
+        for node_type, declaration in load(name).functions().items():
             if node_type in owner:
                 raise DuplicateNodeTypeError(
                     f"node type {node_type!r} is declared by both plugin {owner[node_type]!r} "
@@ -176,7 +157,7 @@ def build_class_map(
     owner: Dict[str, str] = {}  # class name -> the plugin that declared it
 
     for name in _selected(include, exclude):
-        for class_name, declaration in _classes_of(load(name)).items():
+        for class_name, declaration in load(name).classes().items():
             if class_name in owner:
                 raise DuplicateNodeTypeError(
                     f"class {class_name!r} is declared by both plugin {owner[class_name]!r} "

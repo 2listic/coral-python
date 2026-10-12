@@ -93,14 +93,15 @@ marked methods" (D3); **its golden byte-identical**.
       golden and plugin goldens byte-identical.
 
 ### 5. Remove the transition
-- [ ] 5.1 Delete the adapter (`coral_app/legacy.py` and `coral-app/tests/test_legacy.py`),
+- [x] 5.1 Delete the adapter (`coral_app/legacy.py` and `coral-app/tests/test_legacy.py`),
       `load()`'s legacy branch (a class is now a `TypeError`), `Plugin.get_functions` /
       `get_classes`, `outputs` / `output_names`, and `coral-core/tests/test_outputs.py` (its
       checks already live in `test_plugin.py`, step 1.5).
-- [ ] 5.2 `tests/discovery/test_installed_plugins.py`: `get_*` -> `functions()` / `classes()`.
+- [x] 5.2 `tests/discovery/test_installed_plugins.py`: `get_*` -> `functions()` / `classes()`.
       `test_discovery.py`: a `Plugin` subclass entry point raises `TypeError`.
-- [ ] 5.3 `grep` for `get_functions|get_classes|output_names|@outputs|BUILTIN_FUNCTIONS` outside
-      `issues/` returns nothing. Suite green, goldens byte-identical.
+- [x] 5.3 `grep` for `get_functions|get_classes|output_names|@outputs|BUILTIN_FUNCTIONS` in the
+      code (`*.py`, `*.toml`) returns nothing; the docs follow in step 7. Suite green, goldens
+      byte-identical.
 
 ### 6. New math nodes (D11)
 - [ ] 6.1 `math.atan2`, `Fraction`, `Fraction.limit_denominator` via the call form.

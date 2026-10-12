@@ -652,34 +652,3 @@ class TestDuplicatesInOnePlugin:
         plugin.function(add)
         plugin.function(add, name="plus")
         assert {n: d.target for n, d in plugin.functions().items()} == {"add": add, "plus": add}
-
-
-class TestTheEarlierContract:
-    """``get_functions()`` / ``get_classes()``, which a subclassing plugin still overrides."""
-
-    def test_a_declared_plugin_answers_with_bare_callables(self):
-        """GIVEN a plugin built with the decorators
-        WHEN get_functions() and get_classes() are called
-        THEN they return each node type's callable or class, without the options."""
-        plugin = Plugin()
-        plugin.function(add, outputs="sum")
-        plugin.cls(Fraction)
-
-        assert plugin.get_functions() == {"add": add}
-        assert plugin.get_classes() == {"Fraction": Fraction}
-
-    def test_a_subclass_still_overrides_them(self):
-        """GIVEN a subclass overriding get_functions() and get_classes()
-        WHEN it is instantiated and asked
-        THEN its own answers come back."""
-
-        class Legacy(Plugin):
-            def get_functions(self):
-                return {"add": add}
-
-            def get_classes(self):
-                return {"Fraction": Fraction}
-
-        legacy = Legacy()
-        assert legacy.get_functions() == {"add": add}
-        assert legacy.get_classes() == {"Fraction": Fraction}

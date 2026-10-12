@@ -80,17 +80,18 @@ class TestLoadResolves:
 
         assert load("not-a-real-plugin") is plugin
 
-    def test_a_plugin_subclass_is_instantiated(self, monkeypatch):
-        """GIVEN an entry point resolving to a Plugin subclass
+    def test_a_plugin_subclass_is_refused(self, monkeypatch):
+        """GIVEN an entry point resolving to a Plugin subclass rather than an instance
         WHEN load() resolves it
-        THEN an instance of it is returned."""
+        THEN it raises TypeError: a plugin is the instance its node types are declared on."""
 
         class Subclassing(Plugin):
             pass
 
         self.resolving_to(monkeypatch, Subclassing)
 
-        assert isinstance(load("not-a-real-plugin"), Subclassing)
+        with pytest.raises(TypeError, match="not a coral_core.Plugin instance"):
+            load("not-a-real-plugin")
 
 
 class TestBuildMapsFailLoud:
