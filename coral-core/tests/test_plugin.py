@@ -187,6 +187,24 @@ class TestClassDeclarations:
         assert list(plugin.functions()) == ["zeta", "alpha"]
         assert list(plugin.classes()) == ["Z", "A"]
 
+    def test_a_method_is_found_whatever_the_metaclass_s_dir_says(self):
+        """GIVEN a class whose metaclass redefines dir() to list nothing
+        WHEN classes() resolves it
+        THEN its declared method is still a method node."""
+        plugin = Plugin()
+
+        class Hiding(type):
+            def __dir__(cls):
+                return []
+
+        @plugin.cls
+        class Meter(metaclass=Hiding):
+            @plugin.method
+            def read(self) -> float:
+                return 0.0
+
+        assert list(plugin.classes()["Meter"].methods) == ["Meter.read"]
+
 
 class TestResolutionIsLazy:
     """Method node types are resolved when the host asks, so declaration order does not matter."""

@@ -98,7 +98,7 @@ class ClassDeclaration:
         inputs: ``{parameter: label}`` for the constructor's input ports.
         annotations: Types for the constructor's parameters that its signature leaves unannotated.
         methods: ``{method node name: MethodDeclaration}``, keyed by the full node name
-            (``"Calculator.get_value"``), in ``dir()`` order of the attribute names.
+            (``"Calculator.get_value"``), sorted by attribute name.
     """
 
     target: type
@@ -304,7 +304,7 @@ class Plugin:
         resolved = {}
         for key, declaration in self._classes.items():
             methods: dict[str, MethodDeclaration] = {}
-            for attribute in dir(declaration.target):
+            for attribute in _attributes(declaration.target):
                 method = self._method(declaration.target, key, attribute)
                 if method is None:
                     continue
@@ -377,6 +377,15 @@ class Plugin:
         return node_type, MethodDeclaration(
             attribute, Declaration(func, dict(mark.inputs), mark.outputs, dict(annotations))
         )
+
+
+def _attributes(klass: type) -> list[str]:
+    """Every attribute name the class or one of its bases defines, sorted.
+
+    What ``dir()`` lists for a plain class, but read from the classes themselves: a metaclass may
+    redefine ``dir()``, and would hide a declared method from it.
+    """
+    return sorted({name for owner in klass.__mro__ for name in vars(owner)})
 
 
 def _freeze(declaration: Any, *fields: str) -> None:
