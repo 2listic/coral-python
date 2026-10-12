@@ -126,7 +126,7 @@ marked methods" (D3); **its golden byte-identical**.
       (its wording on the ABC / `get_*` contract).
 
 ### 8. Final check
-- [ ] 8.1 `uv run pre-commit run --all-files`; full `pytest` including `slow` and `network`.
+- [x] 8.1 `uv run pre-commit run --all-files`; full `pytest` including `slow` and `network`.
 
 ## Exceptions to "each step has tests"
 - Step 7 (docs) has none.

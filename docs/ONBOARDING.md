@@ -505,13 +505,13 @@ plugins are discovered/loaded" are separable projects. The plugin *contract* its
 part that's public API —
 once real third-party plugins exist, treat both as stable.
 
-**The cost of that decoupling:** it's enforced by *convention*, not by a shared interface or test
-that pins both sides together. `registry.py` and `executor.py` **independently** encode the same
-assumptions — e.g. that a dotted name like `"math.sqrt"` is a function, not a method (see the
-comment in `executor.py:_classify`: *"functions checked before the split so dotted names like
-`math.sqrt` resolve as functions, not methods"*), and that a method's `self` argument is always
-input index 0. Nothing checks that a change to one side doesn't silently break the other's
-assumptions — if you touch this boundary, update both and re-run the full suite (`uv run pytest`).
+**What keeps the two sides in step:** `registry.py` and `executor.py` share no code, but neither
+decides anything about a node type on its own. Both read the port table built by
+`nodeports.build_port_table`, the single place that decides a node's kind, its arity and its port
+order: for instance, that a dotted name like `"math.sqrt"` is a function, not a method (see the
+comment in `nodeports.py`'s `put`), and that a method's instance is always input index 0. A
+change to those rules is therefore made once; `tests/invariants/test_source_rules.py` keeps the two
+consumers from importing each other or introspecting callables again.
 
 ### Concrete extension points
 
