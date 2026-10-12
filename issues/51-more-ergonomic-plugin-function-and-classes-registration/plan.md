@@ -42,7 +42,7 @@
       `test_outputs.py` untouched until step 5.
 
 ### 2. Host on declarations, with the legacy adapter
-- [ ] 2.1 `coral_app/__init__.py`: `load()` accepts a `Plugin` instance (new) or a `Plugin`
+- [x] 2.1 `coral_app/__init__.py`: `load()` accepts a `Plugin` instance (new) or a `Plugin`
       subclass (legacy: instantiate). `build_function_map` / `build_class_map` return
       declarations instead of bare callables (`{name: Declaration}` / `{key: ClassDeclaration}`);
       every consumer reads `.target` where it needs the callable. A plugin is **legacy** when its
@@ -52,19 +52,19 @@
       which reproduces today exactly: function -> `Declaration(f, {}, output_names(f), {})`;
       class -> every public pure-Python method in `dir()` order, labels from `output_names`; an
       `__init__` carrying `@outputs` still refused.
-- [ ] 2.2 `nodeports.build_port_table` consumes declarations: applies `annotations=` (fill),
+- [x] 2.2 `nodeports.build_port_table` consumes declarations: applies `annotations=` (fill),
       `inputs=` (relabel), `outputs=` (name) with the checks in the errors table; refuses
       non-positional parameters (D10); methods come from `ClassDeclaration.methods`
       (`_public_method_names` moves into the adapter); `NodePorts` gains `attribute`.
-- [ ] 2.3 `executor`: `.target` for functions, constructors and the instance check
+- [x] 2.3 `executor`: `.target` for functions, constructors and the instance check
       (`class_map[class_name].target`); `getattr(instance, ports.attribute)`.
-- [ ] 2.4 `registry`: `{cls: key}` built from `decl.target`.
-- [ ] 2.5 Host tests: convert the `build_port_table` / `generate_registry` call sites
+- [x] 2.4 `registry`: `{cls: key}` built from `decl.target`.
+- [x] 2.5 Host tests: convert the `build_port_table` / `generate_registry` call sites
       (`test_nodeports.py`, `test_registry.py`, `test_graph.py`, …) to declarations built with
       `Plugin()` and its decorators. New tests: each `annotations=` / `inputs=` / `outputs=` check;
       D10 for keyword-only, `*args`, `**kwargs`; a renamed method executes; an unmarked override
       runs the override. The `datetime.date` test flips to expect the D10 refusal.
-- [ ] 2.6 Verify: whole suite green; **all five goldens byte-identical** (format + four plugins).
+- [x] 2.6 Verify: whole suite green; **all five goldens byte-identical** (format + four plugins).
 
 ### 3. Migrate, one sub-step each (D11)
 Each: `plugin = Plugin()` with decorators; entry point -> `:plugin`; `uv sync`; its unit tests
@@ -93,9 +93,10 @@ marked methods" (D3); **its golden byte-identical**.
       golden and plugin goldens byte-identical.
 
 ### 5. Remove the transition
-- [ ] 5.1 Delete the adapter, `load()`'s legacy branch (a class is now a `TypeError`),
-      `Plugin.get_functions` / `get_classes`, `outputs` / `output_names`, and
-      `coral-core/tests/test_outputs.py` (its checks already live in `test_plugin.py`, step 1.5).
+- [ ] 5.1 Delete the adapter (`coral_app/legacy.py` and `coral-app/tests/test_legacy.py`),
+      `load()`'s legacy branch (a class is now a `TypeError`), `Plugin.get_functions` /
+      `get_classes`, `outputs` / `output_names`, and `coral-core/tests/test_outputs.py` (its
+      checks already live in `test_plugin.py`, step 1.5).
 - [ ] 5.2 `tests/discovery/test_installed_plugins.py`: `get_*` -> `functions()` / `classes()`.
       `test_discovery.py`: a `Plugin` subclass entry point raises `TypeError`.
 - [ ] 5.3 `grep` for `get_functions|get_classes|output_names|@outputs|BUILTIN_FUNCTIONS` outside
