@@ -15,7 +15,9 @@ from typing import Any, Dict
 
 from coral_core import Plugin
 
-from .grids.cartesian import PyPDEUnitGrid
+from .pdes.laplace import pypde_solve_poisson_equation, pypde_solve_laplace_equation
+
+from .grids.cartesian import PyPDEUnitGrid, PyPDECartesianGrid
 from .fields.scalar import PyPDEScalarField
 from .storage.file import PyPDEFileStorage
 from .visualization.movies import PyPDEMovie
@@ -23,15 +25,7 @@ from .pdes.diffusion import PyPDEDiffusionPDE
 from .trackers.trackers import PyPDEPlotTracker
 
 
-__all__ = [
-    "PyPDEDiffusionPDE",
-    "PyPDEFileStorage",
-    "PyPDEMovie",
-    "PyPDEPlotTracker",
-    "PyPDEPlugin",
-    "PyPDEScalarField",
-    "PyPDEUnitGrid",
-]
+__all__ = ["PyPDEPlugin"]
 
 
 class PyPDEPlugin(Plugin):
@@ -39,12 +33,16 @@ class PyPDEPlugin(Plugin):
 
     def get_functions(self) -> Dict[str, Any]:
         """Return py-pde function definitions — this plugin declares none."""
-        return {}
+        return {
+            "pypde_solve_laplace_equation": pypde_solve_laplace_equation,
+            "pypde_solve_poisson_equation": pypde_solve_poisson_equation,
+        }
 
     def get_classes(self) -> Dict[str, Any]:
         """Return py-pde class definitions"""
         return {
             "PyPDEUnitGrid": PyPDEUnitGrid,
+            "PyPDECartesianGrid": PyPDECartesianGrid,
             "PyPDEScalarField": PyPDEScalarField,
             "PyPDEFileStorage": PyPDEFileStorage,
             "PyPDEMovie": PyPDEMovie,
