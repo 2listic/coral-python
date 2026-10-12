@@ -73,7 +73,7 @@ Each: `plugin = Plugin()` with decorators; entry point -> `:plugin`; `uv sync`; 
 "every public method is a method node" rewritten as "a class's `Class.*` entries are exactly its
 marked methods" (D3); **its golden byte-identical**.
 - [x] 3.1 `coral-string`.
-- [ ] 3.2 `coral-math` (`@outputs` -> `outputs=`).
+- [x] 3.2 `coral-math` (`@outputs` -> `outputs=`).
 - [ ] 3.3 `coral-pypde` (`_holding` stays unmarked).
 - [ ] 3.4 `coral-phiflow` (`@outputs` -> `outputs=`).
 - [ ] 3.5 `coral-app/tests/specimen.py`: the six specimen plugins become instances; every
