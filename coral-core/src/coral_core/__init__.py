@@ -32,7 +32,8 @@ This package depends on nothing internal: plugins and the host both import it, i
 
 import inspect
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from types import MappingProxyType
+from typing import Any, Callable, Mapping
 
 __all__ = [
     "ClassDeclaration",
@@ -49,6 +50,9 @@ _CONSTRUCTORS = ("__init__", "__new__")
 class Declaration:
     """A function or method node type: the callable, and what its decorator said about it.
 
+    Read-only throughout: ``inputs`` and ``annotations`` are read-only views of private copies,
+    so a host holding a declaration cannot change the plugin it came from.
+
     Attributes:
         target: The callable the node runs.
         inputs: ``{parameter: label}`` for the input ports to relabel; the others keep their
@@ -59,9 +63,12 @@ class Declaration:
     """
 
     target: Callable
-    inputs: dict[str, str] = field(default_factory=dict)
+    inputs: Mapping[str, str] = field(default_factory=dict)
     outputs: tuple[str, ...] | None = None
-    annotations: dict[str, Any] = field(default_factory=dict)
+    annotations: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        _freeze(self, "inputs", "annotations")
 
 
 @dataclass(frozen=True)
@@ -95,9 +102,12 @@ class ClassDeclaration:
     """
 
     target: type
-    inputs: dict[str, str] = field(default_factory=dict)
-    annotations: dict[str, Any] = field(default_factory=dict)
+    inputs: Mapping[str, str] = field(default_factory=dict)
+    annotations: Mapping[str, Any] = field(default_factory=dict)
     methods: dict[str, MethodDeclaration] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        _freeze(self, "inputs", "annotations", "methods")
 
 
 @dataclass(frozen=True)
@@ -367,6 +377,12 @@ class Plugin:
         return node_type, MethodDeclaration(
             attribute, Declaration(func, dict(mark.inputs), mark.outputs, dict(annotations))
         )
+
+
+def _freeze(declaration: Any, *fields: str) -> None:
+    """Replace each of a frozen declaration's dict fields with a read-only view of a copy."""
+    for name in fields:
+        object.__setattr__(declaration, name, MappingProxyType(dict(getattr(declaration, name))))
 
 
 def _describe(target: Any) -> str:

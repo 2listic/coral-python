@@ -652,3 +652,43 @@ class TestDuplicatesInOnePlugin:
         plugin.function(add)
         plugin.function(add, name="plus")
         assert {n: d.target for n, d in plugin.functions().items()} == {"add": add, "plus": add}
+
+
+class TestDeclarationsAreReadOnly:
+    """What the host receives cannot change the plugin it came from."""
+
+    def test_a_function_s_options_cannot_be_changed_through_functions(self):
+        """GIVEN a function declared with inputs= and annotations=
+        WHEN a caller tries to change them on what functions() returned
+        THEN TypeError, and the plugin still holds what was declared."""
+        plugin = Plugin()
+        plugin.function(math.atan2, inputs={"y": "rise"}, annotations={"return": float})
+        declaration = plugin.functions()["atan2"]
+
+        with pytest.raises(TypeError):
+            declaration.inputs["y"] = "changed"
+        with pytest.raises(TypeError):
+            declaration.annotations["return"] = int
+
+        assert plugin.functions()["atan2"].inputs == {"y": "rise"}
+        assert plugin.functions()["atan2"].annotations == {"return": float}
+
+    def test_a_class_s_options_cannot_be_changed_through_classes(self):
+        """GIVEN a class declared with inputs= and annotations=
+        WHEN a caller tries to change them on what classes() returned
+        THEN TypeError, and the plugin still holds what was declared."""
+        plugin = Plugin()
+
+        class Box:
+            def __init__(self, size): ...
+
+        plugin.cls(Box, inputs={"size": "side"}, annotations={"size": float})
+        declaration = plugin.classes()["Box"]
+
+        with pytest.raises(TypeError):
+            declaration.inputs["size"] = "changed"
+        with pytest.raises(TypeError):
+            declaration.annotations["size"] = int
+
+        assert plugin.classes()["Box"].inputs == {"size": "side"}
+        assert plugin.classes()["Box"].annotations == {"size": float}
