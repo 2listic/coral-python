@@ -376,9 +376,8 @@ it finds them at runtime via entry-point discovery.
      the three node surfaces meet, so it is where **one name declared as two kinds** — a primitive and
      a function, a function and a class — raises `DuplicateNodeTypeError`; a node type named `list` /
      `set` / `dict` is such a case, since those are primitives. It raises the same for one class
-     registered under two keys. A collision with a
-     `Class.method` key is *not* refused: that key is derived from a class, not declared by anyone, so
-     a function named `math.sqrt` keeps its name against a class `math` with a `sqrt` method.
+     registered under two keys, and for a dotted function name equal to a declared method's
+     `Class.method` key: a function `math.sqrt` and a class `math` declaring `sqrt` are refused.
    - **`graph.py`** (stage 3): `Graph(nodes, edges, port_table)` and
      `Graph.from_file(path, port_table)`. **Constructing one validates it** — see
      [Graph validation](#graph-validation). Exposes `.order`, `.node(id)`, `.ports_of(id)`,
@@ -514,8 +513,8 @@ Each node's kind is read from the port table — `graph.ports_of(node_id).kind`,
 `function` / `constructor` / `method`. The kind is decided in `nodeports.build_port_table()` by where
 the entry comes from — `PRIMITIVES_MAP`, `function_map`, `class_map` (the constructor) or a class's
 declared methods, already keyed `Class.method`; no type name is split. One name declared as two of
-the first three raises `DuplicateNodeTypeError`; a method key yields to any of them, so a dotted
-function name like `math.sqrt` stays a function.
+them raises `DuplicateNodeTypeError`. Only a function can meet a method key, since class keys and
+primitives contain no `.`: a function `math.sqrt` and a class `math` declaring `sqrt` are refused.
 
 **Primitive nodes** are the one special case, and they return early with the value `Graph` already
 read (`graph.literals`): `primitives.read_literal` reads the node's `value` the way its declared

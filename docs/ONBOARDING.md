@@ -277,9 +277,9 @@ constructor   type in class_map
 method        type is one of a class's declared methods, keyed "<class key>.<name>"
 ```
 
-The first three are declared names, so one name declared as two of them raises `DuplicateNodeTypeError`. A
-method key is derived from a class, not declared, so it yields instead: a dotted *function* name such as
-`math.sqrt` stays a function even if some class were also called `math` with a `sqrt` method. The executor
+All four are declared names, so one name declared as two of them raises `DuplicateNodeTypeError`. A method
+key can only meet a dotted *function* name: a function `math.sqrt` is refused if some class `math` declares
+a `sqrt` method. The executor
 reads the answer back as `graph.ports_of(node_id).kind` and never re-derives it.
 
 Two things worth being precise about:

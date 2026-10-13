@@ -341,10 +341,11 @@ def build_port_table(
 
     Raises:
         DuplicateNodeTypeError: if one name is claimed by two declared node types — a primitive, a
-            function and a constructor all key the table by a bare name, and this is the only place
-            the three surfaces meet. A ``Class.method`` key colliding with a function or constructor
-            of the same name is *not* an error: see ``put`` below. Also raised for one class
-            registered under two keys: a class is named by its key, so it would have two names.
+            function, a constructor or a method — since this is the only place the surfaces meet.
+            A method is declared with ``plugin.method``, so a dotted function name equal to its
+            ``Class.method`` key is two claims on one name, like any other. Also raised for one
+            class registered under two keys: a class is named by its key, so it would have two
+            names.
         ValueError: if any callable returns a tuple without declaring its elements — see
             :func:`_outputs_from_return`. This fires while the table is built, so a badly annotated
             function in an installed plugin fails the host rather than yielding a wrong registry.
@@ -355,21 +356,14 @@ def build_port_table(
     table: Dict[str, NodePorts] = {}
 
     def put(node_type: str, ports: NodePorts) -> None:
-        # A collision between two *declared* node types — primitive, function or constructor — is a
-        # bad configuration and is refused: a graph names only the node type, so whichever entry won
-        # would decide what the graph computes while the JSON looks identical. Stage 1 cannot catch
-        # this one, because it merges the function and class surfaces into separate maps.
-        #
-        # A collision involving a *method* entry keeps first-writer-wins, which is what the
-        # insertion order above is for: it makes a dotted function name such as `math.sqrt` stay a
-        # function even if some class `math` also had a `sqrt` method. A method key is derived from a
-        # class the host was handed, not declared by anyone, so there is no competing claim to refuse.
-        existing = table.get(node_type)
-        if existing is not None:
-            if METHOD in (existing.kind, ports.kind):
-                return
+        # Two node types under one name are a bad configuration and are refused: a graph names only
+        # the node type, so whichever entry won would decide what the graph computes while the JSON
+        # looks identical. Stage 1 cannot catch this one, because it merges the function and class
+        # surfaces into separate maps.
+        if node_type in table:
             raise DuplicateNodeTypeError(
-                f"node type {node_type!r} is declared as both a {existing.kind} and a {ports.kind}"
+                f"node type {node_type!r} is declared as both a {table[node_type].kind} and a "
+                f"{ports.kind}"
             )
         table[node_type] = ports
 

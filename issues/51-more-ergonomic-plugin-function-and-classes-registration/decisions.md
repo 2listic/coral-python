@@ -191,6 +191,7 @@ math = "coral_plugin_math:plugin"      # the instance; the entry-point name is u
 | two input ports with one label | `nodeports` | `build_port_table` | `ValueError` |
 | `outputs=` count differs from output ports | `nodeports` | `build_port_table` | `ValueError` (as today) |
 | duplicates across plugins / with builtins / across kinds | host | as today | `DuplicateNodeTypeError` |
+| a dotted function name equal to a declared method's `Class.method` key | `nodeports` | `build_port_table` | `DuplicateNodeTypeError` |
 
 `coral_core` raises `ValueError` rather than `DuplicateNodeTypeError` because it must not import
 the host.

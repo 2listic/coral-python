@@ -327,28 +327,6 @@ class TestMethodEnumeration:
         assert methods_of(table, "Widget") == ["Widget.describe", "Widget.resize"]
 
 
-class TestPrecedence:
-    """A collision with a *method* key resolves the way the executor's old ``_classify`` did.
-
-    A ``Class.method`` entry is derived from a class the host was handed, not declared by anyone, so
-    there is no competing claim to refuse: whoever declared the name keeps it. Only a function can
-    meet one: a class key cannot contain a dot. Collisions between two
-    *declared* node types are a different matter — see :class:`TestDeclaredNameClashIsRefused`.
-    """
-
-    def test_a_dotted_function_name_wins_over_a_method(self):
-        """GIVEN a function named ``Widget.resize`` alongside the class ``Widget``
-        WHEN the table is built
-        THEN the function keeps the key — function beats method, as before."""
-        table = build_port_table(
-            function_map=declared_functions({"Widget.resize": annotated}),
-            class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS),
-        )
-
-        assert table["Widget.resize"].kind == FUNCTION
-        assert table["Widget.resize"].inputs == [Port("a", int), Port("b", str)]
-
-
 class TestDeclaredNameClashIsRefused:
     """One name declared as two different *kinds* of node is refused, not silently resolved.
 
@@ -367,6 +345,21 @@ class TestDeclaredNameClashIsRefused:
                 function_map=declared_functions({"Widget": annotated}),
                 class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS),
             )
+
+    def test_a_dotted_function_named_after_a_declared_method_raises(self):
+        """GIVEN a function named ``Widget.resize`` alongside the class ``Widget`` declaring ``resize``
+        WHEN the table is built
+        THEN DuplicateNodeTypeError names both kinds, rather than the function silently hiding the
+        method."""
+        with pytest.raises(DuplicateNodeTypeError) as raised:
+            build_port_table(
+                function_map=declared_functions({"Widget.resize": annotated}),
+                class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS),
+            )
+
+        message = str(raised.value)
+        assert "Widget.resize" in message
+        assert FUNCTION in message and METHOD in message
 
     def test_a_function_named_after_a_primitive_raises(self):
         """GIVEN a function named ``int``
