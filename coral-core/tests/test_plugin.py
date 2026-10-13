@@ -909,3 +909,21 @@ class TestDeclarationsAreReadOnly:
         method = plugin.classes()["Meter"].methods["Meter.read"].declaration
         assert method.inputs == {"scale": "factor"}
         assert method.annotations == {"scale": float}
+
+    def test_a_class_s_methods_cannot_be_changed(self):
+        """GIVEN a class declared with one method
+        WHEN a caller tries to add a method node to its declaration
+        THEN TypeError, and the plugin still resolves the same methods."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method
+            def read(self) -> float:
+                return 0.0
+
+        declaration = plugin.classes()["Meter"]
+        with pytest.raises(TypeError):
+            declaration.methods["Meter.extra"] = declaration.methods["Meter.read"]
+
+        assert list(plugin.classes()["Meter"].methods) == ["Meter.read"]

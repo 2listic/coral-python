@@ -108,7 +108,7 @@ class ClassDeclaration:
     target: type
     inputs: Mapping[str, str] = field(default_factory=dict)
     annotations: Mapping[str, Any] = field(default_factory=dict)
-    methods: dict[str, MethodDeclaration] = field(default_factory=dict)
+    methods: Mapping[str, MethodDeclaration] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         _freeze(self, "inputs", "annotations", "methods")

@@ -166,6 +166,14 @@ math = "coral_plugin_math:plugin"      # the instance; the entry-point name is u
   `math.atan2`, `Fraction` and `Fraction.limit_denominator`, each with tests and an example graph.
   The math golden then changes by additions only.
 
+### D12 — No numeric widening into a method's instance
+- Found during the work, not planned: graph check 8 accepted an `int` edge into port 0 of a
+  `Fraction` method, because the numeric tower widens `int` to any Rational. The executor checks
+  the instance with `isinstance`, so such a graph passed validation and failed at run time.
+  `Fraction.limit_denominator` is what made it reachable.
+- Check 8 turns widening off on a port marked `instance`: only the class itself or a subclass is
+  accepted. Every other port keeps the tower (`int` -> `float`, `bool` -> `int`).
+
 ## Errors: where and when
 
 | check | where | when | error |
@@ -190,6 +198,7 @@ math = "coral_plugin_math:plugin"      # the instance; the entry-point name is u
 | `annotations=` key already annotated | `nodeports` | `build_port_table` | `ValueError` |
 | two input ports with one label | `nodeports` | `build_port_table` | `ValueError` |
 | `outputs=` count differs from output ports | `nodeports` | `build_port_table` | `ValueError` (as today) |
+| a number wired into a method's instance of a numeric class it is not (D12) | `graph` | `Graph` construction (check 8) | `ValueError` |
 | duplicates across plugins / with builtins / across kinds | host | as today | `DuplicateNodeTypeError` |
 | a dotted function name equal to a declared method's `Class.method` key | `nodeports` | `build_port_table` | `DuplicateNodeTypeError` |
 
