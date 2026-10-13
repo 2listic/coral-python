@@ -1,7 +1,7 @@
 """coral-plugin-phiflow — PhiFlow physics-simulation wrappers.
 
-Subclasses the coral-core ``Plugin`` contract; registered under the
-``coral.plugins`` entry-point group as ``phiflow``.
+Every node type is declared on :data:`plugin`, the ``coral_core.Plugin`` instance registered
+under the ``coral.plugins`` entry-point group as ``phiflow``.
 
 PhiFlow is a hard dependency of this distribution, so the import below is
 unconditional: a broken install fails loud with ``ImportError`` instead of
@@ -9,9 +9,9 @@ silently registering nothing. Lazy discovery guarantees this module is only
 imported when ``phiflow`` is actually selected.
 """
 
-from typing import Any, Dict, Tuple
+from typing import Any, Tuple
 
-from coral_core import Plugin, outputs
+from coral_core import Plugin
 from phi.flow import (
     # Constants
     ZERO_GRADIENT,
@@ -35,12 +35,16 @@ from phi.flow import (
     vec,
 )
 
-__all__ = ["PhiFlowPlugin"]
+__all__ = ["plugin"]
+
+#: This plugin: the entry point's target, on which every node type below is declared.
+plugin = Plugin()
 
 
 # PhiFlow wrapper classes and functions (simplified for smoke_plume.py example)
 
 
+@plugin.cls
 class PhiFlowBox:
     """Wrapper for Box domain"""
 
@@ -48,10 +52,12 @@ class PhiFlowBox:
         self.box = Box(x=x, y=y)
         print(f"PhiFlowBox created: x={x}, y={y}")
 
+    @plugin.method
     def get_box(self) -> Any:
         return self.box
 
 
+@plugin.cls
 class PhiFlowSphere:
     """Wrapper for Sphere geometry"""
 
@@ -59,10 +65,12 @@ class PhiFlowSphere:
         self.sphere = Sphere(x=x, y=y, radius=radius)
         print(f"PhiFlowSphere created: x={x}, y={y}, radius={radius}")
 
+    @plugin.method
     def get_sphere(self) -> Any:
         return self.sphere
 
 
+@plugin.cls
 class PhiFlowStaggeredGrid:
     """Wrapper for StaggeredGrid"""
 
@@ -74,10 +82,12 @@ class PhiFlowStaggeredGrid:
         self.grid = StaggeredGrid(0, 0, domain, x=resolution_x, y=resolution_y)
         print(f"PhiFlowStaggeredGrid created: resolution={resolution_x}x{resolution_y}")
 
+    @plugin.method
     def get_grid(self) -> Any:
         return self.grid
 
 
+@plugin.cls
 class PhiFlowCenteredGrid:
     """Wrapper for CenteredGrid"""
 
@@ -89,10 +99,12 @@ class PhiFlowCenteredGrid:
         self.grid = CenteredGrid(0, ZERO_GRADIENT, domain, x=resolution_x, y=resolution_y)
         print(f"PhiFlowCenteredGrid created: resolution={resolution_x}x{resolution_y}")
 
+    @plugin.method
     def get_grid(self) -> Any:
         return self.grid
 
 
+@plugin.cls
 class PhiFlowCuboid:
     """Wrapper for Cuboid geometry"""
 
@@ -104,11 +116,12 @@ class PhiFlowCuboid:
             f"PhiFlowCuboid created: center=({center_x}, {center_y}), half_size=({half_size_x}, {half_size_y})"
         )
 
+    @plugin.method
     def get_cuboid(self) -> Any:
         return self.cuboid
 
 
-@outputs("velocity", "smoke", "pressure")
+@plugin.function(outputs=("velocity", "smoke", "pressure"))
 def phiflow_iterate(
     velocity_grid: Any,
     smoke_grid: Any,
@@ -154,6 +167,7 @@ def phiflow_iterate(
     return v_trj, s_trj, p_trj
 
 
+@plugin.function
 def phiflow_plot_and_save(
     smoke_trajectory: Any,
     output_filename: str,
@@ -187,6 +201,7 @@ def phiflow_plot_and_save(
     return anim
 
 
+@plugin.function
 def phiflow_union(
     geom1: Any,
     geom2: Any = None,
@@ -217,25 +232,3 @@ def phiflow_union(
     result = union(*raw_geometries)
     print(f"phiflow_union: combined {len(raw_geometries)} geometries")
     return result
-
-
-class PhiFlowPlugin(Plugin):
-    """PhiFlow physics-simulation wrappers."""
-
-    def get_functions(self) -> Dict[str, Any]:
-        """Return PhiFlow function definitions"""
-        return {
-            "phiflow_iterate": phiflow_iterate,
-            "phiflow_plot_and_save": phiflow_plot_and_save,
-            "phiflow_union": phiflow_union,
-        }
-
-    def get_classes(self) -> Dict[str, Any]:
-        """Return PhiFlow class definitions"""
-        return {
-            "PhiFlowBox": PhiFlowBox,
-            "PhiFlowSphere": PhiFlowSphere,
-            "PhiFlowStaggeredGrid": PhiFlowStaggeredGrid,
-            "PhiFlowCenteredGrid": PhiFlowCenteredGrid,
-            "PhiFlowCuboid": PhiFlowCuboid,
-        }

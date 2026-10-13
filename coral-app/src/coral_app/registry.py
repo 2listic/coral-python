@@ -2,6 +2,8 @@ import inspect
 import json
 from typing import Any, Dict, List, Mapping, Optional
 
+from coral_core import ClassDeclaration, Declaration
+
 from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
 from coral_app.nodeports import NodePorts, Port, build_port_table, methods_of
 from coral_app.primitives import DEFAULT_LITERAL
@@ -113,7 +115,7 @@ def _add_methods(
     port_table: Dict[str, NodePorts],
     class_names: Mapping[type, str],
 ) -> None:
-    """Add all public methods of a class to the registry, keyed by 'Class.method'.
+    """Add all declared methods of a class to the registry, keyed by their method node type.
 
     Which methods exist, and that the instance occupies input port 0, both come from the port
     table.
@@ -135,9 +137,9 @@ def _add_methods(
 
 
 def generate_registry(
-    function_map: Dict[str, callable],
+    function_map: Dict[str, Declaration],
     primitives: List[str] = None,
-    class_map: Dict[str, type] = None,
+    class_map: Dict[str, ClassDeclaration] = None,
 ) -> Dict:
     """Generate the node registry in the DealiiX platform format.
 
@@ -153,9 +155,10 @@ def generate_registry(
     keys.
 
     Args:
-        function_map: Mapping of function name -> callable.
+        function_map: Mapping of function name -> declaration.
         primitives: List of primitive type names to include (always added).
-        class_map: Optional mapping of class name -> class (adds constructors and methods).
+        class_map: Optional mapping of class name -> class declaration (adds constructors and
+            methods).
 
     Returns:
         The registry dict keyed by node ``type``.
@@ -181,7 +184,7 @@ def generate_registry(
 
     # Each registered class is named by its key. The port table has already refused a class
     # registered under two keys, so this inversion loses nothing.
-    class_names = {cls: name for name, cls in (class_map or {}).items()}
+    class_names = {declaration.target: name for name, declaration in (class_map or {}).items()}
 
     # Add primitive types, keyed by the primitive type name. Primitives take no inputs, but the
     # empty `arguments` list is required: the platform's registry validator skips any entry lacking
@@ -204,7 +207,11 @@ def generate_registry(
     if class_map:
         for class_name in class_map:
             _add_constructor(
-                registry, class_name, class_map[class_name], port_table[class_name], class_names
+                registry,
+                class_name,
+                class_map[class_name].target,
+                port_table[class_name],
+                class_names,
             )
 
         for class_name in class_map:

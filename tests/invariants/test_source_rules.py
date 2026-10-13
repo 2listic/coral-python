@@ -197,10 +197,10 @@ class TestNoFutureAnnotations:
 
 
 class TestStageSeparation:
-    """Issue #23: one job per module, enforced structurally rather than by convention.
+    """One job per module, enforced structurally rather than by convention.
 
-    The refactor split the old executor into stages — describe node types (``nodeports``), validate
-    and order a graph (``graph``), execute it (``executor``). These guards pin the boundaries that
+    The host runs in stages — describe node types (``nodeports``), validate and order a graph
+    (``graph``), execute it (``executor``). These guards pin the boundaries that
     make each stage independently testable: ``graph.py`` compares plain data, so it never
     introspects a callable or reaches for a plugin; ``executor.py`` receives an already-validated
     graph, so it never parses JSON, sorts, or walks the edge list.
@@ -255,6 +255,16 @@ class TestStageSeparation:
         modules, _ = self._imports("executor")
 
         assert "inspect" not in modules
+
+    def test_registry_and_executor_do_not_import_each_other(self):
+        """GIVEN registry.py and executor.py
+        WHEN their imports are parsed
+        THEN neither names the other: they are two independent readers of the port table."""
+        registry_modules, registry_symbols = self._imports("registry")
+        executor_modules, executor_symbols = self._imports("executor")
+
+        assert "coral_app.executor" not in registry_modules and "executor" not in registry_symbols
+        assert "coral_app.registry" not in executor_modules and "registry" not in executor_symbols
 
     def test_executor_does_not_read_or_order_the_graph(self):
         """GIVEN executor.py
@@ -356,9 +366,9 @@ class TestFrameworkTestsNameNoPlugin:
 
     The framework is two packages: the contract (`coral-core`) and the app (`coral-app`). Neither may
     reach for a plugin — `coral-app`'s tests run against the designed specimen in
-    `coral-app/tests/specimen.py`, and the contract's need only the ABC — so both pass with **zero**
-    plugins installed and never skip. Three ways a plugin name could creep back in are checked; a
-    plugin's own name inside its own `tests/` is fine and untouched here.
+    `coral-app/tests/specimen.py`, and the contract's need only `Plugin` itself — so both pass with
+    **zero** plugins installed and never skip. Three ways a plugin name could creep back in are
+    checked; a plugin's own name inside its own `tests/` is fine and untouched here.
 
     The literal check compares a string for *equality* with a plugin name, so `"math.sqrt"` and the
     word "string" in prose do not trip it, while `build_function_map(include=["math"])` does.

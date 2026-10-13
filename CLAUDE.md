@@ -19,9 +19,10 @@ The project uses PhiFlow for physics simulations and numerical computing.
 
 The repo is a **uv workspace / monorepo**: a small set of independently installable distributions —
 the framework at the root (`coral-core/`, `coral-app/`) and one directory per plugin under `plugins/`.
-A minimal contract package (`coral-core`) defines a `Plugin` ABC; the host
-(`coral-app`) discovers and loads plugins at runtime via `importlib.metadata` entry points; each
-capability (`math`, `string`, `phiflow`, `pypde`) is its own `coral-plugin-*` distribution. See
+A minimal contract package (`coral-core`) defines `Plugin`, on which a plugin declares its node
+types with decorators; the host (`coral-app`) discovers and loads plugins at runtime via
+`importlib.metadata` entry points; each capability (`math`, `string`, `phiflow`, `pypde`) is its own
+`coral-plugin-*` distribution. See
 [Package layout](#package-layout) below.
 
 > For the narrative — goals, architecture rationale, the two contracts with the DealiiX platform, and how to
@@ -210,7 +211,7 @@ graph's plugin requirement is its directory and never something inferred at run 
   simulation graph is *validated without being executed* — constructing a `Graph` runs all ten
   checks and calls nothing, so the graph-JSON contract is guarded at ~0 ms per file.
 - **The framework suites name no plugin.** `coral-app/tests/specimen.py` provides a designed
-  plugin surface (`SpecimenPlugin`, `RivalPlugin`, and three clash plugins that exist to be refused),
+  plugin surface (`specimen_plugin`, `rival_plugin`, and four clash plugins that exist to be refused),
   handed to the host by patching the one name→instance lookup. Enforced from outside by
   `tests/invariants/test_source_rules.py`, which fails on a `coral_plugin_*` import, a `mark.<plugin>`,
   or a string literal equal to a plugin name anywhere under `coral-core/tests` or `coral-app/tests`.
@@ -238,7 +239,7 @@ extension is a directory under `plugins/`. Adding a plugin is routine; touching 
 
 ```
 pyproject.toml                     # virtual uv workspace root (no [project]); members + sources
-coral-core/                        # the contract: the Plugin ABC and the @outputs mark. Depends on nothing internal.
+coral-core/                        # the contract: Plugin, its decorators and declarations. Depends on nothing internal.
 └── src/coral_core/__init__.py
 coral-app/                         # the host: discovery, node types, graph, executor, CLI. Depends on coral-core only.
 └── src/coral_app/
@@ -251,11 +252,11 @@ coral-app/                         # the host: discovery, node types, graph, exe
     ├── executor.py                # graph execution: walk the order, call each node
     ├── nodestatus.py              # the per-node status markers: qualified ids + the marker files
     └── cli.py                     # register / run subcommands; console script `coral`
-plugins/                           # the open set: a third-party plugin is a peer of these three
-├── coral-math/                    # entry point `math`  -> coral_plugin_math:MathPlugin
-├── coral-string/                  # entry point `string`-> coral_plugin_string:StringPlugin
-├── coral-phiflow/                 # entry point `phiflow` -> coral_plugin_phiflow:PhiFlowPlugin (owns phiflow/jax/h5py)
-└── coral-pypde/                   # entry point `pypde` -> coral_plugin_pypde:PyPDEPlugin (owns py-pde/h5py)
+plugins/                           # the open set: a third-party plugin is a peer of these four
+├── coral-math/                    # entry point `math`  -> coral_plugin_math:plugin
+├── coral-string/                  # entry point `string`-> coral_plugin_string:plugin
+├── coral-phiflow/                 # entry point `phiflow` -> coral_plugin_phiflow:plugin (owns phiflow/jax/h5py)
+└── coral-pypde/                   # entry point `pypde` -> coral_plugin_pypde:plugin (owns py-pde/h5py)
 ```
 
 **A plugin has four names, and only the directory drops the word `plugin`** — worth knowing before
@@ -274,70 +275,109 @@ it finds them at runtime via entry-point discovery.
 
 ### Core components
 
-1. **`coral-core`** — the shared contract, an ABC:
+1. **`coral-core`** — the shared contract. A plugin is an **instance** of the concrete class
+   `Plugin`; its node types are declared on it with three decorators, each usable bare, with
+   options, or as a plain call on an object defined elsewhere, and each returning its target
+   unchanged:
    ```python
-   class Plugin(ABC):
-       @abstractmethod
-       def get_functions(self) -> dict[str, Callable]: ...
-       @abstractmethod
-       def get_classes(self) -> dict[str, type]: ...
+   plugin = Plugin()
+
+   @plugin.function                       # node "add"
+   def add(a: float, b: float) -> float: ...
+
+   @plugin.cls                            # node "Calculator" (its constructor)
+   class Calculator:
+       @plugin.method(outputs="value")    # node "Calculator.get_value"
+       def get_value(self) -> float: ...
+
+   plugin.function(math.atan2, name="math.atan2",
+                   annotations={"y": float, "x": float, "return": float})
    ```
-   There is no `name`/`describe` — a plugin's **entry-point name** is its identity. The ABC *enforces* both
-   methods (a subclass missing either cannot be instantiated).
+   There is no `name`/`describe` — a plugin's **entry-point name** is its identity. The options are
+   `name=` (the node name; default `__name__`; a class's or method's may not contain `.`),
+   `inputs=` (`{parameter: label}`), `outputs=` (output names in port order; not on `cls`) and
+   `annotations=` (types for the parameters, and `"return"` except on `cls`, the signature leaves
+   unannotated). All
+   are **labels only**: wiring stays positional. They are kept in the plugin, never on the target.
+   What can be checked without a signature is checked at the decorator: the target's kind (`function`
+   takes any non-class callable, `cls` a class, `method` a plain function other than `__init__` /
+   `__new__`), the options' shapes, and duplicates within the plugin (a name used twice across
+   functions and classes, a class or method declared twice; one function under two names is an alias).
 
-   It also holds `outputs(*names)`, a decorator that names a function's or method's outputs in
-   port order: Python names every parameter but no return value, so an output name has to be
-   declared. It only marks — it stores the names on the function and returns the same object — and
-   the host reads them back through `output_names(func)` (`None` when unmarked). The names are
-   checked on their own when the decorator is applied (strings, at least one, none empty, all
-   distinct, and only a plain function may be marked); whether there is one per output port is
-   checked by `build_port_table`. See [Type Hint Requirements](#type-hint-requirements).
+   **Methods are opt-in**: only a declared method is a node. `plugin.functions()` /
+   `plugin.classes()` resolve the declarations when the host asks, so declaration order does not
+   matter: for each declared class the MRO is walked, and an attribute is a method node when some
+   class in it holds a function this plugin declared under that attribute. A subclass therefore has
+   its bases' declared methods (registered or not); an undeclared override keeps the node and its
+   `name=` / `inputs=` / `outputs=`, but cannot keep `annotations=`, which describe one function's
+   signature: when the declaration has them, the override must be declared itself.
+   Declarations are not inherited across plugins. `classes()` raises if a declared method belongs to
+   no registered class, if two of a class's methods resolve to one node name, or if an override is
+   not a function or replaces a method declared with `annotations=` without a declaration of its own.
 
-2. **Plugins (`coral-plugin-*`)** — each subclasses `Plugin` and returns today's dict-shaped surface from
-   `get_functions()` / `get_classes()`. Each declares itself under the `coral.plugins` entry-point group with its
-   **class** as the target, e.g. `[project.entry-points."coral.plugins"] math = "coral_plugin_math:MathPlugin"`.
+   What the host receives are frozen dataclasses: `functions()` -> `{node type: Declaration(target,
+   inputs, outputs, annotations)}`, `classes()` -> `{class key: ClassDeclaration(target, inputs,
+   annotations, methods)}`, `methods` being `{method node type: MethodDeclaration(attribute,
+   declaration)}` keyed by the full `<class key>.<name>`. `coral_core` reads no signature and builds
+   no port; that is the host's job.
+
+2. **Plugins (`coral-plugin-*`)** — each module creates `plugin = Plugin()` and declares its node
+   types on it. Each declares itself under the `coral.plugins` entry-point group with that
+   **instance** as the target, e.g. `[project.entry-points."coral.plugins"] math = "coral_plugin_math:plugin"`.
    The entry-point **name** (`math` / `string` / `phiflow` / `pypde`) is the identity the platform's `-p` contract uses and
    must not change. `coral-plugin-phiflow` declares `phiflow`/`jax`/`h5py` as hard dependencies.
 
 3. **`coral-app`** — the host. Its `__init__.py` provides:
    - `PLUGIN_GROUP = "coral.plugins"`.
    - `discover() -> list[str]`: lists installed plugin names, **sorted**, **without importing** any.
-   - `load(name) -> Plugin`: imports **only** that plugin, validates it resolves to a `Plugin` subclass
-     (`TypeError` otherwise), instantiates it (`PluginClass()`); unknown name → `LookupError`.
-   - `build_function_map(include=None, exclude=None)` / `build_class_map(...)`: same signatures as before, now
-     re-backed by `discover`/`load`. `include=None` → `sorted(discover())`; names are merged in selection order.
+   - `load(name) -> Plugin`: imports **only** that plugin and returns the `Plugin` instance its entry
+     point resolves to (`TypeError` for anything else, a `Plugin` subclass included); unknown name →
+     `LookupError`.
+   - `build_function_map(include=None, exclude=None)` / `build_class_map(...)`: merge the selected
+     plugins' `functions()` / `classes()` declarations, re-backed by `discover`/`load`.
+     `include=None` → `sorted(discover())`; names are merged in selection order.
      An unknown name → `LookupError`. **One node type, one owner**: a name declared twice raises
      `DuplicateNodeTypeError` (a `ValueError` subclass, in `coral_app/errors.py`, re-exported here) — whether
      the second declaration comes from another plugin or collides with one of the host's
-     `BUILTIN_FUNCTIONS`. A name claimed by a function *and* a class escapes this check, because the two
+     `BUILTINS`. A name claimed by a function *and* a class escapes this check, because the two
      surfaces are merged into two separate maps; `nodeports.build_port_table` is where they meet and raises
      the same error. There is nothing to
      arbitrate: a graph names only the node type, so a silently displaced `list_append` would change what every
      graph on the platform computes while the JSON looks identical. `build_function_map` still applies
-     `BUILTIN_FUNCTIONS` **last**, which is now only about *key order* in `node_types.json`, not about precedence.
+     `BUILTINS` **last**, which is now only about *key order* in `node_types.json`, not about precedence.
      This replaced the former "later wins" merge, which was never a designed rule but the behaviour of
      `dict.update()`; the single real duplicate it papered over — `print_result`, declared by both math and
      string — is gone, each plugin naming its own (`print_number` / `print_text`).
    - Re-exports the two host-owned node surfaces: `PRIMITIVES_MAP` (from `coral_app/primitives.py`)
-     and `BUILTIN_FUNCTIONS` (from `coral_app/builtin_nodes.py`).
+     and `BUILTINS` (from `coral_app/builtin_nodes.py`), a `Plugin` declaring the 15 collection
+     functions with the same decorators, merged without entry-point discovery.
 
    The rest of the host is **one job per module**, in stages (issue #23). Nothing imports backwards:
    `nodeports` knows callables but not graphs; `graph` knows graphs but not callables; `registry` and
    `executor` are two independent consumers that **do not import each other**.
 
-   - **`nodeports.py`** (stage 2): `build_port_table(function_map, class_map, primitives)` returns
-     node type -> `NodePorts(kind, inputs, outputs)` — `inputs` and `outputs` each a list of
-     `Port(name, annotation)` in port order. An input's name is its parameter's; an output's is the
-     one declared with `@outputs`, else `""`. The **single place** that derives a node's
+   - **`nodeports.py`** (stage 2): `build_port_table(function_map, class_map, primitives)` takes the
+     declarations and returns node type -> `NodePorts(kind, inputs, outputs, attribute)` — `inputs`
+     and `outputs` each a list of `Port(name, annotation, instance)` in port order, `attribute` the
+     name a method is looked up by on its instance (`None` for every other kind). It reads each callable's
+     signature, then applies `annotations=` (fill only: typing an annotated slot, including an
+     explicit `Any`, raises), `inputs=` (relabel; labels must stay distinct) and `outputs=` (name),
+     in that order; a key naming no parameter, or a method's instance, raises. An input's name is its
+     parameter's or its label; an output's is the one declared with `outputs=`, else `""`. Every
+     port is passed by position, so a callable with no readable signature, or with a keyword-only,
+     `*args` or `**kwargs` parameter, raises `ValueError` — which refuses many C-extension classes
+     (`datetime.date`), though not all (`decimal.Decimal` has a readable, positional signature).
+     The **single place** that derives a node's
      arity from a callable, so the registry and the executor can no longer disagree about it. A
-     method's port 0 is its instance (`Port("self", cls)`); a missing annotation is normalised to `Any`.
+     method's port 0 is its instance: its first parameter, whatever its name, re-emitted as
+     `Port("self", cls, instance=True)`; a method with no parameter at all raises. A missing
+     annotation is normalised to `Any`.
      `methods_of(port_table, class_name)` lists a class's `Class.method` entries. Also the only place
      the three node surfaces meet, so it is where **one name declared as two kinds** — a primitive and
      a function, a function and a class — raises `DuplicateNodeTypeError`; a node type named `list` /
      `set` / `dict` is such a case, since those are primitives. It raises the same for one class
-     registered under two keys. A collision with a
-     `Class.method` key is *not* refused: that key is derived from a class, not declared by anyone, so
-     a function named `math.sqrt` keeps its name against a class `math` with a `sqrt` method.
+     registered under two keys, and for a dotted function name equal to a declared method's
+     `Class.method` key: a function `math.sqrt` and a class `math` declaring `sqrt` are refused.
    - **`graph.py`** (stage 3): `Graph(nodes, edges, port_table)` and
      `Graph.from_file(path, port_table)`. **Constructing one validates it** — see
      [Graph validation](#graph-validation). Exposes `.order`, `.node(id)`, `.ports_of(id)`,
@@ -403,8 +443,8 @@ Edge format:
 - Each entry has:
   - `type`: the node type string (equals the entry's key)
   - `arguments`: Array with `connection_type` ("input"/"output"), `type`, and `name` (empty `[]` for primitives)
-    — an output argument's `name` is what `@outputs` declared, else `""`; the editor shows it as the
-    socket's label
+    — an input argument's `name` is its parameter's or its `inputs=` label; an output argument's
+    is what `outputs=` declared, else `""`; the editor shows it as the socket's label
   - `inputs`: List of input indices
   - `outputs`: List of output indices (or `[-1]` for constructors/primitives)
   - `node_type`: "primitive", "function", "constructor", or "method"
@@ -446,9 +486,9 @@ Edge format:
 | 5 | write the registry | port table | `node_types.json` | `coral_app/registry.py` |
 
 1. **Discover/Load**: the host lists installed plugins (no import) and loads only the requested names.
-2. **Build maps**: each loaded plugin's `get_functions()`/`get_classes()` are merged into `function_map` /
-   `class_map` (selection order; a duplicate name raises `DuplicateNodeTypeError`), then `BUILTIN_FUNCTIONS`
-   is added to `function_map` last — so the host's own nodes are present under every selection, and a plugin
+2. **Build maps**: each loaded plugin's `functions()`/`classes()` declarations are merged into
+   `function_map` / `class_map` (selection order; a duplicate name raises `DuplicateNodeTypeError`),
+   then `BUILTINS.functions()` is added to `function_map` last — so the host's own nodes are present under every selection, and a plugin
    claiming one of their names is refused rather than ignored. Primitives come
    from the host `PRIMITIVES_MAP`. With no plugin at all, stage 1 still yields a complete surface: the
    primitives plus the 15 builtins.
@@ -470,9 +510,11 @@ Edge format:
 ### Node Execution Model
 
 Each node's kind is read from the port table — `graph.ports_of(node_id).kind`, one of `primitive` /
-`function` / `constructor` / `method`. The kind is decided in `nodeports.build_port_table()` by
-membership in `PRIMITIVES_MAP` / `function_map` / `class_map` plus the `Class.method` split, in that
-precedence order (so a dotted function name like `math.sqrt` stays a function).
+`function` / `constructor` / `method`. The kind is decided in `nodeports.build_port_table()` by where
+the entry comes from — `PRIMITIVES_MAP`, `function_map`, `class_map` (the constructor) or a class's
+declared methods, already keyed `Class.method`; no type name is split. One name declared as two of
+them raises `DuplicateNodeTypeError`. Only a function can meet a method key, since class keys and
+primitives contain no `.`: a function `math.sqrt` and a class `math` declaring `sqrt` are refused.
 
 **Primitive nodes** are the one special case, and they return early with the value `Graph` already
 read (`graph.literals`): `primitives.read_literal` reads the node's `value` the way its declared
@@ -501,9 +543,12 @@ built (check 10), so a bad literal fails before any node runs.
 
    | kind | callable | arguments |
    | --- | --- | --- |
-   | function | `function_map[type]` | all the values |
-   | constructor | `class_map[type]` | all the values |
-   | method | `getattr(values[0], method_name)` | `values[1:]` |
+   | function | `function_map[type].target` | all the values |
+   | constructor | `class_map[type].target` | all the values |
+   | method | `getattr(values[0], ports.attribute)` | `values[1:]` |
+
+   A method is looked up by its **attribute**, not by its node type, which `name=` may have changed;
+   and on the instance, so a subclass's override is what runs.
 
 3. **Call** — a plain positional call, `target(*arguments)`. The values already arrive in port order,
    which *is* parameter order, so nothing here looks at the callable's signature; `executor.py` does
@@ -517,7 +562,7 @@ verified before execution began.
 
 | check | when | what |
 | --- | --- | --- |
-| **instance** | resolving a method's callable | input port 0 must really hold an instance of the named class (`isinstance(instance, class_map[class_name])`) |
+| **instance** | resolving a method's callable | input port 0 must really hold an instance of the class it is annotated with (`isinstance(instance, ports.inputs[0].annotation)`), the annotation check 8 validated the edge against |
 | **output arity** | right after a node returns | a node declaring n > 1 outputs must have returned a tuple of exactly n |
 
 The **output arity** check exists because the port table's arity comes from a return annotation,
@@ -672,6 +717,7 @@ certain, because wrongly refusing a good graph is worse than not checking one.
 | `Any`, or no annotation | anything | skip |
 | anything | `Any`, or no annotation | skip |
 | a class | the same class, or a base of it | accept |
+| a number | a method's instance (port 0) of a numeric class, e.g. `Fraction` | **reject** unless the same class or a subclass — the executor checks the instance with `isinstance`, so no widening reaches it |
 | `bool` | `int` | accept — `bool` really is an `int` subclass |
 | `int` | `float` | accept — numeric widening |
 | anything | `bool` | **reject** — widening never lands on `bool`; only `bool` itself is accepted |
@@ -687,12 +733,12 @@ standard library's own `numbers` tower rather than a hand-written table.
 The check only sees what a node's author declares, so **annotation quality is the author's
 responsibility**. A *slot* below is one annotation the check can look at — every input and output of
 every node type, except a method's `self` (which the port table synthesises from the class). Across
-the four plugins and the host's builtins, 114 of 146 slots are checkable and 32 are `Any` — and every
+the four plugins and the host's builtins, 122 of 154 slots are checkable and 32 are `Any` — and every
 one of the 32 is in phiflow or in the builtins, where 9 are deliberate (see below):
 
 | source | slots | `Any` | checkable |
 | --- | --- | --- | --- |
-| math | 28 | 0 | 28 |
+| math | 36 | 0 | 36 |
 | string | 8 | 0 | 8 |
 | phiflow | 48 | 23 | 25 |
 | pypde | 26 | 0 | 26 |
@@ -828,12 +874,19 @@ is what provides their node types. The
   Keep the reasoning, drop the citation: reword the sentence so it stands on its own. `issues/` is
   the historical record and is exempt.
 - **Naming conventions**:
-  - Functions: Use simple names in the function map (e.g., `"add"`, `"math.sqrt"`)
-  - Methods: Use fully qualified names (e.g., `"Calculator.add_to_value"`)
-  - Classes: Class name becomes the `type` field for constructors (e.g., `"Calculator"`)
+  - Functions: the node type is `__name__`, or `name=`, which may contain `.` (e.g., `"add"`,
+    `"math.sqrt"`)
+  - Classes: the class key is `__name__`, or `name=`, without `.`; it is the constructor's `type`
+    (e.g., `"Calculator"`)
+  - Methods: the node type is derived as `<class key>.<name>`, `name` being `__name__` or `name=`
+    without `.` (e.g., `"Calculator.add_to_value"`); it is never written whole
   - Plugin entry-point names (`math` / `string` / `phiflow` / `pypde`) are the platform-facing identity — do not change them.
-- **Type hint requirement**: All functions/methods must have type hints for proper registry generation
-- **C extension limitation**: C extension classes (like `datetime`) only register constructors, not methods (due to `inspect.isfunction()` behavior) — and the constructor is a placeholder, `object.__init__`'s `*args`/`**kwargs` as two `any` ports, not the type's real arguments
+- **Type hint requirement**: every parameter and return must be typed, in the code or with
+  `annotations=`, for proper registry generation
+- **C extension limitation**: a C-extension class registers its constructor only if a signature
+  can be read from it and every parameter is positional (`decimal.Decimal` can; `datetime.date`
+  cannot). None of its methods can be declared: they are not plain functions. Wrap it in a
+  pure-Python class
 
 ## Adding a New Plugin
 
@@ -847,30 +900,36 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
    └── src/coral_plugin_<name>/__init__.py
    ```
 
-2. **Write typed wrapper functions/classes** (type hints are required — the registry is annotation-driven; see
-   the ONBOARDING guide for why `math.sqrt` needs a wrapper) and a `Plugin` subclass:
+2. **Create the plugin and declare its node types on it** (type hints are required — the registry
+   is annotation-driven). A callable defined elsewhere needs no wrapper when `annotations=` can
+   supply the types its signature lacks; a wrapper is still the way to adapt an API:
    ```python
    # src/coral_plugin_<name>/__init__.py
-   from typing import Any, Dict, Tuple
-   from coral_core import Plugin, outputs
+   import math
+   from typing import Tuple
+   from coral_core import Plugin
 
+   plugin = Plugin()
+
+   @plugin.function
    def my_function(param1: float, param2: str) -> int:
        """Function description"""
        ...
 
-   @outputs("quotient", "remainder")   # optional: labels the outputs in the editor
+   @plugin.function(outputs=("quotient", "remainder"))   # optional: labels the outputs in the editor
    def my_divmod(a: int, b: int) -> Tuple[int, int]:
        ...
 
+   @plugin.cls
    class MyClass:
        def __init__(self, x: float = 0.0): ...
+
+       @plugin.method                  # only declared methods become nodes
        def do_thing(self, amount: float) -> float: ...
 
-   class MyPlugin(Plugin):
-       def get_functions(self) -> Dict[str, Any]:
-           return {"my_function": my_function, "my_divmod": my_divmod}
-       def get_classes(self) -> Dict[str, Any]:
-           return {"MyClass": MyClass}
+   # A callable defined elsewhere, declared as it is
+   plugin.function(math.fmod, name="math.fmod",
+                   annotations={"x": float, "y": float, "return": float})
    ```
 
 3. **Declare the entry point and dependencies** in `plugins/coral-<name>/pyproject.toml`:
@@ -886,7 +945,7 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
    dependencies = ["coral-core"]   # + any real libraries this plugin wraps (e.g. "numpy")
 
    [project.entry-points."coral.plugins"]
-   <name> = "coral_plugin_<name>:MyPlugin"
+   <name> = "coral_plugin_<name>:plugin"
 
    [tool.hatch.build.targets.wheel]
    packages = ["src/coral_plugin_<name>"]
@@ -919,7 +978,7 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
        ├── <name>_suite.py             # PLUGIN_NAME, MODULE_NAME, INSTALLED, paths to graphs/golden
        ├── conftest.py                 # fixtures + the collect-time guard (see below)
        ├── graphs/                     # editor exports this plugin owns
-       ├── unit/                       # its functions and classes, plus its ABC conformance.
+       ├── unit/                       # its functions and classes, plus its Plugin conformance.
        │   │                           #   Imports only itself and `coral_core`.
        │   └── test_plugin_present.py  #   the entry-point name, and that it is *this* package's
        └── system/                     # its graphs through the host; `coral_app` allowed here
@@ -951,17 +1010,17 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
      installable at all.
 
 **How registration works internally:**
-1. Constructor nodes are generated from `__init__` signatures.
-2. Method nodes are auto-generated for all public instance methods (non-underscore).
-3. Methods use fully qualified names: `ClassName.method_name`.
+1. Constructor nodes are generated from the class's signature (`inspect.signature(cls)`).
+2. Method nodes are generated only for declared methods, inherited ones included (see Core components).
+3. Methods use fully qualified names: `ClassKey.name`, `name` defaulting to the method's `__name__`.
 4. First input to method nodes is always the instance.
 
 **Limitations:**
-- C extension classes (like `datetime`) only register constructors, not methods (due to `inspect.isfunction()`
-  returning False for C extension methods). The constructor is a placeholder too: such a class defines no
-  `__init__` of its own, so the port table reads `object`'s — `(self, /, *args, **kwargs)` — and emits two
-  `"any"` sockets named `args`/`kwargs`, which no graph can wire usefully. For a real constructor and full
-  method support, create a pure-Python wrapper class.
+- Every port is passed by position, so a parameter that is keyword-only, `*args` or `**kwargs` is
+  refused, and the whole node type with it.
+- A C-extension class registers its constructor only if a signature can be read from it and every
+  parameter is positional (`decimal.Decimal` can; `datetime.date` cannot). None of its methods can
+  be declared: they are not plain functions. Create a pure-Python wrapper class.
 
 ### Type Hint Requirements
 
@@ -969,7 +1028,10 @@ The registry system requires explicit type hints:
 - Use basic Python types: `int`, `float`, `str`, `bool`
 - Use `Any` from `typing` for flexible types (note: has issues with `function-schema` library)
 - Return type `None` indicates no output
-- Missing type hints default to `"any"` in registry
+- Missing type hints default to `"any"` in registry; `annotations=` supplies them for a callable
+  whose source cannot be annotated (a builtin, another library's class). It only fills: a key for an
+  already annotated slot raises. A value must be the type itself, not its name: a `str` raises,
+  since it is never resolved; for a class defined later, use the call form once the class exists
 - A class annotation renders as the class's key only if a selected plugin registers that class;
   otherwise it is `"any"`. Generics (`List[X]`, `Optional[X]`) are always `"any"`
 - A **tuple return must declare its elements**: `Tuple[float, str]` is two output ports. Bare `Tuple`,
@@ -982,11 +1044,11 @@ The registry system requires explicit type hints:
 - A function must return what its annotation declares: a node declaring n > 1 outputs returning
   anything but a tuple of exactly n raises at run time (see [Node Execution Model](#node-execution-model))
 - **Naming outputs**: a return value has no name, so every output is written with `"name": ""`
-  unless the callable declares names with `coral_core.outputs`, one per output port, in order —
-  `@outputs("velocity", "smoke", "pressure")` on a `-> Tuple[Any, Any, Any]`. It works on functions
-  and methods; a subclass inheriting a decorated method inherits its names. A name count different
-  from the output-port count (including any name on a `-> None`) is rejected by `build_port_table`
-  with a `ValueError` naming the node type, and so is `@outputs` on an `__init__`: a constructor's
-  output is the instance, written as `outputs: [-1]` with no argument to carry a name. Names are
-  labels only — wiring stays positional (`source_output`)
+  unless its declaration gives `outputs=`, one name per output port, in order —
+  `@plugin.function(outputs=("velocity", "smoke", "pressure"))` on a `-> Tuple[Any, Any, Any]`. It
+  works on functions and methods; a subclass inheriting a declared method inherits its names. A
+  name count different from the output-port count (including any name on a `-> None`) is rejected
+  by `build_port_table` with a `ValueError` naming the node type. `plugin.cls` takes no `outputs=`:
+  a constructor's output is the instance, written as `outputs: [-1]` with no argument to carry a
+  name. Names are labels only — wiring stays positional (`source_output`)
 - Do **not** use `from __future__ import annotations` (see Key Constraints above)

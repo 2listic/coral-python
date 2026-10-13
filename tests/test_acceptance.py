@@ -151,7 +151,7 @@ def test_wheel_pip_acceptance(clean_env: _CleanEnv, tmp_path: Path):
     THEN the host works alone (its primitives and builtins), each plugin adds exactly its own nodes,
          load stays lazy across plugins, and uninstalling a plugin removes its nodes.
     """
-    from coral_app import BUILTIN_FUNCTIONS, PRIMITIVES_MAP
+    from coral_app import BUILTINS, PRIMITIVES_MAP
 
     env = clean_env
 
@@ -160,9 +160,9 @@ def test_wheel_pip_acceptance(clean_env: _CleanEnv, tmp_path: Path):
     env.install("coral-app")
     assert env.discovered() == []
     host_registry = env.registry(tmp_path)
-    assert len(host_registry) == len(PRIMITIVES_MAP) + len(BUILTIN_FUNCTIONS)
+    assert len(host_registry) == len(PRIMITIVES_MAP) + len(BUILTINS.functions())
     assert all(e["node_type"] in ("primitive", "function") for e in host_registry.values())
-    assert set(BUILTIN_FUNCTIONS) <= set(host_registry)
+    assert set(BUILTINS.functions()) <= set(host_registry)
     assert host_registry["list_append"]["node_type"] == "function"
 
     # + math: its function and constructor nodes appear.

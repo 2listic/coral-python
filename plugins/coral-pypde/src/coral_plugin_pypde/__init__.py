@@ -1,7 +1,7 @@
 """coral-plugin-pypde — py-pde PDE-solver wrappers.
 
-Subclasses the coral-core ``Plugin`` contract; registered under the
-``coral.plugins`` entry-point group as ``pypde``.
+Every node type is declared on :data:`plugin`, the ``coral_core.Plugin`` instance registered
+under the ``coral.plugins`` entry-point group as ``pypde``.
 
 py-pde is a hard dependency of this distribution, so its import is unconditional: a broken
 install fails loud with ``ImportError`` instead of silently registering nothing.
@@ -11,7 +11,7 @@ edge-type check can judge a py-pde workflow before the solver starts: a grid wir
 field belongs is refused while the graph is being constructed, not after a simulation has run.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from coral_core import Plugin
 from pde import DiffusionPDE, FileStorage, PlotTracker, ScalarField, UnitGrid
@@ -22,12 +22,17 @@ __all__ = [
     "PyPDEFileStorage",
     "PyPDEMovie",
     "PyPDEPlotTracker",
-    "PyPDEPlugin",
     "PyPDEScalarField",
     "PyPDEUnitGrid",
+    "plugin",
 ]
 
+#: This plugin: the entry point's target, on which every node type below is declared. It declares
+#: no function: py-pde's API is objects that carry state between steps.
+plugin = Plugin()
 
+
+@plugin.cls
 class PyPDEUnitGrid:
     """Wrapper for a two-dimensional UnitGrid.
 
@@ -38,6 +43,7 @@ class PyPDEUnitGrid:
         self.grid = UnitGrid([x, y])
 
 
+@plugin.cls
 class PyPDEScalarField:
     """Wrapper for a ScalarField of uniform random values — a simulation's initial condition."""
 
@@ -49,14 +55,15 @@ class PyPDEScalarField:
         """Wrap a field py-pde produced, skipping the random initial condition.
 
         The public constructor *is* the initial-condition node, so it cannot double as a way to
-        carry a solved field back out of ``PyPDEDiffusionPDE.solve``. Underscored so the registry
-        never offers it as a node: only public methods become ``Class.method`` entries.
+        carry a solved field back out of ``PyPDEDiffusionPDE.solve``. Not declared as a method, so
+        the registry never offers it as a node.
         """
         wrapper = cls.__new__(cls)
         wrapper.field = field
         return wrapper
 
 
+@plugin.cls
 class PyPDEFileStorage:
     """Wrapper for a FileStorage and the tracker that writes into it.
 
@@ -70,6 +77,7 @@ class PyPDEFileStorage:
         self.tracker = self.storage.tracker(interrupts)
 
 
+@plugin.cls
 class PyPDEMovie:
     """Wrapper for a Movie.
 
@@ -82,6 +90,7 @@ class PyPDEMovie:
         self.movie = Movie(filename, framerate=framerate, dpi=dpi, bitrate=bitrate)
 
 
+@plugin.cls
 class PyPDEPlotTracker:
     """Wrapper for a PlotTracker drawing frames into a movie.
 
@@ -95,12 +104,14 @@ class PyPDEPlotTracker:
         self.tracker = PlotTracker(interrupts, movie=self.movie)
 
 
+@plugin.cls
 class PyPDEDiffusionPDE:
     """Wrapper for the diffusion equation."""
 
     def __init__(self, diffusivity: float):
         self.equation = DiffusionPDE(diffusivity=diffusivity)
 
+    @plugin.method
     def solve(
         self,
         state: PyPDEScalarField,
@@ -118,22 +129,3 @@ class PyPDEDiffusionPDE:
         )
         plot.movie.save()
         return PyPDEScalarField._holding(final)
-
-
-class PyPDEPlugin(Plugin):
-    """py-pde PDE-solver wrappers."""
-
-    def get_functions(self) -> Dict[str, Any]:
-        """Return py-pde function definitions — this plugin declares none."""
-        return {}
-
-    def get_classes(self) -> Dict[str, Any]:
-        """Return py-pde class definitions"""
-        return {
-            "PyPDEUnitGrid": PyPDEUnitGrid,
-            "PyPDEScalarField": PyPDEScalarField,
-            "PyPDEFileStorage": PyPDEFileStorage,
-            "PyPDEMovie": PyPDEMovie,
-            "PyPDEPlotTracker": PyPDEPlotTracker,
-            "PyPDEDiffusionPDE": PyPDEDiffusionPDE,
-        }

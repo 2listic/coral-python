@@ -3,7 +3,14 @@ from typing import List, Optional
 
 from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
 from coral_app.graph import Graph
-from coral_app.nodeports import CONSTRUCTOR, FUNCTION, METHOD, PRIMITIVE, build_port_table
+from coral_app.nodeports import (
+    CONSTRUCTOR,
+    FUNCTION,
+    METHOD,
+    PRIMITIVE,
+    NodePorts,
+    build_port_table,
+)
 from coral_app.nodestatus import NodeStatusDir
 
 
@@ -98,7 +105,7 @@ class WorkflowExecutor:
                     print(f"{node_id} (primitive) = {self.results[node_id]}")
                 else:
                     values = self._input_values(node_id)
-                    target, arguments = self._resolve(node_id, node["type"], kind, values)
+                    target, arguments = self._resolve(node_id, node["type"], ports, values)
 
                     # Inputs arrive in port order, which is parameter order, so a positional call
                     # binds them correctly — no need to look at the callable's signature.
@@ -184,32 +191,36 @@ class WorkflowExecutor:
             values.append(value)
         return values
 
-    def _resolve(self, node_id: str, node_type: str, kind: str, values: list):
+    def _resolve(self, node_id: str, node_type: str, ports: NodePorts, values: list):
         """The callable a node runs, and the arguments to pass it.
 
         This is the one three-way distinction the executor cannot write once: a method's callable is
         produced by one of its own inputs, so it is only known at run time.
         """
-        if kind == FUNCTION:
-            return self.function_map[node_type], values
+        if ports.kind == FUNCTION:
+            return self.function_map[node_type].target, values
 
-        if kind == CONSTRUCTOR:
-            return self.class_map[node_type], values
+        if ports.kind == CONSTRUCTOR:
+            return self.class_map[node_type].target, values
 
-        if kind == METHOD:
-            class_name, method_name = node_type.rsplit(".", 1)
+        if ports.kind == METHOD:
+            cls = ports.inputs[0].annotation
             instance = values[0]
 
             # The only check left in the executor, because it is the only one about a value rather
-            # than about wiring: port 0 must really hold an instance of the class.
-            if not isinstance(instance, self.class_map[class_name]):
+            # than about wiring: port 0 must really hold an instance of the class. The class is
+            # port 0's annotation, the one graph validation checked the edge against.
+            if not isinstance(instance, cls):
                 raise ValueError(
                     f"Method node {self.graph.describe(node_id)} expected instance of "
-                    f"{class_name}, got {type(instance).__name__}"
+                    f"{cls.__name__}, got {type(instance).__name__}"
                 )
 
-            return getattr(instance, method_name), values[1:]
+            # By attribute, not by node type: a method may be declared under another name. Looked
+            # up on the instance, so a subclass's override is what runs.
+            return getattr(instance, ports.attribute), values[1:]
 
         raise ValueError(
-            f"Unknown node kind: {kind}. Supported kinds: primitive, function, constructor, method"
+            f"Unknown node kind: {ports.kind}. Supported kinds: primitive, function, constructor, "
+            f"method"
         )
