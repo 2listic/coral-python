@@ -767,6 +767,16 @@ class TestOptionsAreRefused:
         with pytest.raises(TypeError, match="annotations= takes"):
             getattr(Plugin(), decorator)(target, annotations=annotations)
 
+    @pytest.mark.parametrize("decorator", ["function", "cls", "method"])
+    def test_an_annotation_cannot_be_a_string(self, decorator):
+        """GIVEN annotations= giving a type by its name, as a string
+        WHEN any decorator is applied
+        THEN TypeError naming the key: a string is never resolved, so the port would silently
+        become `any`."""
+        target = Fraction if decorator == "cls" else add
+        with pytest.raises(TypeError, match=r"not their names: \['a'\]"):
+            getattr(Plugin(), decorator)(target, annotations={"a": "float"})
+
 
 class TestDuplicatesInOnePlugin:
     """One plugin cannot declare one node type twice."""

@@ -481,11 +481,19 @@ def _outputs(outputs: Any, where: str) -> tuple[str, ...] | None:
 
 
 def _annotations(annotations: dict[str, Any] | None, where: str) -> dict[str, Any]:
-    """``annotations=`` checked as far as it can be without the signature: a dict, ``str`` keys."""
+    """``annotations=`` checked as far as it can be without the signature: a dict, ``str`` keys,
+    and values that are not ``str`` — a type's name is never resolved, so it would type nothing."""
     if annotations is None:
         return {}
     if not isinstance(annotations, dict) or not all(isinstance(k, str) for k in annotations):
         raise TypeError(
             f"{where}: annotations= takes a dict of parameter name -> type, got {annotations!r}"
+        )
+    named = [key for key, value in annotations.items() if isinstance(value, str)]
+    if named:
+        raise TypeError(
+            f"{where}: annotations= takes types, not their names: {named} given as strings, "
+            f"which are never resolved. For a class defined later, use the call form once it "
+            f"exists: plugin.method(Cls.m, annotations={{'x': Cls}})"
         )
     return dict(annotations)

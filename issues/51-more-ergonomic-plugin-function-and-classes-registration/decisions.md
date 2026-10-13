@@ -174,7 +174,7 @@ math = "coral_plugin_math:plugin"      # the instance; the entry-point name is u
 | `__init__` / `__new__` marked | `coral_core` | at the decorator | `ValueError` |
 | `name=` not a non-empty `str`; `.` in a class or method name | `coral_core` | at the decorator | `TypeError` / `ValueError` |
 | `outputs=`: not strings, none, empty, repeated | `coral_core` | at the decorator | `TypeError` / `ValueError` |
-| `inputs=` not a dict of `str` -> non-empty `str`; `annotations=` not a dict with `str` keys | `coral_core` | at the decorator | `TypeError` / `ValueError` |
+| `inputs=` not a dict of `str` -> non-empty `str`; `annotations=` not a dict with `str` keys, or a `str` value | `coral_core` | at the decorator | `TypeError` / `ValueError` |
 | a function name or class key used twice in one plugin, across both kinds | `coral_core` | at the decorator | `ValueError` |
 | one method marked twice in one plugin | `coral_core` | at the decorator | `ValueError` |
 | one class registered twice in one plugin | `coral_core` | at the decorator | `ValueError` |

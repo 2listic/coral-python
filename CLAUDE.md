@@ -1030,7 +1030,8 @@ The registry system requires explicit type hints:
 - Return type `None` indicates no output
 - Missing type hints default to `"any"` in registry; `annotations=` supplies them for a callable
   whose source cannot be annotated (a builtin, another library's class). It only fills: a key for an
-  already annotated slot raises
+  already annotated slot raises. A value must be the type itself, not its name: a `str` raises,
+  since it is never resolved; for a class defined later, use the call form once the class exists
 - A class annotation renders as the class's key only if a selected plugin registers that class;
   otherwise it is `"any"`. Generics (`List[X]`, `Optional[X]`) are always `"any"`
 - A **tuple return must declare its elements**: `Tuple[float, str]` is two output ports. Bare `Tuple`,
