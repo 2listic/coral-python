@@ -1,6 +1,6 @@
 import numpy as np
 
-from pde import PDEBase, ScalarField, CartesianGrid
+from pde import PDEBase, ScalarField
 
 
 class ObstacleDiffusionPDE(PDEBase):
@@ -35,7 +35,7 @@ class ObstacleDiffusionPDE(PDEBase):
         c0[self.source] = 1.0
         state = ScalarField(grid, c0)
         return state
-        
+
     def masked_laplacian(self, c):
         """Apply mask to discrete laplacian according to obstacles."""
         lap = np.zeros_like(c)

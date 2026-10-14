@@ -18,8 +18,8 @@ from pde.visualization.movies import Movie
 grid = pde.UnitGrid([32, 32])
 state = pde.ScalarField.random_uniform(grid, 0.2, 0.3)
 
-outHDF5 = 'pypde/examples/output/out.hdf5'
-outMP4 = 'pypde/examples/output/out.mp4'
+outHDF5 = 'plugins/coral-pypde/examples/scripts/diffusion.hdf5'
+outMP4 = 'plugins/coral-pypde/examples/scripts/diffusion.mp4'
 
 # create tracker which writes to hdf5
 writer = pde.FileStorage(outHDF5, write_mode="truncate")

@@ -106,22 +106,6 @@
         "value": "100",
         "qualified_id": "19"
       },
-      "21": {
-        "type": "PyPDEObstacleDiffusionPDE",
-        "position": {
-          "x": 790.1116456160892,
-          "y": 1328.690473358327
-        },
-        "qualified_id": "21"
-      },
-      "24": {
-        "type": "PyPDECircle",
-        "position": {
-          "x": 326.2208264935185,
-          "y": 1470.4389170767238
-        },
-        "qualified_id": "24"
-      },
       "25": {
         "type": "float",
         "position": {
@@ -139,22 +123,6 @@
         },
         "value": "0.008",
         "qualified_id": "26"
-      },
-      "27": {
-        "type": "PyPDECircle",
-        "position": {
-          "x": 343.12829816315605,
-          "y": 1743.7639135494694
-        },
-        "qualified_id": "27"
-      },
-      "28": {
-        "type": "PyPDECircle",
-        "position": {
-          "x": 379.36630292292915,
-          "y": 1977.6637624534603
-        },
-        "qualified_id": "28"
       },
       "29": {
         "type": "PyPDECartesianGrid",
@@ -244,13 +212,45 @@
         "value": "[120, 120]",
         "qualified_id": "39"
       },
-      "40": {
+      "41": {
         "type": "PyPDEObstacleDiffusionPDE.get_initial_condition",
         "position": {
-          "x": 1594.1367532441418,
-          "y": 1549.7414318040774
+          "x": 1531.4827303113213,
+          "y": 1449.710798117153
         },
-        "qualified_id": "40"
+        "qualified_id": "41"
+      },
+      "42": {
+        "type": "PyPDEObstacleDiffusionPDE",
+        "position": {
+          "x": 927.7875708966578,
+          "y": 1320.6548257957288
+        },
+        "qualified_id": "42"
+      },
+      "45": {
+        "type": "PyPDECircle",
+        "position": {
+          "x": 416.7169582835166,
+          "y": 1534.314157750087
+        },
+        "qualified_id": "45"
+      },
+      "46": {
+        "type": "PyPDECircle",
+        "position": {
+          "x": 425.32068977161157,
+          "y": 1773.7846841687303
+        },
+        "qualified_id": "46"
+      },
+      "47": {
+        "type": "PyPDECircle",
+        "position": {
+          "x": 436.7923317557382,
+          "y": 2030.4626735635638
+        },
+        "qualified_id": "47"
       }
     },
     "edges": {
@@ -315,140 +315,122 @@
         "target_input": 0
       },
       "10": {
-        "source": 26,
-        "target": 21,
-        "source_output": 0,
-        "target_input": 1
-      },
-      "11": {
-        "source": 25,
-        "target": 21,
-        "source_output": 0,
-        "target_input": 0
-      },
-      "12": {
-        "source": 29,
-        "target": 24,
-        "source_output": 0,
-        "target_input": 2
-      },
-      "13": {
-        "source": 29,
-        "target": 27,
-        "source_output": 0,
-        "target_input": 2
-      },
-      "14": {
-        "source": 29,
-        "target": 28,
-        "source_output": 0,
-        "target_input": 2
-      },
-      "15": {
-        "source": 24,
-        "target": 21,
-        "source_output": 0,
-        "target_input": 2
-      },
-      "16": {
-        "source": 27,
-        "target": 21,
-        "source_output": 0,
-        "target_input": 3
-      },
-      "17": {
-        "source": 28,
-        "target": 21,
-        "source_output": 0,
-        "target_input": 4
-      },
-      "18": {
-        "source": 31,
-        "target": 24,
-        "source_output": 0,
-        "target_input": 0
-      },
-      "19": {
-        "source": 34,
-        "target": 24,
-        "source_output": 0,
-        "target_input": 1
-      },
-      "20": {
-        "source": 32,
-        "target": 27,
-        "source_output": 0,
-        "target_input": 0
-      },
-      "21": {
-        "source": 35,
-        "target": 27,
-        "source_output": 0,
-        "target_input": 1
-      },
-      "22": {
-        "source": 33,
-        "target": 28,
-        "source_output": 0,
-        "target_input": 0
-      },
-      "23": {
-        "source": 36,
-        "target": 28,
-        "source_output": 0,
-        "target_input": 1
-      },
-      "24": {
         "source": 19,
         "target": 38,
         "source_output": 0,
         "target_input": 2
       },
-      "25": {
+      "11": {
         "source": 9,
         "target": 38,
         "source_output": 0,
         "target_input": 3
       },
-      "26": {
+      "12": {
         "source": 16,
         "target": 38,
         "source_output": 0,
         "target_input": 4
       },
-      "27": {
+      "13": {
         "source": 39,
         "target": 29,
         "source_output": 0,
         "target_input": 1
       },
-      "28": {
-        "source": 21,
-        "target": 40,
-        "source_output": 0,
-        "target_input": 0
-      },
-      "29": {
+      "14": {
         "source": 29,
-        "target": 40,
+        "target": 42,
         "source_output": 0,
-        "target_input": 1
+        "target_input": 2
       },
-      "30": {
-        "source": 21,
-        "target": 38,
+      "15": {
+        "source": 25,
+        "target": 42,
         "source_output": 0,
         "target_input": 0
       },
-      "31": {
-        "source": 40,
+      "16": {
+        "source": 26,
+        "target": 42,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "17": {
+        "source": 31,
+        "target": 45,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "18": {
+        "source": 34,
+        "target": 45,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "19": {
+        "source": 32,
+        "target": 46,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "20": {
+        "source": 35,
+        "target": 46,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "21": {
+        "source": 33,
+        "target": 47,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "22": {
+        "source": 36,
+        "target": 47,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "23": {
+        "source": 45,
+        "target": 42,
+        "source_output": 0,
+        "target_input": 3
+      },
+      "24": {
+        "source": 46,
+        "target": 42,
+        "source_output": 0,
+        "target_input": 4
+      },
+      "25": {
+        "source": 47,
+        "target": 42,
+        "source_output": 0,
+        "target_input": 5
+      },
+      "26": {
+        "source": 42,
+        "target": 41,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "27": {
+        "source": 41,
         "target": 38,
         "source_output": 0,
         "target_input": 1
+      },
+      "28": {
+        "source": 42,
+        "target": 38,
+        "source_output": 0,
+        "target_input": 0
       }
     }
   },
   "version": 1,
   "author": "dealiix-platform",
-  "date_time_utc": "2026-10-14T11:51:43.656Z"
+  "date_time_utc": "2026-10-14T13:03:44.036Z"
 }

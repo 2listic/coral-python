@@ -1,6 +1,6 @@
-import ast
-import numpy as np
-from typing import Any, Dict
+from ast import literal_eval
+from typing import Any
+
 from pde import ScalarField
 
 from ..grids.base import PyPDEGridBase
@@ -15,16 +15,10 @@ class PyPDEScalarField:
             field_type: str = "",
             data: Any = None,
     ):
-        
-        if field_type=="random_uniform":
-            assert type(data)==dict
-            data = ast.literal_eval(data)
+        if field_type == "random_uniform":
+            data = literal_eval(data)
             self.field = ScalarField.random_uniform(grid.grid, **data)
-        elif field_type=="array":
-            assert type(data)==ScalarField
-            self.field = data
-        elif field_type=="field":
-            assert type(data)==True
+        elif field_type == "field":
             self.field = data
         else:
             raise ValueError(f"invalid ``field_type`` selection, got {field_type}")
@@ -48,7 +42,7 @@ class PyPDEScalarField:
             self.field.plot(filename=filename)
         else:
             raise ValueError("coral-python only supports plots in png format atm.")
-    
+
     def to_file(self, filename):
         "Wrapper for the ``to_file`` method of a Scalarfield"
         if filename.endswith(".h5"):
