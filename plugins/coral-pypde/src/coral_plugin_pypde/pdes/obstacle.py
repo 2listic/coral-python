@@ -30,8 +30,14 @@ class ObstacleDiffusionPDE(PDEBase):
         # All these regions have fixed concentrations
         self.fixed = self.obstacle | self.source | self.absorber
 
+    def get_initial_state(self, grid):
+        c0 = np.zeros_like(self.source)
+        c0[self.source] = 1.0
+        state = ScalarField(grid, c0)
+        return state
+        
     def masked_laplacian(self, c):
-        """Apply mask to discrete laplacian according to obstacle."""
+        """Apply mask to discrete laplacian according to obstacles."""
         lap = np.zeros_like(c)
         h2 = self.dx**2
 
@@ -53,7 +59,7 @@ class ObstacleDiffusionPDE(PDEBase):
 
     def evolution_rate(self, state, t=0):
         """
-        Implement the rate as requested by the parent class.
+        Implement the ``evolution_rate`` method as requested by the parent class.
         This only allows to use the numpy backend.
         """
         c = state.data

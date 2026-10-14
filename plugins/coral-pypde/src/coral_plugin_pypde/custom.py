@@ -54,6 +54,14 @@ class PyPDEObstacleDiffusionPDE:
     ):
         self.equation = ObstacleDiffusionPDE(diffusivity, dx, source, absorber, obstacle)
 
+    def get_initial_condition(
+            self,
+            grid
+    ) -> PyPDEScalarField:
+        state = self.equation.get_initial_state(grid.grid)
+        field = PyPDEScalarField(field_type="array", data=state) 
+        return field
+        
     def solve(
         self,
         state: PyPDEScalarField,
