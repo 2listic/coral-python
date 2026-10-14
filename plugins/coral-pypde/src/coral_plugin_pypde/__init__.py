@@ -21,8 +21,9 @@ from .grids.cartesian import PyPDEUnitGrid, PyPDECartesianGrid
 from .fields.scalar import PyPDEScalarField
 from .storage.file import PyPDEFileStorage
 from .visualization.movies import PyPDEMovie
-from .pdes.diffusion import PyPDEDiffusionPDE
 from .trackers.trackers import PyPDEPlotTracker
+from .pdes.diffusion import PyPDEDiffusionPDE
+from .custom import PyPDEObstacleDiffusionPDE, PyPDECircle
 
 
 __all__ = ["PyPDEPlugin"]
@@ -48,4 +49,6 @@ class PyPDEPlugin(Plugin):
             "PyPDEMovie": PyPDEMovie,
             "PyPDEPlotTracker": PyPDEPlotTracker,
             "PyPDEDiffusionPDE": PyPDEDiffusionPDE,
+            "PyPDECircle": PyPDECircle,
+            "PyPDEObstacleDiffusionPDE": PyPDEObstacleDiffusionPDE,
         }

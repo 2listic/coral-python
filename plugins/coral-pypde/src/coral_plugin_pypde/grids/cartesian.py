@@ -1,4 +1,5 @@
 import ast
+# from typing import Any
 
 from pde import UnitGrid, CartesianGrid
 
@@ -22,9 +23,8 @@ class PyPDECartesianGrid(PyPDEGridBase):
     py-pde takes the shape as a sequence; two scalar ports are what a graph can wire.
     """
 
-    def __init__(self, bounds: str):
+    def __init__(self, bounds: str, shape: str):
         bc = ast.literal_eval(bounds)
-        self.grid = CartesianGrid(bc, 32)
-
-        
+        sh = ast.literal_eval(shape)
+        self.grid = CartesianGrid(bc, sh)
     

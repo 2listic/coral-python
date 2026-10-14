@@ -14,6 +14,7 @@ node_types.json
 
 # Simulation artifacts (e.g. simulation.mp4) written by workflow runs.
 # Tests redirect these into a temp dir (see tests/conftest.py::isolate_cwd).
+run-*
 *.mp4
 *.gif
 *.hdf5
