@@ -1,6 +1,5 @@
-import ast
+from ast import literal_eval
 from typing import Any
-# from pde import CartesianGrid
 
 from .pdes.obstacle import ObstacleDiffusionPDE
 from .grids.cartesian import PyPDECartesianGrid
@@ -19,26 +18,33 @@ class PyPDECircle(PyPDEShape):
             self,
             radius: float,
             center: str,
-            grid: PyPDECartesianGrid
-    ) -> Any:
-        xC, yC = ast.literal_eval(center)
+    ):
+        self.radius = radius
+        self.center = center
+
+    def _build_mask(self, grid):
+        xC, yC = literal_eval(self.center)
         x, y = grid.grid.cell_coords[..., 0], grid.grid.cell_coords[..., 1]
-        circle = (x - xC)**2 + (y - yC)**2 < radius**2
+        circle = (x - xC)**2 + (y - yC)**2 < self.radius**2
         self.mask = circle
 
 
-# class PyPDERectangle(Shape):
+# class PyPDECircle(PyPDEShape):
 
 #     def __init__(
 #             self,
+#             radius: float,
 #             center: str,
-#             sides: str,
-#             grid: CartesianGrid
+#             grid: PyPDECartesianGrid
 #     ) -> Any:
-#         xC, yC = ast.literal_eval(center)
-#         x, y = grid.cell_coords[..., 0], grid.cell_coords[..., 1]
+#         xC, yC = literal_eval(center)
+#         x, y = grid.grid.cell_coords[..., 0], grid.grid.cell_coords[..., 1]
 #         circle = (x - xC)**2 + (y - yC)**2 < radius**2
-#         return circle
+#         self.mask = circle
+
+
+class PyPDERectangle(PyPDEShape):
+    pass
 
 
 class PyPDEObstacleDiffusionPDE:
@@ -48,26 +54,31 @@ class PyPDEObstacleDiffusionPDE:
             self,
             diffusivity: float,
             dx: float,
+            grid: PyPDECartesianGrid,
             source: PyPDEShape,
             absorber: PyPDEShape,
             obstacle: PyPDEShape,
     ):
-        self.equation = ObstacleDiffusionPDE(diffusivity, dx, source, absorber, obstacle)
-
-    def get_initial_condition(
-            self,
-            grid
-    ) -> PyPDEScalarField:
-        state = self.equation.get_initial_state(grid.grid)
-        field = PyPDEScalarField(field_type="array", data=state) 
-        return field
+        self.grid = grid
+        source._build_mask(self.grid)
+        absorber._build_mask(self.grid)
+        obstacle._build_mask(self.grid)
+        self.source = source
+        self.absorber = absorber
+        self.obstacle = obstacle
+        self.equation = ObstacleDiffusionPDE(diffusivity, dx, self.source, self.absorber, self.obstacle)
         
+    def get_initial_condition(self) -> PyPDEScalarField:
+        state = self.equation.get_initial_state(self.grid.grid)
+        field = PyPDEScalarField(field_type="field", data=state)
+        return field
+
     def solve(
-        self,
-        state: PyPDEScalarField,
-        t_range: int,
-        storage: PyPDEFileStorage,
-        plot: PyPDEPlotTracker,
+            self,
+            state: PyPDEScalarField,
+            t_range: int,
+            storage: PyPDEFileStorage,
+            plot: PyPDEPlotTracker,
     ) -> PyPDEScalarField:
         """Integrate to ``t_range``, feeding both trackers, and return the final state.
 
