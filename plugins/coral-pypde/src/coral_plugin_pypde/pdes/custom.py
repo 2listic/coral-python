@@ -1,11 +1,10 @@
 from ast import literal_eval
-from typing import Any
 
-from .pdes.obstacle import ObstacleDiffusionPDE
-from .grids.cartesian import PyPDECartesianGrid
-from .fields.scalar import PyPDEScalarField
-from .storage.file import PyPDEFileStorage
-from .trackers.trackers import PyPDEPlotTracker
+from .obstacle import ObstacleDiffusionPDE
+from ..grids.cartesian import PyPDECartesianGrid
+from ..fields.scalar import PyPDEScalarField
+from ..storage.file import PyPDEFileStorage
+from ..trackers.trackers import PyPDEPlotTracker
 
 
 class PyPDEShape:
@@ -13,6 +12,10 @@ class PyPDEShape:
 
 
 class PyPDECircle(PyPDEShape):
+    """
+    This class is used to define in coral a mask for a circular
+    source/absorber/obstacle object to use in the PDE simulation
+    """
 
     def __init__(
             self,
@@ -29,22 +32,26 @@ class PyPDECircle(PyPDEShape):
         self.mask = circle
 
 
-# class PyPDECircle(PyPDEShape):
-
-#     def __init__(
-#             self,
-#             radius: float,
-#             center: str,
-#             grid: PyPDECartesianGrid
-#     ) -> Any:
-#         xC, yC = literal_eval(center)
-#         x, y = grid.grid.cell_coords[..., 0], grid.grid.cell_coords[..., 1]
-#         circle = (x - xC)**2 + (y - yC)**2 < radius**2
-#         self.mask = circle
-
-
 class PyPDERectangle(PyPDEShape):
-    pass
+    """
+    This class is used to define in coral a mask for a rectangular
+    source/absorber/obstacle object to use in the PDE simulation
+    """
+
+    def __init__(
+            self,
+            center: str,
+            sides: str,
+    ):
+        self.center = center
+        self.sides = sides
+
+    def _build_mask(self, grid):
+        xC, yC = literal_eval(self.center)
+        L1, L2 = literal_eval(self.sides)
+        x, y = grid.grid.cell_coords[..., 0], grid.grid.cell_coords[..., 1]
+        rectangle = (abs(x - xC) < L1) & (abs(y - yC) < L2)
+        self.mask = rectangle
 
 
 class PyPDEObstacleDiffusionPDE:
@@ -67,7 +74,7 @@ class PyPDEObstacleDiffusionPDE:
         self.absorber = absorber
         self.obstacle = obstacle
         self.equation = ObstacleDiffusionPDE(diffusivity, dx, self.source, self.absorber, self.obstacle)
-        
+
     def get_initial_condition(self) -> PyPDEScalarField:
         state = self.equation.get_initial_state(self.grid.grid)
         field = PyPDEScalarField(field_type="field", data=state)

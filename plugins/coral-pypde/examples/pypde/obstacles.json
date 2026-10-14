@@ -4,8 +4,8 @@
       "6": {
         "type": "str",
         "position": {
-          "x": 344.5,
-          "y": 718
+          "x": 806,
+          "y": 0
         },
         "value": "obstacles.hdf5",
         "qualified_id": "6"
@@ -13,8 +13,8 @@
       "7": {
         "type": "str",
         "position": {
-          "x": 344.5,
-          "y": 576
+          "x": 806,
+          "y": 142
         },
         "value": "truncate",
         "qualified_id": "7"
@@ -22,8 +22,8 @@
       "8": {
         "type": "float",
         "position": {
-          "x": 344.5,
-          "y": 434
+          "x": 806,
+          "y": 284
         },
         "value": "1",
         "qualified_id": "8"
@@ -31,16 +31,16 @@
       "9": {
         "type": "PyPDEFileStorage",
         "position": {
-          "x": 699.5,
-          "y": 522.5
+          "x": 1330,
+          "y": 17.5
         },
         "qualified_id": "9"
       },
       "10": {
         "type": "str",
         "position": {
-          "x": 0,
-          "y": 696.75
+          "x": 368,
+          "y": 217
         },
         "value": "obstacles.mp4",
         "qualified_id": "10"
@@ -48,8 +48,8 @@
       "11": {
         "type": "int",
         "position": {
-          "x": 0,
-          "y": 555.964194884395
+          "x": 368,
+          "y": 359
         },
         "value": "5",
         "qualified_id": "11"
@@ -57,8 +57,8 @@
       "12": {
         "type": "int",
         "position": {
-          "x": 0,
-          "y": 146
+          "x": 368,
+          "y": 501
         },
         "value": "200",
         "qualified_id": "12"
@@ -66,8 +66,8 @@
       "13": {
         "type": "int",
         "position": {
-          "x": 0,
-          "y": 4
+          "x": 368,
+          "y": 643
         },
         "value": "6000",
         "qualified_id": "13"
@@ -75,16 +75,16 @@
       "14": {
         "type": "PyPDEMovie",
         "position": {
-          "x": 336.5,
-          "y": 142
+          "x": 798,
+          "y": 426
         },
         "qualified_id": "14"
       },
       "15": {
         "type": "float",
         "position": {
-          "x": 344.5,
-          "y": 0
+          "x": 806,
+          "y": 763.5
         },
         "value": "1",
         "qualified_id": "15"
@@ -92,16 +92,16 @@
       "16": {
         "type": "PyPDEPlotTracker",
         "position": {
-          "x": 696.5,
-          "y": 49.25
+          "x": 1327,
+          "y": 506
         },
         "qualified_id": "16"
       },
       "19": {
         "type": "int",
         "position": {
-          "x": 725.5,
-          "y": 778.25
+          "x": 1356,
+          "y": 940.25
         },
         "value": "100",
         "qualified_id": "19"
@@ -109,8 +109,8 @@
       "25": {
         "type": "float",
         "position": {
-          "x": 323.36211374873426,
-          "y": 1177.1332936693789
+          "x": 368,
+          "y": 785
         },
         "value": "0.002",
         "qualified_id": "25"
@@ -118,8 +118,8 @@
       "26": {
         "type": "float",
         "position": {
-          "x": 323.3621137487343,
-          "y": 1299.0247642249797
+          "x": 368,
+          "y": 927
         },
         "value": "0.008",
         "qualified_id": "26"
@@ -127,16 +127,16 @@
       "29": {
         "type": "PyPDECartesianGrid",
         "position": {
-          "x": -126.76633749635764,
-          "y": 1300.5759839882346
+          "x": 330,
+          "y": 1921
         },
         "qualified_id": "29"
       },
       "30": {
         "type": "str",
         "position": {
-          "x": -411.0169211059982,
-          "y": 1188.8548413931035
+          "x": 0,
+          "y": 2024.5
         },
         "value": "[[0.0, 1.0], [0.0, 1.0]]",
         "qualified_id": "30"
@@ -144,8 +144,8 @@
       "31": {
         "type": "float",
         "position": {
-          "x": -98.81962485971593,
-          "y": 1515.9129846675492
+          "x": 0,
+          "y": 1740.5
         },
         "value": "0.07",
         "qualified_id": "31"
@@ -153,26 +153,17 @@
       "32": {
         "type": "float",
         "position": {
-          "x": -88.65868111136558,
-          "y": 1785.177993998833
+          "x": 0,
+          "y": 1456.5
         },
         "value": "0.025",
         "qualified_id": "32"
       },
-      "33": {
-        "type": "float",
-        "position": {
-          "x": -76.80424673829017,
-          "y": 2022.2666814603406
-        },
-        "value": "0.12",
-        "qualified_id": "33"
-      },
       "34": {
         "type": "str",
         "position": {
-          "x": -97.12613423499084,
-          "y": 1648.0052533961032
+          "x": 0,
+          "y": 1598.5
         },
         "value": "[0.2, 0.5]",
         "qualified_id": "34"
@@ -180,8 +171,8 @@
       "35": {
         "type": "str",
         "position": {
-          "x": -80.19122798774032,
-          "y": 1905.415828354312
+          "x": 0,
+          "y": 1314.5
         },
         "value": "[0.8, 0.5]",
         "qualified_id": "35"
@@ -189,8 +180,8 @@
       "36": {
         "type": "str",
         "position": {
-          "x": -80.19122798774029,
-          "y": 2150.971968939445
+          "x": 0,
+          "y": 1172.5
         },
         "value": "[0.5, 0.5]",
         "qualified_id": "36"
@@ -198,16 +189,16 @@
       "38": {
         "type": "PyPDEObstacleDiffusionPDE.solve",
         "position": {
-          "x": 1567.5751498697382,
-          "y": 598.0410660665694
+          "x": 1836,
+          "y": 860
         },
         "qualified_id": "38"
       },
       "39": {
         "type": "str",
         "position": {
-          "x": -443.0575434875059,
-          "y": 1341.8331421004432
+          "x": 0,
+          "y": 1882.5
         },
         "value": "[120, 120]",
         "qualified_id": "39"
@@ -215,42 +206,51 @@
       "41": {
         "type": "PyPDEObstacleDiffusionPDE.get_initial_condition",
         "position": {
-          "x": 1531.4827303113213,
-          "y": 1449.710798117153
+          "x": 1206,
+          "y": 1278.5
         },
         "qualified_id": "41"
       },
       "42": {
         "type": "PyPDEObstacleDiffusionPDE",
         "position": {
-          "x": 927.7875708966578,
-          "y": 1320.6548257957288
+          "x": 736,
+          "y": 1125.5
         },
         "qualified_id": "42"
       },
       "45": {
         "type": "PyPDECircle",
         "position": {
-          "x": 416.7169582835166,
-          "y": 1534.314157750087
+          "x": 360.5,
+          "y": 1637
         },
         "qualified_id": "45"
       },
       "46": {
         "type": "PyPDECircle",
         "position": {
-          "x": 425.32068977161157,
-          "y": 1773.7846841687303
+          "x": 360.5,
+          "y": 1353
         },
         "qualified_id": "46"
       },
-      "47": {
-        "type": "PyPDECircle",
+      "49": {
+        "type": "PyPDERectangle",
         "position": {
-          "x": 436.7923317557382,
-          "y": 2030.4626735635638
+          "x": 344.5,
+          "y": 1069
         },
-        "qualified_id": "47"
+        "qualified_id": "49"
+      },
+      "50": {
+        "type": "str",
+        "position": {
+          "x": 0,
+          "y": 1030.5
+        },
+        "value": "[0.02, 0.06]",
+        "qualified_id": "50"
       }
     },
     "edges": {
@@ -381,56 +381,56 @@
         "target_input": 1
       },
       "21": {
-        "source": 33,
-        "target": 47,
-        "source_output": 0,
-        "target_input": 0
-      },
-      "22": {
-        "source": 36,
-        "target": 47,
-        "source_output": 0,
-        "target_input": 1
-      },
-      "23": {
         "source": 45,
         "target": 42,
         "source_output": 0,
         "target_input": 3
       },
-      "24": {
+      "22": {
         "source": 46,
         "target": 42,
         "source_output": 0,
         "target_input": 4
       },
-      "25": {
-        "source": 47,
-        "target": 42,
-        "source_output": 0,
-        "target_input": 5
-      },
-      "26": {
+      "23": {
         "source": 42,
         "target": 41,
         "source_output": 0,
         "target_input": 0
       },
-      "27": {
+      "24": {
         "source": 41,
         "target": 38,
         "source_output": 0,
         "target_input": 1
       },
-      "28": {
+      "25": {
         "source": 42,
         "target": 38,
         "source_output": 0,
         "target_input": 0
+      },
+      "26": {
+        "source": 36,
+        "target": 49,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "27": {
+        "source": 49,
+        "target": 42,
+        "source_output": 0,
+        "target_input": 5
+      },
+      "28": {
+        "source": 50,
+        "target": 49,
+        "source_output": 0,
+        "target_input": 1
       }
     }
   },
   "version": 1,
   "author": "dealiix-platform",
-  "date_time_utc": "2026-10-14T13:03:44.036Z"
+  "date_time_utc": "2026-10-14T14:23:39.905Z"
 }

@@ -23,7 +23,7 @@ from .storage.file import PyPDEFileStorage
 from .visualization.movies import PyPDEMovie
 from .trackers.trackers import PyPDEPlotTracker
 from .pdes.diffusion import PyPDEDiffusionPDE
-from .custom import PyPDEObstacleDiffusionPDE, PyPDECircle
+from .pdes.custom import PyPDEObstacleDiffusionPDE, PyPDECircle, PyPDERectangle
 
 
 __all__ = ["PyPDEPlugin"]
@@ -50,5 +50,6 @@ class PyPDEPlugin(Plugin):
             "PyPDEPlotTracker": PyPDEPlotTracker,
             "PyPDEDiffusionPDE": PyPDEDiffusionPDE,
             "PyPDECircle": PyPDECircle,
+            "PyPDERectangle": PyPDERectangle,
             "PyPDEObstacleDiffusionPDE": PyPDEObstacleDiffusionPDE,
         }

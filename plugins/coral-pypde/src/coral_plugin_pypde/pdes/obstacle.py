@@ -68,3 +68,5 @@ class ObstacleDiffusionPDE(PDEBase):
         rate[self.fixed] = 0.0
 
         return ScalarField(state.grid, rate)
+
+

@@ -4,6 +4,7 @@ from ..fields.scalar import PyPDEScalarField
 from ..storage.file import PyPDEFileStorage
 from ..trackers.trackers import PyPDEPlotTracker
 
+
 class PyPDEDiffusionPDE:
     """Wrapper for the diffusion equation."""
 
