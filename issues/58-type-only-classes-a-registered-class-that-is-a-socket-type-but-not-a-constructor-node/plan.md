@@ -34,7 +34,7 @@ Step references to "decision N" mean `decisions.md`'s numbering.
       `generate_registry`.
 
 ### 4. `coral-app/src/coral_app/graph.py`
-- [ ] 4.1 `_check_node_types_are_known` (check 4): refuse a node whose entry has
+- [x] 4.1 `_check_node_types_are_known` (check 4): refuse a node whose entry has
       `kind == ABSTRACT`, naming the node and the type, and saying it types sockets but is not a
       node. Docstring.
 
