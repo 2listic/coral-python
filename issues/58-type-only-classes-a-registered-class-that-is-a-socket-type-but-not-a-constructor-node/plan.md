@@ -50,20 +50,23 @@ Step references to "decision N" mean `decisions.md`'s numbering.
 - [x] 6.5 `abstract="yes"` → `TypeError`.
 
 ### 7. Specimen and host tests
-- [ ] 7.1 `coral-app/tests/specimen.py`: add `Meter(ABC)` — detected, not flagged — declaring
+- [x] 7.1 `coral-app/tests/specimen.py`: add `Meter(ABC)` — detected, not flagged — declaring
       `read(self) -> float` with `@specimen_plugin.method` over `@abstractmethod`, and
       `Thermometer(Meter)` with `__init__(self, celsius: float)` and an undeclared override of
       `read`. Module table and `__all__`. The explicit flag is covered by step 6 and by pypde.
-- [ ] 7.2 `test_nodeports.py`: `Meter` has kind `ABSTRACT` and no ports; an ABC whose `__init__`
-      is keyword-only is accepted; `Meter.read`'s port 0 is annotated `Meter`; the 2.3 message.
-- [ ] 7.3 `test_registry.py`: the exact `Meter` entry; `Meter.derived == ["Thermometer"]`,
+- [x] 7.2 `test_nodeports.py` (hand-written declarations, as the whole file; a local abstract
+      class `Part`): `Part` has kind `ABSTRACT` and no ports; an abstract class whose `__init__`
+      is keyword-only is accepted; `Part.weigh`'s port 0 is annotated `Part`; the 2.3 message.
+- [x] 7.3 `test_registry.py`: the exact `Meter` entry; `Meter.derived == ["Thermometer"]`,
       `Thermometer.bases == ["Meter"]`; a socket typed `Meter` carries `"Meter"`.
-      `test_the_golden_covers_all_four_kinds_and_the_builtins` (`:878`) → five kinds, renamed.
-- [ ] 7.4 `test_graph.py`: `TestNodeTypes` — a `Meter` node is refused at construction with 4.1's
-      message. `TestEdgeTypes` — `Thermometer` into `Meter.read` port 0 is accepted.
-- [ ] 7.5 `test_executor.py`, `TestMethodNodes`: `Meter.read` on a `Thermometer` runs the
+      `test_the_golden_covers_all_four_kinds_and_the_builtins` (`:878`) → five kinds, renamed;
+      `test_the_four_kinds_all_appear` likewise.
+- [x] 7.4 `test_graph.py` (hand-written port table, as the whole file; a local abstract `Part`
+      and its subclass `Bolt`): `TestNodeTypes` — a `Part` node is refused at construction with
+      4.1's message. `TestEdgeTypes` — `Bolt` into `Part.weigh` port 0 is accepted.
+- [x] 7.5 `test_executor.py`, `TestMethodNodes`: `Meter.read` on a `Thermometer` runs the
       override.
-- [ ] 7.6 Regenerate `coral-app/tests/golden/node_types.format.json` (command in
+- [x] 7.6 Regenerate `coral-app/tests/golden/node_types.format.json` (command in
       `TestFormatGolden`'s docstring). The diff must show only the new `Meter*` / `Thermometer*`
       entries.
 

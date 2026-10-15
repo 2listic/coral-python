@@ -592,6 +592,21 @@ class TestMethodNodes:
 
         assert results["3"] == 0.0
 
+    def test_a_method_of_an_abstract_class_runs_the_override(self, run):
+        """GIVEN a Thermometer wired into port 0 of Meter.read, Meter being abstract
+        WHEN the workflow is executed
+        THEN the Thermometer's own read runs: the method is looked up on the instance."""
+        results = run(
+            {
+                "0": {"qualified_id": "celsius", "type": "float", "value": 21.5},
+                "1": {"qualified_id": "thermometer", "type": "Thermometer"},
+                "2": {"qualified_id": "read", "type": "Meter.read"},
+            },
+            {"0": edge("0", "1", 0), "1": edge("1", "2", 0)},
+        )
+
+        assert results["2"] == 21.5
+
     def test_an_unrelated_class_never_reaches_execution(self, write_graph, specimen_plugins):
         """GIVEN an unrelated class's instance wired into port 0 of a method
         WHEN the executor is merely constructed

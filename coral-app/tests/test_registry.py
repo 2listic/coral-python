@@ -138,14 +138,15 @@ class TestEveryEntryIsWellFormed:
             for required in ("node_type", "arguments", "inputs", "outputs"):
                 assert required in entry, f"{key} missing {required}"
 
-    def test_the_four_kinds_all_appear(self, registry):
-        """GIVEN the specimen, which contributes all four kinds
+    def test_the_five_kinds_all_appear(self, registry):
+        """GIVEN the specimen, which contributes all five kinds
         WHEN the registry is generated
         THEN each kind is present under the node type that produced it."""
         assert registry["int"]["node_type"] == "primitive"
         assert registry["add_pair"]["node_type"] == "function"
         assert registry["Accumulator"]["node_type"] == "constructor"
         assert registry["Accumulator.add"]["node_type"] == "method"
+        assert registry["Meter"]["node_type"] == "abstract"
 
     def test_input_indices_number_the_input_arguments(self, registry):
         """GIVEN any entry
@@ -579,6 +580,37 @@ class TestBases:
         assert all("bases" not in entry and "derived" not in entry for entry in methods)
 
 
+class TestAbstractEntries:
+    """An abstract class is written as the C++ backend writes a type that is never constructed."""
+
+    def test_an_abstract_class_has_no_ports_and_its_own_node_type(self, registry):
+        """GIVEN the specimen's Meter, an ABC with an unimplemented method
+        WHEN its entry is read
+        THEN it is exactly the C++ shape: no arguments, inputs or outputs, node_type "abstract",
+             plus its registered descendants."""
+        assert registry["Meter"] == {
+            "arguments": [],
+            "inputs": [],
+            "outputs": [],
+            "node_type": "abstract",
+            "type": "Meter",
+            "derived": ["Thermometer"],
+        }
+
+    def test_a_subclass_names_its_abstract_base(self, registry):
+        """GIVEN Thermometer, a concrete subclass of the abstract Meter
+        WHEN its entry is read
+        THEN it is a constructor whose bases name Meter."""
+        assert registry["Thermometer"]["node_type"] == "constructor"
+        assert registry["Thermometer"]["bases"] == ["Meter"]
+
+    def test_a_socket_typed_with_an_abstract_class_carries_its_key(self, registry):
+        """GIVEN a method declared on the abstract Meter
+        WHEN its entry is read
+        THEN its instance port is typed "Meter", the key the editor resolves against the entry."""
+        assert inputs_of(registry["Meter.read"])[0]["type"] == "Meter"
+
+
 class TestPrimitiveEntries:
     """Primitives are always present, and are the one kind carrying a `value`."""
 
@@ -874,7 +906,7 @@ class TestFormatGolden:
             f"registry format diverged from {GOLDEN.name}; regenerate it only on purpose"
         )
 
-    def test_the_golden_covers_all_four_kinds_and_the_builtins(self):
+    def test_the_golden_covers_all_five_kinds_and_the_builtins(self):
         """GIVEN the golden file
         WHEN it is parsed
         THEN it holds every node kind plus the host's builtins — otherwise it would pin a format it
@@ -882,5 +914,5 @@ class TestFormatGolden:
         entries = json.loads(GOLDEN.read_text())
 
         kinds = {entry["node_type"] for entry in entries.values()}
-        assert kinds == {"primitive", "function", "constructor", "method"}
+        assert kinds == {"primitive", "function", "constructor", "method", "abstract"}
         assert set(BUILTINS.functions()) <= set(entries)
