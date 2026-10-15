@@ -5,11 +5,13 @@ drive this backend by changing only the executable and plugin paths:
 
     coral -p <plugin> register           # write the node registry (node_types.json) into the cwd
     coral -p <plugin> run <graph.json>    # execute a workflow graph
+    coral plugins                         # list the installed plugins, one name per line
 
 For this Python backend ``-p/--plugin`` names the plugins to load (comma-separated, e.g.
 ``"math,string"``); an empty value loads every installed plugin (via entry-point discovery).
-``-p/--plugin`` must appear before the subcommand. Exposed as the ``coral`` console script and
-wrapped by the ``coral-py`` launcher.
+``-p/--plugin`` must appear before the subcommand; a name that is not installed, or one given
+twice, is refused before any subcommand runs. Exposed as the ``coral`` console script and wrapped
+by the ``coral-py`` launcher.
 """
 
 import argparse
@@ -80,8 +82,13 @@ def main():
         "Existing markers in it are removed before the run.",
     )
 
+    subparsers.add_parser(
+        "plugins",
+        help="List the installed plugins, one name per line: the values -p accepts.",
+    )
+
     args = parser.parse_args()
-    plugins = _resolve_plugins(args.plugin)
+    plugins = _resolve_plugins(parser, args.plugin)
 
     if args.command == "register":
         save_registry_to_file(args.output, plugins=plugins)
@@ -92,21 +99,52 @@ def main():
         executor = WorkflowExecutor(args.graph, plugins=plugins, touch_dir=args.touch_dir)
         results = executor.execute()
         print(f"\nFinal results: {results}")
+    elif args.command == "plugins":
+        for name in discover():
+            print(name)
 
 
 # ── Private helpers ──
 
 
-def _resolve_plugins(plugin_value):
+def _resolve_plugins(parser, plugin_value):
     """Resolve the ``-p/--plugin`` value into an explicit list of plugin names.
 
     Splits a comma-separated value into plugin names, ignoring blank entries. An empty or
     whitespace-only value resolves to every installed plugin (``discover()``). This matches the
     ``None`` default of ``save_registry_to_file`` / ``WorkflowExecutor`` (both also fall back to
     every discovered plugin); it is resolved here explicitly so the loaded set is logged verbatim.
+
+    Every name must be installed and given once; otherwise this exits through ``parser.error``
+    (usage on stderr, status 2), naming every offending plugin at once. It runs before any
+    subcommand: ``load`` would refuse an unknown name too, but only partway through building the
+    maps — after ``run`` has already prepared the touch directory.
     """
     plugins = [p.strip() for p in plugin_value.split(",") if p.strip()]
-    return plugins if plugins else discover()
+    installed = discover()
+    if not plugins:
+        return installed
+
+    unknown = [name for name in dict.fromkeys(plugins) if name not in installed]
+    if unknown:
+        parser.error(
+            f"unknown {_plugins_word(unknown)} {_quoted(unknown)} "
+            f"(installed: {', '.join(installed) or 'none'})"
+        )
+    repeated = [name for name in dict.fromkeys(plugins) if plugins.count(name) > 1]
+    if repeated:
+        parser.error(f"{_plugins_word(repeated)} {_quoted(repeated)} named more than once")
+    return plugins
+
+
+def _plugins_word(names):
+    """``"plugin"`` or ``"plugins"``, agreeing with ``names``."""
+    return "plugin" if len(names) == 1 else "plugins"
+
+
+def _quoted(names):
+    """The names, quoted and comma-separated, in the order given."""
+    return ", ".join(repr(name) for name in names)
 
 
 if __name__ == "__main__":
