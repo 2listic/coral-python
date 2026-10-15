@@ -90,6 +90,8 @@ Step references to "decision N" mean `decisions.md`'s numbering.
 - [x] 9.3 `docs/ONBOARDING.md:141`, `:177`: the kind lists.
 
 ### 10. Verification
-- [x] 10.1 `uv run pytest` green; `uv run pre-commit run --all-files` clean.
+- [x] 10.1 `uv run pytest` green (slow and network included); `ruff format --check` and
+      `ruff check` clean over `coral-core coral-app plugins tests` — the hooks' checks, run
+      check-only rather than through `pre-commit`, whose `ruff format` hook rewrites files.
 - [x] 10.2 Both golden diffs exactly as 7.6 and 8.4 say.
 - [x] 10.3 No issue numbers in code comments/docstrings (invariant suite).

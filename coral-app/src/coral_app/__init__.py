@@ -138,8 +138,8 @@ def build_class_map(
     """Build the class map by merging the selected plugins' class declarations.
 
     Same rule as :func:`build_function_map`, for the same reason: a class name is a node type
-    (a constructor, plus one ``Class.method`` per method), so two plugins declaring one is
-    unresolvable from the graph. There are no builtin classes, so plugins are the only contributors.
+    (a constructor, or an abstract socket type, plus one ``Class.method`` per method), so two
+    plugins declaring one is unresolvable from the graph. There are no builtin classes, so plugins are the only contributors.
 
     Args:
         include: Plugin names to load. If ``None``, loads every discovered plugin.

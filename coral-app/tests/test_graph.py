@@ -22,7 +22,7 @@ node type             inputs                            outputs
 ``Cog``               ``size: float``                   ``Cog``
 ``Cog.spin``          ``self: Cog``                     ``float``
 ``Gear``              ``size: float``                   ``Gear``
-``Part``              abstract: no ports, never a node      —
+``Part``              abstract: no ports, never a node  —
 ``Part.weigh``        ``self: Part``                    ``float``
 ``Bolt``              ``size: float``                   ``Bolt``
 ``list_new``          none                              ``list``

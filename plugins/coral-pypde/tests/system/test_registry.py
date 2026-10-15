@@ -120,8 +120,8 @@ class TestTheGoldenDescribesThisPlugin:
         ``derived``.
 
         The front end matches socket types by string, so these two lists are the only place the
-        hierarchy reaches it: they are what lets it accept a grid or a shape where its base is
-        expected."""
+        hierarchy reaches it. It does not read them yet: until it does, it refuses a grid or a
+        shape where its base is expected, though validation and execution accept one."""
         assert registry["PyPDEUnitGrid"]["bases"] == ["PyPDEGridBase"]
         assert registry["PyPDECartesianGrid"]["bases"] == ["PyPDEGridBase"]
         assert registry["PyPDEGridBase"]["derived"] == ["PyPDEUnitGrid", "PyPDECartesianGrid"]

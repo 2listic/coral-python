@@ -188,7 +188,7 @@ return value no name).
 `python_type_to_string`, which maps each against `PRIMITIVES_MAP` — the nine primitive node types: `int`,
 `float`, `str`, `bool`, `any`, `none` and the collections `list`, `set`, `dict` — and then against the
 **registered classes**, each written as its key in the class
-map (`Calculator`), the same string its constructor entry is keyed by. A class no selected plugin registers,
+map (`Calculator`), the same string its constructor or abstract entry is keyed by. A class no selected plugin registers,
 and any parameterised generic (`List[int]`, `Optional[Calculator]`), is `"any"`. Three behaviours fall out of
 this:
 
