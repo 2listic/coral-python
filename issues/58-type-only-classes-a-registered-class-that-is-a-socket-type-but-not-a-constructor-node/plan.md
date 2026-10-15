@@ -39,15 +39,15 @@ Step references to "decision N" mean `decisions.md`'s numbering.
       node. Docstring.
 
 ### 5. `plugins/coral-pypde/src/coral_plugin_pypde/__init__.py`
-- [ ] 5.1 `plugin.cls(PyPDEGridBase, abstract=True)`, `plugin.cls(PyPDEShape, abstract=True)`
+- [x] 5.1 `plugin.cls(PyPDEGridBase, abstract=True)`, `plugin.cls(PyPDEShape, abstract=True)`
       (decision 4).
 
 ### 6. `coral-core/tests/test_plugin.py`: new `TestAbstractClasses`
-- [ ] 6.1 The five rows of decision 1's table, one test each.
-- [ ] 6.2 `inputs=` refused; `annotations=` refused; both for explicit and for detected abstract.
-- [ ] 6.3 `name=` accepted: the key is the given name.
-- [ ] 6.4 A method declared on an abstract class resolves on it and on a registered subclass.
-- [ ] 6.5 `abstract="yes"` → `TypeError`.
+- [x] 6.1 The five rows of decision 1's table, one test each.
+- [x] 6.2 `inputs=` refused; `annotations=` refused; both for explicit and for detected abstract.
+- [x] 6.3 `name=` accepted: the key is the given name.
+- [x] 6.4 A method declared on an abstract class resolves on it and on a registered subclass.
+- [x] 6.5 `abstract="yes"` → `TypeError`.
 
 ### 7. Specimen and host tests
 - [ ] 7.1 `coral-app/tests/specimen.py`: add `Meter(ABC)` — detected, not flagged — declaring
