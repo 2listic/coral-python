@@ -110,7 +110,7 @@ Installation in `README.md`. Building is a distribution step, not part of the de
 
 `coral` is a coral-compatible CLI (the `coral-app` console script, `coral_app.cli:main`): a global
 `-p/--plugin` option (comma-separated plugin names; empty = all installed) plus `register` / `run`
-subcommands. `-p/--plugin` must precede the subcommand.
+/ `plugins` subcommands. `-p/--plugin` must precede the subcommand.
 ```bash
 # Run a workflow graph (graph path required; all installed plugins by default)
 coral run path/to/workflow.json
@@ -124,6 +124,9 @@ coral run path/to/workflow.json --touch-dir /run/job-42
 coral register
 coral -p "math" register
 coral register --output="custom-registry.json"
+
+# List the installed plugins, one name per line (what -p accepts)
+coral plugins
 ```
 
 The `coral-py` launcher wraps this for the DealiiX platform: it runs the `coral` console script inside the uv
@@ -133,7 +136,9 @@ to the plugin list.
 
 **Default plugin behavior**: When `-p/--plugin` is omitted, all installed plugins are loaded (via entry-point
 discovery, in `sorted(discover())` order). Primitives are always included. An unknown / not-discoverable `-p`
-name fails loud with `LookupError` (no silent partial registry).
+name, or a name given twice, is refused by the CLI before any subcommand runs — `parser.error`, exit
+status 2, every offending name at once plus the installed ones — so `run` has not yet touched its
+`--touch-dir`. Below the CLI, `load()` still raises `LookupError` for an unknown name.
 
 **Available plugins** (each an installed `coral-plugin-*` distribution, registered under the `coral.plugins`
 entry-point group):
@@ -409,7 +414,9 @@ it finds them at runtime via entry-point discovery.
    - `register` subcommand → `save_registry_to_file()` (writes `node_types.json` into the cwd).
    - `run` subcommand → `WorkflowExecutor(...).execute()`, forwarding `--touch-dir` (default
      `"./"`, the cwd — see [Per-node execution status](#per-node-execution-status)).
-   - Empty `-p` resolves to `discover()` (all installed), passed explicitly.
+   - `plugins` subcommand → prints `discover()`, one name per line; imports no plugin.
+   - Empty `-p` resolves to `discover()` (all installed), passed explicitly; a non-empty one is
+     checked against it (unknown or repeated names → `parser.error`) before any subcommand runs.
    - Exposed as the `coral` console script; wrapped by `coral-py` for the platform.
 
 ### Workflow JSON Structure
@@ -863,8 +870,9 @@ is what provides their node types. The
   boundaries by reading the source
 - **Lazy discovery**: `discover()` never imports a plugin; `load(name)` imports only that one. An unselected
   `phiflow` is never imported, so its heavy deps aren't paid for.
-- **Fail-loud on unknown plugin**: an unknown / not-discoverable `-p` name raises `LookupError`; an
-  installed-but-broken plugin raises `ImportError` at load. No silent partial state.
+- **Fail-loud on unknown plugin**: an unknown / not-discoverable `-p` name, or a repeated one, is
+  refused by the CLI (exit status 2) before anything runs; `load()` raises `LookupError` for an
+  unknown name; an installed-but-broken plugin raises `ImportError` at load. No silent partial state.
 - **No `from __future__ import annotations`** (project-wide): it stringizes annotations, which would make
   `registry.py:python_type_to_string` see `"float"` instead of `float` and collapse every socket to `"any"`. A
   guard test (`tests/invariants/test_source_rules.py`) enforces this across every package's `src`.

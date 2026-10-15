@@ -108,14 +108,16 @@ pip install --find-links dist coral-plugin-pypde     # also pulls py-pde/numba/s
 
 `coral-app` alone gives a working `coral` CLI with the built-in primitives; every `coral-plugin-*`
 you add is picked up via entry-point discovery. Verify with `coral --help` or `coral register`
-(writes `node_types.json`). Then head to [Usage](#usage) — run `coral` directly.
+(writes `node_types.json`); `coral plugins` lists the installed plugins. Then head to
+[Usage](#usage) — run `coral` directly.
 
 ## Usage
 
 `coral` is a **coral-compatible CLI** (the `coral-app` console script): a global `-p/--plugin` option naming the
-plugins to load (comma-separated, e.g. `"math,string"`; empty = all installed) plus two subcommands — `register`
-(emit the node registry) and `run` (execute a workflow). `-p/--plugin` must precede the subcommand. This mirrors
-the C++ `coral` binary so the DealiiX platform can drive this backend via the
+plugins to load (comma-separated, e.g. `"math,string"`; empty = all installed) plus three subcommands — `register`
+(emit the node registry), `run` (execute a workflow) and `plugins` (list the installed plugins, one name per
+line). `-p/--plugin` must precede the subcommand. `register` and `run` mirror the C++ `coral` binary so the
+DealiiX platform can drive this backend via the
 [`coral-py` launcher](#coral-launcher-for-the-dealiix-platform).
 
 > Run the commands below inside the activated environment. From a pip install, `coral` is on `PATH`
@@ -145,7 +147,9 @@ coral -p "math,string,phiflow" run workflow.json
 ```
 
 **Default behavior**: When `-p/--plugin` is omitted, all installed plugins are loaded (via entry-point
-discovery). Primitives are always included. An unknown `-p` name fails loud with `LookupError`.
+discovery). Primitives are always included. A `-p` naming a plugin that is not installed, or naming
+one twice, is refused before anything runs (exit status 2, listing the installed plugins); see them
+with `coral plugins`.
 
 **Per-node status files**: `run` reports progress by writing one empty file per node as it goes —
 `<node>.running`, then `<node>.succeeded` or `<node>.failed` — which is how the DealiiX platform

@@ -10,6 +10,7 @@ collection builtins, and the ``-p`` selection is the designed specimen.
 """
 
 import pytest
+import specimen
 from coral_app.cli import DEFAULT_TOUCH_DIR, main
 from coral_app.nodestatus import RUNNING, STATUS_SUFFIXES, SUCCEEDED
 from specimen import SPECIMEN
@@ -36,6 +37,17 @@ def graph_file(write_graph):
     return write_graph(GRAPH)
 
 
+@pytest.fixture
+def installed(monkeypatch, specimen_plugins):
+    """Make the specimen plugins the installed ones, as the CLI sees them.
+
+    ``specimen_plugins`` patches only ``load``; the CLI also checks every ``-p`` name against
+    ``discover()`` before running anything, so here that lookup reports the specimen too. It is
+    patched where the CLI reads it, since ``cli`` imports the name.
+    """
+    monkeypatch.setattr("coral_app.cli.discover", lambda: sorted(specimen.PLUGINS))
+
+
 class TestRunTouchDir:
     """``coral run`` and the per-node status markers."""
 
@@ -47,7 +59,7 @@ class TestRunTouchDir:
         assert DEFAULT_TOUCH_DIR == "./"
 
     def test_run_without_the_flag_writes_markers_into_the_cwd(
-        self, graph_file, tmp_path, monkeypatch, specimen_plugins
+        self, graph_file, tmp_path, monkeypatch, installed
     ):
         """GIVEN ``coral run <graph>`` with no ``--touch-dir``
         WHEN it executes
@@ -71,9 +83,7 @@ class TestRunTouchDir:
         ]
         assert graph_file.exists()
 
-    def test_the_flag_redirects_the_markers(
-        self, graph_file, tmp_path, monkeypatch, specimen_plugins
-    ):
+    def test_the_flag_redirects_the_markers(self, graph_file, tmp_path, monkeypatch, installed):
         """GIVEN ``coral run <graph> --touch-dir <dir>`` naming a directory that does not exist
         WHEN it executes
         THEN the directory is created, the markers go there, and none is left in the cwd."""
@@ -93,7 +103,7 @@ class TestRegisterOutput:
     """``coral register`` and the filename the platform probes for."""
 
     def test_register_without_the_flag_writes_node_types_into_the_cwd(
-        self, tmp_path, monkeypatch, specimen_plugins
+        self, tmp_path, monkeypatch, installed
     ):
         """GIVEN ``coral register`` with no ``--output``
         WHEN it runs
@@ -109,7 +119,7 @@ class TestRegisterOutput:
 
         assert (tmp_path / "node_types.json").exists()
 
-    def test_the_flag_redirects_the_file(self, tmp_path, monkeypatch, specimen_plugins):
+    def test_the_flag_redirects_the_file(self, tmp_path, monkeypatch, installed):
         """GIVEN ``coral register --output=<name>``
         WHEN it runs
         THEN that name is written and the default one is not."""
@@ -120,4 +130,76 @@ class TestRegisterOutput:
         main()
 
         assert (tmp_path / "custom.json").exists()
+        assert not (tmp_path / "node_types.json").exists()
+
+
+class TestPlugins:
+    """``coral plugins`` — the names ``-p`` accepts."""
+
+    def test_lists_the_installed_names_one_per_line(self, monkeypatch, capsys, installed):
+        """GIVEN the specimen plugins installed
+        WHEN ``coral plugins`` runs
+        THEN it prints their names sorted, one per line, and nothing else."""
+        monkeypatch.setattr("sys.argv", ["coral", "plugins"])
+
+        main()
+
+        assert capsys.readouterr().out == "".join(f"{name}\n" for name in sorted(specimen.PLUGINS))
+
+    def test_prints_nothing_when_none_is_installed(self, monkeypatch, capsys):
+        """GIVEN no plugin installed
+        WHEN ``coral plugins`` runs
+        THEN it prints nothing and exits normally."""
+        monkeypatch.setattr("coral_app.cli.discover", lambda: [])
+        monkeypatch.setattr("sys.argv", ["coral", "plugins"])
+
+        main()
+
+        assert capsys.readouterr().out == ""
+
+
+class TestPluginSelection:
+    """A ``-p`` value naming the wrong plugins is refused before any subcommand runs."""
+
+    def test_unknown_names_are_refused_before_the_touch_dir_is_prepared(
+        self, graph_file, tmp_path, monkeypatch, capsys, installed
+    ):
+        """GIVEN ``coral -p`` naming the specimen plus two plugins that are not installed
+        WHEN ``run --touch-dir <dir>`` is invoked
+        THEN it exits with status 2, naming both unknown plugins and the installed ones, and the
+        touch directory is never created."""
+        target = tmp_path / "status"
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "coral",
+                "-p",
+                f"{SPECIMEN},nope,other",
+                "run",
+                str(graph_file),
+                "--touch-dir",
+                str(target),
+            ],
+        )
+
+        with pytest.raises(SystemExit) as exit_info:
+            main()
+
+        assert exit_info.value.code == 2
+        error = capsys.readouterr().err
+        assert "unknown plugins 'nope', 'other'" in error
+        assert f"installed: {', '.join(sorted(specimen.PLUGINS))}" in error
+        assert not target.exists()
+
+    def test_a_name_given_twice_is_refused(self, tmp_path, monkeypatch, capsys, installed):
+        """GIVEN ``coral -p`` naming the specimen twice
+        WHEN ``register`` is invoked
+        THEN it exits with status 2 naming the repeated plugin, and no registry is written."""
+        monkeypatch.setattr("sys.argv", ["coral", "-p", f"{SPECIMEN},{SPECIMEN}", "register"])
+
+        with pytest.raises(SystemExit) as exit_info:
+            main()
+
+        assert exit_info.value.code == 2
+        assert f"plugin {SPECIMEN!r} named more than once" in capsys.readouterr().err
         assert not (tmp_path / "node_types.json").exists()
