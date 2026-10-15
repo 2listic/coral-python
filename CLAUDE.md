@@ -115,7 +115,7 @@ subcommands. `-p/--plugin` must precede the subcommand.
 # Run a workflow graph (graph path required; all installed plugins by default)
 coral run path/to/workflow.json
 coral -p "math" run path/to/workflow.json
-coral -p "phiflow" run plugins/coral-phiflow/examples/phiflow/network-from-fe.json
+coral -p "phiflow" run plugins/coral-phiflow/examples/phiflow/smoke_plume_2D.json
 
 # Send the per-node status markers somewhere other than the cwd
 coral run path/to/workflow.json --touch-dir /run/job-42
@@ -173,8 +173,8 @@ pytest coral-app/tests/test_graph.py::TestEdgeTypes  # a class, as usual
 Two markers survive, both about **cost** rather than about which plugin a test needs. They are
 independent properties, not a partition, so one test carries both:
 
-- `slow` — *costs real time*: the two simulations — phiflow's (~33s) and pypde's (~12s) — and the
-  wheel acceptance test. Everything else is the fast lane.
+- `slow` — *costs real time*: the three simulations — phiflow's (~33s) and pypde's diffusion (~12s)
+  and obstacles (~8s) — and the wheel acceptance test. Everything else is the fast lane.
 - `network` — *needs the internet*: `tests/test_acceptance.py` only, which pip-installs wheels into a
   clean venv. It is 4s with a warm uv cache, but **~250s** whenever PyPI has published a `jax` newer
   than the workspace's pin — `uv pip install` resolves fresh and never reads `uv.lock`, so the cache
@@ -206,8 +206,9 @@ graph's plugin requirement is its directory and never something inferred at run 
 
 **Two rules worth knowing before adding a test:**
 
-- **No unmarked test may run a simulation.** Exactly one test per solver does: phiflow's and pypde's,
-  each in its own package's `tests/system/test_graphs_run.py`, both marked `slow`. Every other
+- **No unmarked test may run a simulation.** Exactly one test per solver does: phiflow's, and pypde's
+  diffusion and obstacles, each in its own package's `tests/system/test_graphs_run.py`, all marked
+  `slow`. A solve without time stepping is not a simulation: pypde's Poisson graph runs unmarked. Every other
   simulation graph is *validated without being executed* — constructing a `Graph` runs all ten
   checks and calls nothing, so the graph-JSON contract is guarded at ~0 ms per file.
 - **The framework suites name no plugin.** `coral-app/tests/specimen.py` provides a designed
@@ -733,7 +734,7 @@ standard library's own `numbers` tower rather than a hand-written table.
 The check only sees what a node's author declares, so **annotation quality is the author's
 responsibility**. A *slot* below is one annotation the check can look at — every input and output of
 every node type, except a method's `self` (which the port table synthesises from the class). Across
-the four plugins and the host's builtins, 122 of 154 slots are checkable and 32 are `Any` — and every
+the four plugins and the host's builtins, 151 of 183 slots are checkable and 32 are `Any` — and every
 one of the 32 is in phiflow or in the builtins, where 9 are deliberate (see below):
 
 | source | slots | `Any` | checkable |
@@ -741,7 +742,7 @@ one of the 32 is in phiflow or in the builtins, where 9 are deliberate (see belo
 | math | 36 | 0 | 36 |
 | string | 8 | 0 | 8 |
 | phiflow | 48 | 23 | 25 |
-| pypde | 26 | 0 | 26 |
+| pypde | 55 | 0 | 55 |
 | builtins (host) | 36 | 9 | 27 |
 
 So `phiflow_iterate` returning `Tuple[Any, Any, Any]` cannot be checked, and a grid wired where a

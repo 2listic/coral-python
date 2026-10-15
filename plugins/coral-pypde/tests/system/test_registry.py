@@ -103,6 +103,43 @@ class TestTheGoldenDescribesThisPlugin:
         assert arguments["plot"] == "PyPDEPlotTracker"
         assert arguments["t_range"] == "int"
 
+    def test_both_hierarchies_carry_their_bases_and_derived(self, registry):
+        """GIVEN the two base classes and their subclasses
+        WHEN their golden entries are read
+        THEN each subclass lists its base in ``bases``, and each base lists its subclasses in
+        ``derived``.
+
+        The front end matches socket types by string, so these two lists are the only place the
+        hierarchy reaches it: they are what lets it accept a grid or a shape where its base is
+        expected."""
+        assert registry["PyPDEUnitGrid"]["bases"] == ["PyPDEGridBase"]
+        assert registry["PyPDECartesianGrid"]["bases"] == ["PyPDEGridBase"]
+        assert registry["PyPDEGridBase"]["derived"] == ["PyPDEUnitGrid", "PyPDECartesianGrid"]
+        assert registry["PyPDECircle"]["bases"] == ["PyPDEShape"]
+        assert registry["PyPDERectangle"]["bases"] == ["PyPDEShape"]
+        assert registry["PyPDEShape"]["derived"] == ["PyPDECircle", "PyPDERectangle"]
+
+    def test_a_port_annotated_with_a_base_carries_the_base_key(self, registry):
+        """GIVEN the ports annotated with one of the two base classes
+        WHEN their socket types are read
+        THEN each carries the base's key.
+
+        Were the base unregistered, the socket would read ``any`` and the editor would let any wire
+        in: registering it is what gives these ports a type in the UI."""
+        field = {
+            arg["name"]: arg["type"]
+            for arg in registry["PyPDEScalarField"]["arguments"]
+            if arg["connection_type"] == "input"
+        }
+        equation = {
+            arg["name"]: arg["type"]
+            for arg in registry["PyPDEObstacleDiffusionPDE"]["arguments"]
+            if arg["connection_type"] == "input"
+        }
+
+        assert field["grid"] == "PyPDEGridBase"
+        assert [equation[port] for port in ("source", "absorber", "obstacle")] == ["PyPDEShape"] * 3
+
     def test_the_golden_holds_no_foreign_plugin_entry(self, registry):
         """GIVEN the golden for this plugin alone
         WHEN its keys are compared with what this plugin plus the host declare

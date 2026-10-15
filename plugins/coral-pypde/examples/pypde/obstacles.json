@@ -1,0 +1,465 @@
+{
+  "workflow": {
+    "nodes": {
+      "6": {
+        "type": "str",
+        "position": {
+          "x": 806,
+          "y": 0
+        },
+        "value": "obstacles.hdf5",
+        "qualified_id": "6",
+        "name": "storage_file"
+      },
+      "7": {
+        "type": "str",
+        "position": {
+          "x": 806,
+          "y": 142
+        },
+        "value": "truncate",
+        "qualified_id": "7",
+        "name": "write_mode"
+      },
+      "8": {
+        "type": "float",
+        "position": {
+          "x": 806,
+          "y": 284
+        },
+        "value": "1",
+        "qualified_id": "8",
+        "name": "storage_interval"
+      },
+      "9": {
+        "type": "PyPDEFileStorage",
+        "position": {
+          "x": 1330,
+          "y": 17.5
+        },
+        "qualified_id": "9",
+        "name": "storage"
+      },
+      "10": {
+        "type": "str",
+        "position": {
+          "x": 368,
+          "y": 217
+        },
+        "value": "obstacles.mp4",
+        "qualified_id": "10",
+        "name": "movie_file"
+      },
+      "11": {
+        "type": "int",
+        "position": {
+          "x": 368,
+          "y": 359
+        },
+        "value": "5",
+        "qualified_id": "11",
+        "name": "framerate"
+      },
+      "12": {
+        "type": "int",
+        "position": {
+          "x": 368,
+          "y": 501
+        },
+        "value": "200",
+        "qualified_id": "12",
+        "name": "dpi"
+      },
+      "13": {
+        "type": "int",
+        "position": {
+          "x": 368,
+          "y": 643
+        },
+        "value": "6000",
+        "qualified_id": "13",
+        "name": "bitrate"
+      },
+      "14": {
+        "type": "PyPDEMovie",
+        "position": {
+          "x": 798,
+          "y": 426
+        },
+        "qualified_id": "14",
+        "name": "movie"
+      },
+      "15": {
+        "type": "float",
+        "position": {
+          "x": 806,
+          "y": 763.5
+        },
+        "value": "1",
+        "qualified_id": "15",
+        "name": "plot_interval"
+      },
+      "16": {
+        "type": "PyPDEPlotTracker",
+        "position": {
+          "x": 1327,
+          "y": 506
+        },
+        "qualified_id": "16",
+        "name": "plot"
+      },
+      "19": {
+        "type": "int",
+        "position": {
+          "x": 1356,
+          "y": 940.25
+        },
+        "value": "100",
+        "qualified_id": "19",
+        "name": "t_range"
+      },
+      "25": {
+        "type": "float",
+        "position": {
+          "x": 368,
+          "y": 785
+        },
+        "value": "0.002",
+        "qualified_id": "25",
+        "name": "diffusivity"
+      },
+      "26": {
+        "type": "float",
+        "position": {
+          "x": 368,
+          "y": 927
+        },
+        "value": "0.008",
+        "qualified_id": "26",
+        "name": "dx"
+      },
+      "29": {
+        "type": "PyPDECartesianGrid",
+        "position": {
+          "x": 330,
+          "y": 1921
+        },
+        "qualified_id": "29",
+        "name": "grid"
+      },
+      "30": {
+        "type": "str",
+        "position": {
+          "x": 0,
+          "y": 2024.5
+        },
+        "value": "[[0.0, 1.0], [0.0, 1.0]]",
+        "qualified_id": "30",
+        "name": "bounds"
+      },
+      "31": {
+        "type": "float",
+        "position": {
+          "x": 0,
+          "y": 1740.5
+        },
+        "value": "0.07",
+        "qualified_id": "31",
+        "name": "source_radius"
+      },
+      "32": {
+        "type": "float",
+        "position": {
+          "x": 0,
+          "y": 1456.5
+        },
+        "value": "0.025",
+        "qualified_id": "32",
+        "name": "absorber_radius"
+      },
+      "34": {
+        "type": "str",
+        "position": {
+          "x": 0,
+          "y": 1598.5
+        },
+        "value": "[0.2, 0.5]",
+        "qualified_id": "34",
+        "name": "source_center"
+      },
+      "35": {
+        "type": "str",
+        "position": {
+          "x": 0,
+          "y": 1314.5
+        },
+        "value": "[0.8, 0.5]",
+        "qualified_id": "35",
+        "name": "absorber_center"
+      },
+      "36": {
+        "type": "str",
+        "position": {
+          "x": 0,
+          "y": 1172.5
+        },
+        "value": "[0.5, 0.5]",
+        "qualified_id": "36",
+        "name": "obstacle_center"
+      },
+      "38": {
+        "type": "PyPDEObstacleDiffusionPDE.solve",
+        "position": {
+          "x": 1836,
+          "y": 860
+        },
+        "qualified_id": "38",
+        "name": "solve"
+      },
+      "39": {
+        "type": "str",
+        "position": {
+          "x": 0,
+          "y": 1882.5
+        },
+        "value": "[120, 120]",
+        "qualified_id": "39",
+        "name": "shape"
+      },
+      "41": {
+        "type": "PyPDEObstacleDiffusionPDE.get_initial_condition",
+        "position": {
+          "x": 1206,
+          "y": 1278.5
+        },
+        "qualified_id": "41",
+        "name": "initial_state"
+      },
+      "42": {
+        "type": "PyPDEObstacleDiffusionPDE",
+        "position": {
+          "x": 736,
+          "y": 1125.5
+        },
+        "qualified_id": "42",
+        "name": "pde"
+      },
+      "45": {
+        "type": "PyPDECircle",
+        "position": {
+          "x": 360.5,
+          "y": 1637
+        },
+        "qualified_id": "45",
+        "name": "source"
+      },
+      "46": {
+        "type": "PyPDECircle",
+        "position": {
+          "x": 360.5,
+          "y": 1353
+        },
+        "qualified_id": "46",
+        "name": "absorber"
+      },
+      "49": {
+        "type": "PyPDERectangle",
+        "position": {
+          "x": 344.5,
+          "y": 1069
+        },
+        "qualified_id": "49",
+        "name": "obstacle"
+      },
+      "50": {
+        "type": "str",
+        "position": {
+          "x": 0,
+          "y": 1030.5
+        },
+        "value": "[0.02, 0.06]",
+        "qualified_id": "50",
+        "name": "obstacle_sides"
+      }
+    },
+    "edges": {
+      "0": {
+        "source": 6,
+        "target": 9,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "1": {
+        "source": 7,
+        "target": 9,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "2": {
+        "source": 8,
+        "target": 9,
+        "source_output": 0,
+        "target_input": 2
+      },
+      "3": {
+        "source": 10,
+        "target": 14,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "4": {
+        "source": 11,
+        "target": 14,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "5": {
+        "source": 12,
+        "target": 14,
+        "source_output": 0,
+        "target_input": 2
+      },
+      "6": {
+        "source": 13,
+        "target": 14,
+        "source_output": 0,
+        "target_input": 3
+      },
+      "7": {
+        "source": 14,
+        "target": 16,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "8": {
+        "source": 15,
+        "target": 16,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "9": {
+        "source": 30,
+        "target": 29,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "10": {
+        "source": 19,
+        "target": 38,
+        "source_output": 0,
+        "target_input": 2
+      },
+      "11": {
+        "source": 9,
+        "target": 38,
+        "source_output": 0,
+        "target_input": 3
+      },
+      "12": {
+        "source": 16,
+        "target": 38,
+        "source_output": 0,
+        "target_input": 4
+      },
+      "13": {
+        "source": 39,
+        "target": 29,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "14": {
+        "source": 29,
+        "target": 42,
+        "source_output": 0,
+        "target_input": 2
+      },
+      "15": {
+        "source": 25,
+        "target": 42,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "16": {
+        "source": 26,
+        "target": 42,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "17": {
+        "source": 31,
+        "target": 45,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "18": {
+        "source": 34,
+        "target": 45,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "19": {
+        "source": 32,
+        "target": 46,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "20": {
+        "source": 35,
+        "target": 46,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "21": {
+        "source": 45,
+        "target": 42,
+        "source_output": 0,
+        "target_input": 3
+      },
+      "22": {
+        "source": 46,
+        "target": 42,
+        "source_output": 0,
+        "target_input": 4
+      },
+      "23": {
+        "source": 42,
+        "target": 41,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "24": {
+        "source": 41,
+        "target": 38,
+        "source_output": 0,
+        "target_input": 1
+      },
+      "25": {
+        "source": 42,
+        "target": 38,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "26": {
+        "source": 36,
+        "target": 49,
+        "source_output": 0,
+        "target_input": 0
+      },
+      "27": {
+        "source": 49,
+        "target": 42,
+        "source_output": 0,
+        "target_input": 5
+      },
+      "28": {
+        "source": 50,
+        "target": 49,
+        "source_output": 0,
+        "target_input": 1
+      }
+    }
+  },
+  "version": 1,
+  "author": "dealiix-platform",
+  "date_time_utc": "2026-10-14T14:23:39.905Z"
+}

@@ -32,7 +32,7 @@ requires_this_plugin = pytest.mark.skipif(
 )
 
 #: The user-facing examples this plugin ships. There is no ``graphs/`` beside them: the other
-#: plugins keep editor exports there and this one has none, so its single graph is the example.
+#: plugins keep editor exports there and this one has none, so its graphs are the examples.
 EXAMPLES = Path(__file__).parent.parent / "examples"
 
 #: This plugin's recorded ``node_types.json`` slice.

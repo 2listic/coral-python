@@ -40,18 +40,6 @@ class TestConformance:
 class TestDeclaredSurface:
     """What this plugin puts on the table — and that it is fit to be a node type."""
 
-    def test_it_declares_no_function_nodes(self):
-        """GIVEN this plugin
-        WHEN its function surface is read
-        THEN it is empty.
-
-        Asserted rather than left implicit: this is the first plugin whose whole surface is classes,
-        so an empty ``functions()`` is a design statement, not an oversight. py-pde's API is
-        objects that carry state between steps — a grid, a storage, an equation — and a free function
-        would have nothing to hold.
-        """
-        assert plugin.functions() == {}
-
     def test_every_declared_class_is_a_class(self):
         """GIVEN this plugin's classes
         WHEN each target is inspected
@@ -60,25 +48,24 @@ class TestDeclaredSurface:
             assert isinstance(declaration.target, type), name
 
     def test_every_declared_port_is_annotated(self):
-        """GIVEN this plugin's constructors and declared methods
+        """GIVEN this plugin's functions, constructors and declared methods
         WHEN their signatures are read
         THEN no parameter and no return is left bare — the registry is annotation-driven."""
-        for class_name, declaration in plugin.classes().items():
-            for method_name, method in _declared_members(declaration):
-                signature = inspect.signature(method)
-                for parameter in signature.parameters.values():
-                    if parameter.name == "self":
-                        continue
-                    assert parameter.annotation is not inspect.Signature.empty, (
-                        f"{class_name}.{method_name}:{parameter}"
-                    )
-                if method_name != "__init__":
-                    assert signature.return_annotation is not inspect.Signature.empty, (
-                        f"{class_name}.{method_name}: return"
-                    )
+        for node_type, target, has_return in _node_callables():
+            signature = inspect.signature(target)
+            for parameter in signature.parameters.values():
+                if parameter.name == "self":
+                    continue
+                assert parameter.annotation is not inspect.Signature.empty, (
+                    f"{node_type}:{parameter}"
+                )
+            if has_return:
+                assert signature.return_annotation is not inspect.Signature.empty, (
+                    f"{node_type}: return"
+                )
 
     def test_no_declared_port_is_annotated_any(self):
-        """GIVEN this plugin's constructors and declared methods
+        """GIVEN this plugin's functions, constructors and declared methods
         WHEN their annotations are read
         THEN none of them is ``Any``.
 
@@ -87,17 +74,16 @@ class TestDeclaredSurface:
         solver had run. Every wrapper here names a concrete type instead, and losing one to ``Any``
         would give that up silently — which is why it is asserted rather than left to review.
         """
-        for class_name, declaration in plugin.classes().items():
-            for method_name, method in _declared_members(declaration):
-                signature = inspect.signature(method)
-                annotations = [
-                    parameter.annotation
-                    for parameter in signature.parameters.values()
-                    if parameter.name != "self"
-                ]
-                if method_name != "__init__":
-                    annotations.append(signature.return_annotation)
-                assert Any not in annotations, f"{class_name}.{method_name}"
+        for node_type, target, has_return in _node_callables():
+            signature = inspect.signature(target)
+            annotations = [
+                parameter.annotation
+                for parameter in signature.parameters.values()
+                if parameter.name != "self"
+            ]
+            if has_return:
+                annotations.append(signature.return_annotation)
+            assert Any not in annotations, node_type
 
     def test_no_function_name_collides_with_a_class_name(self):
         """GIVEN this plugin's two surfaces
@@ -110,12 +96,20 @@ class TestDeclaredSurface:
         assert not set(plugin.functions()) & set(plugin.classes())
 
 
-def _declared_members(declaration):
-    """A class's constructor and every method it declares — the callables that become ports.
+def _node_callables():
+    """Every callable that becomes ports, as ``(node type, callable, has_return)``.
 
-    Undeclared members are excluded because the registry excludes them:
-    ``PyPDEScalarField._holding`` is annotated ``Any`` on purpose and is not a node.
+    A constructor is read from the class itself, as the host reads it: a class with no ``__init__``
+    of its own (``PyPDEGridBase``) then shows no parameter rather than ``object.__init__``'s
+    ``*args``. Its output is the instance, so it has no return annotation to check. Undeclared
+    members are excluded because the registry excludes them: ``PyPDEScalarField._holding`` is
+    annotated ``Any`` on purpose and is not a node.
     """
-    return [("__init__", declaration.target.__init__)] + [
-        (node_type, method.declaration.target) for node_type, method in declaration.methods.items()
-    ]
+    callables = [(name, d.target, True) for name, d in plugin.functions().items()]
+    for class_name, declaration in plugin.classes().items():
+        callables.append((class_name, declaration.target, False))
+        callables += [
+            (node_type, method.declaration.target, True)
+            for node_type, method in declaration.methods.items()
+        ]
+    return callables

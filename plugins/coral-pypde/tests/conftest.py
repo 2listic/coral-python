@@ -56,7 +56,7 @@ def headless_matplotlib():
 def isolate_cwd(monkeypatch, tmp_path):
     """Run every test from a disposable working directory.
 
-    This plugin's graph writes an HDF5 file and a movie relative to the current directory, and
+    This plugin's graphs write HDF5 files, movies and a PNG relative to the current directory, and
     ``register`` writes ``node_types.json`` into it. Keep all of that out of the checkout.
     """
     monkeypatch.chdir(tmp_path)

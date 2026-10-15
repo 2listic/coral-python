@@ -132,7 +132,7 @@ coral run path/to/your/workflow.json
 An example phiflow workflow ships with the plugin that gives it meaning, under
 `plugins/coral-phiflow/examples/phiflow/`:
 ```bash
-coral -p "phiflow" run plugins/coral-phiflow/examples/phiflow/network-from-fe.json
+coral -p "phiflow" run plugins/coral-phiflow/examples/phiflow/smoke_plume_2D.json
 ```
 
 Load specific plugins with `-p/--plugin` (before the subcommand):
@@ -160,7 +160,7 @@ coral run workflow.json --touch-dir /tmp/coral-status
 - `phiflow` - PhiFlow physics simulation wrappers
 - `math` - Mathematical operations (`add`, `multiply`, `math.sqrt`, etc.) and `Calculator` class
 - `string` - String processing utilities (`StringProcessor` class)
-- `pypde` - py-pde PDE-solver wrappers (`PyPDEDiffusionPDE` and its grid, field, storage and movie)
+- `pypde` - py-pde PDE-solver wrappers (diffusion, diffusion around obstacles, and Poisson, with their grids, fields, shapes, storage and movie)
 
 ### 2. Generating the Workflow Registry File
 
