@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Mapping, Optional
 from coral_core import ClassDeclaration, Declaration
 
 from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
-from coral_app.nodeports import NodePorts, Port, build_port_table, methods_of
+from coral_app.nodeports import ABSTRACT, NodePorts, Port, build_port_table, methods_of
 from coral_app.primitives import DEFAULT_LITERAL
 
 # Python type -> the name the file format uses for it, for the socket types written on every
@@ -86,6 +86,10 @@ def _add_constructor(
     The instance a constructor produces is written as ``outputs: [-1]`` with no output argument —
     the file format's convention for "one unnamed output".
 
+    An abstract class gets the same entry with ``node_type: "abstract"`` and ``outputs: []``: it
+    builds nothing, so it has neither inputs nor an instance to output. This is the C++ backend's
+    shape for a type that is never constructed. Its key still types sockets.
+
     The entry also carries ``"bases"``, the keys of every registered ancestor in MRO order, and
     ``"derived"``, the keys of every registered descendant in class-map order; each is omitted
     when empty. Only class-map keys are listed: an unregistered class in between is skipped (its
@@ -93,11 +97,12 @@ def _add_constructor(
     """
     arguments, inputs = _number_inputs(ports, class_names)
 
+    abstract = ports.kind == ABSTRACT
     entry = {
         "arguments": arguments,
         "inputs": inputs,
-        "outputs": [-1],
-        "node_type": "constructor",
+        "outputs": [] if abstract else [-1],
+        "node_type": "abstract" if abstract else "constructor",
         "type": class_name,
     }
     bases = [class_names[c] for c in cls.__mro__[1:] if c in class_names]
@@ -145,20 +150,20 @@ def generate_registry(
 
     Describes the given function/class maps as a port table (stage 2) and renders it into a dict
     keyed by each node's ``type`` string (primitives by type name, functions by name, constructors
-    by class name, methods by ``Class.method``). Everything about the *file format* — argument
+    and abstract classes by class name, methods by ``Class.method``). Everything about the *file format* — argument
     dicts, index numbering, the ``[-1]`` convention — is decided here; the arity and annotations
     come from the port table, which the executor reads too.
 
     A socket typed with a registered class carries the class's key in ``class_map``, the same
-    string its constructor entry is keyed by. Any other class is ``"any"``. A constructor whose
-    class has registered ancestors or descendants also carries ``"bases"`` / ``"derived"``, their
-    keys.
+    string its constructor or abstract entry is keyed by. Any other class is ``"any"``. A class
+    entry whose class has registered ancestors or descendants also carries ``"bases"`` /
+    ``"derived"``, their keys.
 
     Args:
         function_map: Mapping of function name -> declaration.
         primitives: List of primitive type names to include (always added).
-        class_map: Optional mapping of class name -> class declaration (adds constructors and
-            methods).
+        class_map: Optional mapping of class name -> class declaration (adds constructors,
+            abstract classes and methods).
 
     Returns:
         The registry dict keyed by node ``type``.
@@ -203,7 +208,7 @@ def generate_registry(
     for func_name in function_map:
         _add_function_node(registry, func_name, port_table[func_name], class_names)
 
-    # Add class constructors and methods
+    # Add classes (constructors or abstract) and methods
     if class_map:
         for class_name in class_map:
             _add_constructor(

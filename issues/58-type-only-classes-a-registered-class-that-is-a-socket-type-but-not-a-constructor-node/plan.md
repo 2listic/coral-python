@@ -29,7 +29,7 @@ Step references to "decision N" mean `decisions.md`'s numbering.
       article fits every kind.
 
 ### 3. `coral-app/src/coral_app/registry.py`
-- [ ] 3.1 `_add_constructor`: for `ports.kind == ABSTRACT` write `outputs: []` and
+- [x] 3.1 `_add_constructor`: for `ports.kind == ABSTRACT` write `outputs: []` and
       `node_type: "abstract"`; `bases` / `derived` unchanged. Docstrings of `_add_constructor` and
       `generate_registry`.
 
