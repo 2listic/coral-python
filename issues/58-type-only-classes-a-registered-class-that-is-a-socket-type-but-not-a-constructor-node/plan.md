@@ -13,13 +13,13 @@ Step references to "decision N" mean `decisions.md`'s numbering.
 ## Steps
 
 ### 1. `coral-core/src/coral_core/__init__.py`
-- [ ] 1.1 `ClassDeclaration`: add `abstract: bool = False`, last; docstring (decision 3).
-- [ ] 1.2 `Plugin.cls`: keyword option `abstract: bool | None = None`. `TypeError` if not a
+- [x] 1.1 `ClassDeclaration`: add `abstract: bool = False`, last; docstring (decision 3).
+- [x] 1.2 `Plugin.cls`: keyword option `abstract: bool | None = None`. `TypeError` if not a
       `bool` or `None`. Resolve per decision 1's table; `False` on an `isabstract` class →
       `ValueError` naming `sorted(klass.__abstractmethods__)`. Resolved abstract with `inputs=` or
       `annotations=` → `ValueError` (decision 2). Docstring Args/Raises.
-- [ ] 1.3 `classes()`: carry `abstract` when rebuilding the declaration (`__init__.py:324`).
-- [ ] 1.4 Module docstring: one line on abstract classes.
+- [x] 1.3 `classes()`: carry `abstract` when rebuilding the declaration (`__init__.py:324`).
+- [x] 1.4 Module docstring: one line on abstract classes.
 
 ### 2. `coral-app/src/coral_app/nodeports.py`
 - [ ] 2.1 `ABSTRACT = "abstract"`, in `__all__`; `NodePorts.kind` docstring lists five kinds.
