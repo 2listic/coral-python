@@ -10,6 +10,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Constructor nodes**: Instantiate Python classes
 - **Method nodes**: Call instance methods on objects created by constructor nodes
 
+A registered class may instead be **abstract**: its key types sockets and appears in `bases` /
+`derived`, but it offers no constructor node (see `abstract=` under Core components).
+
 The four kinds are unchanged by where a node comes from, but note that not every node comes from a
 plugin: besides the primitives, the host ships **function** nodes of its own — the collection
 operations in `coral_app/builtin_nodes.py`, available with no plugin installed at all. See
@@ -305,6 +308,13 @@ it finds them at runtime via entry-point discovery.
    `__new__`), the options' shapes, and duplicates within the plugin (a name used twice across
    functions and classes, a class or method declared twice; one function under two names is an alias).
 
+   `plugin.cls` takes one more option, `abstract=`, which is not a label: an **abstract** class
+   only types sockets (its key, `bases` / `derived`) and has no constructor node. Omitted, it is
+   `inspect.isabstract(cls)`; `abstract=True` always wins; `abstract=False` on a class with
+   unimplemented abstract methods raises, as do `inputs=` / `annotations=` on an abstract class
+   (they describe a constructor it does not have). Its declared methods are still nodes, run on a
+   concrete subclass's instance.
+
    **Methods are opt-in**: only a declared method is a node. `plugin.functions()` /
    `plugin.classes()` resolve the declarations when the host asks, so declaration order does not
    matter: for each declared class the MRO is walked, and an attribute is a method node when some
@@ -318,7 +328,7 @@ it finds them at runtime via entry-point discovery.
 
    What the host receives are frozen dataclasses: `functions()` -> `{node type: Declaration(target,
    inputs, outputs, annotations)}`, `classes()` -> `{class key: ClassDeclaration(target, inputs,
-   annotations, methods)}`, `methods` being `{method node type: MethodDeclaration(attribute,
+   annotations, methods, abstract)}`, `methods` being `{method node type: MethodDeclaration(attribute,
    declaration)}` keyed by the full `<class key>.<name>`. `coral_core` reads no signature and builds
    no port; that is the host's job.
 
@@ -360,7 +370,9 @@ it finds them at runtime via entry-point discovery.
    - **`nodeports.py`** (stage 2): `build_port_table(function_map, class_map, primitives)` takes the
      declarations and returns node type -> `NodePorts(kind, inputs, outputs, attribute)` — `inputs`
      and `outputs` each a list of `Port(name, annotation, instance)` in port order, `attribute` the
-     name a method is looked up by on its instance (`None` for every other kind). It reads each callable's
+     name a method is looked up by on its instance (`None` for every other kind). An abstract class
+     gets an entry of kind `abstract`, with no ports and no signature read: it is not a node a graph
+     may use, but its key must meet the duplicate checks. It reads each callable's
      signature, then applies `annotations=` (fill only: typing an annotated slot, including an
      explicit `Any`, raises), `inputs=` (relabel; labels must stay distinct) and `outputs=` (name),
      in that order; a key naming no parameter, or a method's instance, raises. An input's name is its
@@ -439,26 +451,29 @@ Edge format:
 
 **Registry Files** (e.g., `node_types.json`):
 - Auto-generated schema describing all available node types, in the DealiiX platform format
-- **Keyed by each node's `type`** (primitives by type name, functions by name, constructors by class
-  name, methods by `Class.method`) — the editor looks entries up as `registry[type]`
+- **Keyed by each node's `type`** (primitives by type name, functions by name, constructors and
+  abstract classes by class name, methods by `Class.method`) — the editor looks entries up as `registry[type]`
 - Each entry has:
   - `type`: the node type string (equals the entry's key)
   - `arguments`: Array with `connection_type` ("input"/"output"), `type`, and `name` (empty `[]` for primitives)
     — an input argument's `name` is its parameter's or its `inputs=` label; an output argument's
     is what `outputs=` declared, else `""`; the editor shows it as the socket's label
   - `inputs`: List of input indices
-  - `outputs`: List of output indices (or `[-1]` for constructors/primitives)
-  - `node_type`: "primitive", "function", "constructor", or "method"
+  - `outputs`: List of output indices (`[-1]` for constructors/primitives, `[]` for abstract
+    classes)
+  - `node_type`: "primitive", "function", "constructor", "method", or "abstract". An `abstract`
+    entry, the C++ backend's shape for a type never constructed, has empty `arguments` /
+    `inputs` / `outputs`; the editor hides it from its palette
   - `value` (primitives only): the initial value the editor copies into a dropped node: `"[]"` for
     `list` / `set`, `"{}"` for `dict`, `"false"` for `bool`, `""` for every other primitive
-  - `bases` (constructors only, optional): the keys of every registered ancestor, in MRO order
+  - `bases` (constructor and abstract entries, optional): the keys of every registered ancestor, in MRO order
     (so under multiple inheritance a parent may follow a grandparent). An unregistered class in
     between is skipped (its ancestors are still found); a type-name ancestor (`float`) is never
     listed. Absent when empty.
-  - `derived` (constructors only, optional): the keys of every registered descendant, in class-map
+  - `derived` (constructor and abstract entries, optional): the keys of every registered descendant, in class-map
     order. Absent when empty. Both lists depend on the `-p` selection.
 - **A socket's `type`** is one of the nine names in `PRIMITIVES_MAP`, or — for a class the class map
-  holds — that class's **key**, the same string its constructor entry is keyed by. Anything else
+  holds — that class's **key**, the same string its constructor or abstract entry is keyed by. Anything else
   is `"any"`: a class no selected plugin registers, and every parameterised generic (`List[int]`,
   `Optional[X]`), even around a registered class.
 - **Subclasses depend on the front end.** It types a constructor's output as `base ?? type` and
@@ -511,9 +526,10 @@ Edge format:
 ### Node Execution Model
 
 Each node's kind is read from the port table — `graph.ports_of(node_id).kind`, one of `primitive` /
-`function` / `constructor` / `method`. The kind is decided in `nodeports.build_port_table()` by where
-the entry comes from — `PRIMITIVES_MAP`, `function_map`, `class_map` (the constructor) or a class's
-declared methods, already keyed `Class.method`; no type name is split. One name declared as two of
+`function` / `constructor` / `method`; the fifth, `abstract`, never reaches the executor, since
+check 4 refuses a node of that kind. The kind is decided in `nodeports.build_port_table()` by where
+the entry comes from — `PRIMITIVES_MAP`, `function_map`, `class_map` (the constructor, or
+`abstract`) or a class's declared methods, already keyed `Class.method`; no type name is split. One name declared as two of
 them raises `DuplicateNodeTypeError`. Only a function can meet a method key, since class keys and
 primitives contain no `.`: a function `math.sqrt` and a class `math` declaring `sqrt` are refused.
 
@@ -679,7 +695,8 @@ In order — one item per check, as `Graph.__init__` runs them:
    rules live in another module: `nodestatus.qualified_ids()` owns them, because it owns the
    filename convention they come from; `Graph` applies them and keeps the resulting mapping on
    `.qualified_ids`. See [Per-node execution status](#per-node-execution-status);
-4. every node `type` has a port-table entry;
+4. every node `type` has a port-table entry, and not an `abstract` one: a class that only types
+   sockets has nothing to run (the C++ backend lets such a node through and yields a null pointer);
 5. per target node, the `target_input` values are exactly `{0 … n-1}` for n incoming edges — catches
    two edges on one port and a port index out of range;
 6. the incoming edge count equals the type's input count — catches missing and extra connections;
@@ -734,7 +751,7 @@ standard library's own `numbers` tower rather than a hand-written table.
 The check only sees what a node's author declares, so **annotation quality is the author's
 responsibility**. A *slot* below is one annotation the check can look at — every input and output of
 every node type, except a method's `self` (which the port table synthesises from the class). Across
-the four plugins and the host's builtins, 151 of 183 slots are checkable and 32 are `Any` — and every
+the four plugins and the host's builtins, 149 of 181 slots are checkable and 32 are `Any` — and every
 one of the 32 is in phiflow or in the builtins, where 9 are deliberate (see below):
 
 | source | slots | `Any` | checkable |
@@ -742,7 +759,7 @@ one of the 32 is in phiflow or in the builtins, where 9 are deliberate (see belo
 | math | 36 | 0 | 36 |
 | string | 8 | 0 | 8 |
 | phiflow | 48 | 23 | 25 |
-| pypde | 55 | 0 | 55 |
+| pypde | 53 | 0 | 53 |
 | builtins (host) | 36 | 9 | 27 |
 
 So `phiflow_iterate` returning `Tuple[Any, Any, Any]` cannot be checked, and a grid wired where a
@@ -1011,7 +1028,8 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
      installable at all.
 
 **How registration works internally:**
-1. Constructor nodes are generated from the class's signature (`inspect.signature(cls)`).
+1. Constructor nodes are generated from the class's signature (`inspect.signature(cls)`), except
+   for an abstract class, which has none and whose signature is never read.
 2. Method nodes are generated only for declared methods, inherited ones included (see Core components).
 3. Methods use fully qualified names: `ClassKey.name`, `name` defaulting to the method's `__name__`.
 4. First input to method nodes is always the instance.

@@ -81,13 +81,13 @@ Step references to "decision N" mean `decisions.md`'s numbering.
       `outputs` `[-1]` → `[]`, `node_type` → `"abstract"`.
 
 ### 9. Docs
-- [ ] 9.1 `CLAUDE.md`: the `plugin.cls` options (`abstract=`) and `ClassDeclaration` fields;
+- [x] 9.1 `CLAUDE.md`: the `plugin.cls` options (`abstract=`) and `ClassDeclaration` fields;
       Project Overview (abstract classes type sockets, are not nodes); the port-table kinds
       (`nodeports.py` bullet, *Node Execution Model*); *Registry Files* `node_type` list and the
       abstract entry; check 4 in *Graph validation*.
-- [ ] 9.2 `CLAUDE.md` slot table: recount; expected pypde 55 → 53 slots, totals 183 → 181 and
+- [x] 9.2 `CLAUDE.md` slot table: recount; expected pypde 55 → 53 slots, totals 183 → 181 and
       151 → 149 checkable.
-- [ ] 9.3 `docs/ONBOARDING.md:141`, `:177`: the kind lists.
+- [x] 9.3 `docs/ONBOARDING.md:141`, `:177`: the kind lists.
 
 ### 10. Verification
 - [ ] 10.1 `uv run pytest` green; `uv run pre-commit run --all-files` clean.
