@@ -71,12 +71,12 @@ Step references to "decision N" mean `decisions.md`'s numbering.
       entries.
 
 ### 8. Plugin and repo-level tests
-- [ ] 8.1 `tests/discovery/test_installed_plugins.py:161`: expect `"abstract"` when the
+- [x] 8.1 `tests/discovery/test_installed_plugins.py:161`: expect `"abstract"` when the
       declaration is abstract, `"constructor"` otherwise.
-- [ ] 8.2 `plugins/coral-pypde/tests/system/test_registry.py:55`: same rule; plus a test pinning
+- [x] 8.2 `plugins/coral-pypde/tests/system/test_registry.py:55`: same rule; plus a test pinning
       that `PyPDEShape` and `PyPDEGridBase` are abstract (decision 4).
-- [ ] 8.3 math / string / phiflow `test_registry.py`: unchanged — none declares an abstract class.
-- [ ] 8.4 Regenerate `plugins/coral-pypde/tests/system/golden/node_types.pypde.json` (command in
+- [x] 8.3 math / string / phiflow `test_registry.py`: unchanged — none declares an abstract class.
+- [x] 8.4 Regenerate `plugins/coral-pypde/tests/system/golden/node_types.pypde.json` (command in
       its module docstring). The diff must show only `PyPDEShape` and `PyPDEGridBase`:
       `outputs` `[-1]` → `[]`, `node_type` → `"abstract"`.
 
