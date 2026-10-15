@@ -16,7 +16,7 @@ What lives elsewhere, on purpose:
 
 import pytest
 from coral_app import (
-    BUILTIN_FUNCTIONS,
+    BUILTINS,
     PRIMITIVES_MAP,
     DuplicateNodeTypeError,
     build_class_map,
@@ -24,6 +24,7 @@ from coral_app import (
     load,
 )
 from coral_app.registry import save_registry_to_file
+from coral_core import Plugin
 from specimen import BUILTIN_CLASH, CLASS_CLASH, FUNCTION_CLASH, RIVAL, SPECIMEN
 
 
@@ -57,6 +58,42 @@ class TestLoadFailsLoud:
             load("not-a-real-plugin")
 
 
+class TestLoadResolves:
+    """What ``load`` returns, for each kind of entry point a plugin may declare."""
+
+    @staticmethod
+    def resolving_to(monkeypatch, target):
+        """Make the one entry point ``load`` finds resolve to ``target``."""
+
+        class EntryPointStub:
+            def load(self):
+                return target
+
+        monkeypatch.setattr("coral_app.entry_points", lambda *a, **k: (EntryPointStub(),))
+
+    def test_a_plugin_instance_is_returned_as_is(self, monkeypatch):
+        """GIVEN an entry point resolving to a Plugin instance
+        WHEN load() resolves it
+        THEN that very instance is returned: its declarations live on it."""
+        plugin = Plugin()
+        self.resolving_to(monkeypatch, plugin)
+
+        assert load("not-a-real-plugin") is plugin
+
+    def test_a_plugin_subclass_is_refused(self, monkeypatch):
+        """GIVEN an entry point resolving to a Plugin subclass rather than an instance
+        WHEN load() resolves it
+        THEN it raises TypeError: a plugin is the instance its node types are declared on."""
+
+        class Subclassing(Plugin):
+            pass
+
+        self.resolving_to(monkeypatch, Subclassing)
+
+        with pytest.raises(TypeError, match="not a coral_core.Plugin instance"):
+            load("not-a-real-plugin")
+
+
 class TestBuildMapsFailLoud:
     """``build_*_map`` propagate the unknown-name rule."""
 
@@ -86,15 +123,15 @@ class TestHostWithoutPlugins:
         out = tmp_path / "node_types.host.json"
         registry = save_registry_to_file(str(out), plugins=[])
 
-        assert set(registry) == set(PRIMITIVES_MAP) | set(BUILTIN_FUNCTIONS)
-        assert len(registry) == len(PRIMITIVES_MAP) + len(BUILTIN_FUNCTIONS)
+        assert set(registry) == set(PRIMITIVES_MAP) | set(BUILTINS.functions())
+        assert len(registry) == len(PRIMITIVES_MAP) + len(BUILTINS.functions())
         assert all(entry["node_type"] in ("primitive", "function") for entry in registry.values())
 
     def test_builtins_are_the_whole_function_map_without_plugins(self):
         """GIVEN no plugin selected
         WHEN the function map is built
         THEN it is exactly the builtins: they need no plugin, and nothing else sneaks in."""
-        assert build_function_map(include=[]) == BUILTIN_FUNCTIONS
+        assert build_function_map(include=[]) == BUILTINS.functions()
 
     def test_no_builtin_classes_without_plugins(self):
         """GIVEN no plugin selected
@@ -128,15 +165,16 @@ class TestMerge:
 
         assert names.index("add_pair") < names.index("rival_only")
         assert reversed_names.index("rival_only") < reversed_names.index("add_pair")
-        assert names[-len(BUILTIN_FUNCTIONS) :] == list(BUILTIN_FUNCTIONS)
+        builtins = list(BUILTINS.functions())
+        assert names[-len(builtins) :] == builtins
 
     def test_builtins_are_present_under_every_selection(self, specimen_plugins):
         """GIVEN any plugin selection
         WHEN the function map is built
-        THEN each builtin name still resolves to the host's own callable."""
+        THEN each builtin name still resolves to the host's own declaration."""
         function_map = build_function_map(include=[SPECIMEN, RIVAL])
 
-        assert all(function_map[name] is func for name, func in BUILTIN_FUNCTIONS.items())
+        assert all(function_map[name] == decl for name, decl in BUILTINS.functions().items())
 
 
 class TestDuplicateNodeTypeIsRefused:

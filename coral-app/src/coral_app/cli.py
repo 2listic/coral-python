@@ -71,9 +71,9 @@ def main():
     # reachable only from `WorkflowExecutor(touch_dir=None)`.
     run_parser.add_argument(
         "--touch-dir",
-        default=DEFAULT_TOUCH_DIR,
+        default=None,
         nargs="?",
-        const=DEFAULT_TOUCH_DIR,
+        const=None,
         metavar="PATH",
         help="Output directory for touch files (node status markers): one empty "
         f"<qualified_id>.running / .succeeded / .failed per node (default: {DEFAULT_TOUCH_DIR}). "
@@ -86,6 +86,9 @@ def main():
     if args.command == "register":
         save_registry_to_file(args.output, plugins=plugins)
     elif args.command == "run":
+        if args.touch_dir is None:
+            print(f"No argument '--touch-dir' is given, default to {DEFAULT_TOUCH_DIR}.")
+            args.touch_dir = DEFAULT_TOUCH_DIR
         executor = WorkflowExecutor(args.graph, plugins=plugins, touch_dir=args.touch_dir)
         results = executor.execute()
         print(f"\nFinal results: {results}")

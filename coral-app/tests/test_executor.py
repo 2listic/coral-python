@@ -4,15 +4,19 @@ Written entirely against the designed specimen (``specimen.py``), because the ex
 not a fact about any plugin: it collects a node's inputs in port order, resolves its callable, binds
 positionally, and stores the result. Which callable that is, is the plugin's business.
 
-By the time ``execute()`` runs there is nothing left to verify — ``Graph`` ran all nine checks while
+By the time ``execute()`` runs there is nothing left to verify — ``Graph`` ran all ten checks while
 the executor was being constructed. So the failure cases here are about *construction*, and the
 success cases are about values.
 """
 
+import json
+
 import pytest
+from coral_app.errors import DuplicateNodeTypeError
 from coral_app.executor import WorkflowExecutor
 from coral_app.nodestatus import FAILED, RUNNING, SUCCEEDED
-from specimen import SPECIMEN, Accumulator
+from coral_core import Plugin
+from specimen import COLLECTION_CLASH, SPECIMEN, Accumulator
 
 
 def graph(nodes: dict, edges: dict = None) -> dict:
@@ -75,9 +79,20 @@ class TestConstruction:
         with pytest.raises(ValueError):
             WorkflowExecutor(str(path), plugins=[SPECIMEN])
 
+    def test_a_node_type_named_after_a_collection_is_refused(self, write_graph, specimen_plugins):
+        """GIVEN a plugin declaring a class keyed ``list``
+        WHEN the executor is constructed
+        THEN DuplicateNodeTypeError is raised, before the graph is read: the key collides with the
+        primitive ``list``."""
+        path = write_graph(graph({"0": {"type": "int", "value": 1}}))
+
+        with pytest.raises(DuplicateNodeTypeError):
+            WorkflowExecutor(str(path), plugins=[COLLECTION_CLASH])
+
 
 class TestPrimitiveNodes:
-    """A primitive casts its ``value`` through the type it declares."""
+    """A primitive reads its ``value`` the way its declared type says: a scalar is cast, a
+    collection parses a JSON string."""
 
     @pytest.mark.parametrize(
         "type_name, raw, expected",
@@ -88,6 +103,9 @@ class TestPrimitiveNodes:
             ("float", "3.5", 3.5),
             ("str", "hello", "hello"),
             ("bool", True, True),
+            ("bool", False, False),
+            ("bool", "true", True),
+            ("bool", "false", False),  # bool("false") would be True
         ],
     )
     def test_declared_type_casts_the_value(self, run, type_name, raw, expected):
@@ -98,6 +116,14 @@ class TestPrimitiveNodes:
 
         assert results["0"] == expected
         assert isinstance(results["0"], type(expected))
+
+    @pytest.mark.parametrize("raw", ["False", "0", "", "yes", 1, 0, None])
+    def test_a_bool_refuses_anything_but_true_or_false(self, run, raw):
+        """GIVEN a bool primitive whose value is neither true nor false, natively or as a string
+        WHEN the executor is constructed
+        THEN ValueError names the node, rather than a truthiness cast deciding the value."""
+        with pytest.raises(ValueError, match=r"Node '0' .* needs true or false"):
+            run({"0": {"type": "bool", "value": raw}})
 
     def test_any_passes_its_value_through_unconverted(self, run):
         """GIVEN a node declared `any`
@@ -114,6 +140,106 @@ class TestPrimitiveNodes:
         results = run({"0": {"type": "none", "value": "ignored"}})
 
         assert results["0"] is None
+
+    @pytest.mark.parametrize("type_name", ["int", "str", "bool", "any", "list"])
+    def test_a_missing_value_is_refused(self, run, type_name):
+        """GIVEN a primitive node, other than `none`, with no `value` field
+        WHEN the executor is constructed
+        THEN ValueError names the node, rather than the missing value being read as null."""
+        with pytest.raises(ValueError, match=r"Node '0' of type .* has no value"):
+            run({"0": {"type": type_name}})
+
+    def test_none_needs_no_value(self, run):
+        """GIVEN a node declared `none` with no `value` field
+        WHEN it is executed
+        THEN its result is None: `none` never reads its value."""
+        results = run({"0": {"type": "none"}})
+
+        assert results["0"] is None
+
+    def test_a_bad_literal_fails_before_any_node_runs(
+        self, write_graph, specimen_plugins, tmp_path
+    ):
+        """GIVEN a bad bool literal beside a zero-input node that sorts before it in the order
+        WHEN the executor is constructed with a touch directory
+        THEN ValueError names the literal, and no node has written a marker."""
+        nodes = {"0": {"type": "make_one"}, "1": {"type": "bool", "value": "False"}}
+        path = write_graph(graph(nodes))
+        status = tmp_path / "status"
+
+        with pytest.raises(ValueError, match=r"Node '1' .* needs true or false"):
+            WorkflowExecutor(str(path), plugins=[SPECIMEN], touch_dir=str(status))
+
+        assert list(status.iterdir()) == []
+
+    @pytest.mark.parametrize(
+        "type_name, raw, expected",
+        [
+            ("list", '[1, "a", 2.5]', [1, "a", 2.5]),
+            ("set", "[3, 1, 3]", {1, 3}),
+            ("dict", '{"a": 1}', {"a": 1}),
+            ("list", "[]", []),
+            ("set", "[]", set()),
+            ("dict", "{}", {}),
+        ],
+    )
+    def test_a_collection_parses_its_json_string(self, run, type_name, raw, expected):
+        """GIVEN a collection primitive carrying a JSON string
+        WHEN the workflow is executed
+        THEN the string is parsed into the declared collection, a set collapsing duplicates."""
+        results = run({"0": {"type": type_name, "value": raw}})
+
+        assert results["0"] == expected
+        assert type(results["0"]) is type(expected)
+
+    @pytest.mark.parametrize("type_name, raw", [("list", [1, 2]), ("dict", {"a": 1})])
+    def test_a_collection_refuses_a_native_value(self, run, type_name, raw):
+        """GIVEN a collection primitive whose value is a native JSON array or object
+        WHEN the executor is constructed
+        THEN ValueError names the node: a literal has one spelling, the string the editor writes."""
+        with pytest.raises(
+            ValueError, match=r"Node '0' .* needs a JSON string, got (array|object)"
+        ):
+            run({"0": {"type": type_name, "value": raw}})
+
+    @pytest.mark.parametrize(
+        "type_name, raw", [("list", '{"a": 1}'), ("dict", "[1]"), ("set", "5")]
+    )
+    def test_a_collection_refuses_the_wrong_json_shape(self, run, type_name, raw):
+        """GIVEN a collection primitive whose string parses to the wrong kind of JSON value
+        WHEN the executor is constructed
+        THEN ValueError names the node, rather than e.g. `list` silently splitting a string."""
+        with pytest.raises(ValueError, match=r"Node '0' .* needs a JSON (array|object)"):
+            run({"0": {"type": type_name, "value": raw}})
+
+    def test_malformed_json_names_the_node(self, run):
+        """GIVEN a list primitive whose string is not valid JSON
+        WHEN the executor is constructed
+        THEN ValueError names the node, chained to the parser's own JSONDecodeError."""
+        with pytest.raises(ValueError, match=r"Node '0' of type 'list' cannot read") as caught:
+            run({"0": {"type": "list", "value": "[1, 2"}})
+
+        assert isinstance(caught.value.__cause__, json.JSONDecodeError)
+
+    def test_an_unhashable_set_element_names_the_node(self, run):
+        """GIVEN a set primitive whose array holds an array
+        WHEN the executor is constructed
+        THEN ValueError names the node, chained to the TypeError: a list cannot be a set element."""
+        with pytest.raises(ValueError, match=r"Node '0' of type 'set' cannot read") as caught:
+            run({"0": {"type": "set", "value": "[[1]]"}})
+
+        assert isinstance(caught.value.__cause__, TypeError)
+
+    def test_a_set_literal_feeds_a_builtin(self, run):
+        """GIVEN a set literal wired into `set_size`
+        WHEN the workflow is executed
+        THEN the literal flows into the builtin like a computed set, and check 8 accepts the edge."""
+        results = run(
+            {"0": {"type": "set", "value": "[3, 1, 2, 3]"}, "1": {"type": "set_size"}},
+            {"0": edge("0", "1", 0)},
+        )
+
+        assert results["1"] == 3
 
 
 class TestFunctionNodes:
@@ -287,8 +413,9 @@ class TestOutputArity:
         with pytest.raises(ValueError) as error:
             run({"0": {"qualified_id": "short", "type": "short_triple"}})
 
-        assert "Node 0 (short_triple) declares 3 outputs but returned a tuple of 2" in str(
-            error.value
+        assert (
+            "Node '0' of type 'short_triple' declares 3 outputs but returned a tuple of 2"
+            in str(error.value)
         )
 
     def test_it_fires_at_the_producer_not_at_a_consumer(self, run):
@@ -307,7 +434,7 @@ class TestOutputArity:
                 {"0": edge("0", "1", 0)},
             )
 
-        assert "Node 0 (short_triple)" in str(error.value)
+        assert "Node '0' of type 'short_triple'" in str(error.value)
 
     def test_a_non_tuple_result_raises_naming_its_type(self, run):
         """GIVEN a function declaring two outputs that returns a plain int
@@ -316,7 +443,16 @@ class TestOutputArity:
         with pytest.raises(ValueError) as error:
             run({"0": {"qualified_id": "scalar", "type": "not_a_tuple"}})
 
-        assert "Node 0 (not_a_tuple) declares 2 outputs but returned int" in str(error.value)
+        assert "Node '0' of type 'not_a_tuple' declares 2 outputs but returned int" in str(
+            error.value
+        )
+
+    def test_a_named_node_is_named_in_the_error(self, run):
+        """GIVEN an over-declaring node that declares a name
+        WHEN the graph is executed
+        THEN the error carries the name beside the id."""
+        with pytest.raises(ValueError, match=r"Node '0' \('solver'\) of type 'short_triple'"):
+            run({"0": {"qualified_id": "short", "type": "short_triple", "name": "solver"}})
 
 
 class TestConstructorNodes:
@@ -413,6 +549,49 @@ class TestMethodNodes:
 
         assert results["4"] == 3.0
 
+    def test_a_grandchild_instance_is_accepted(self, run):
+        """GIVEN a Ledger — Accumulator's grandchild through PreciseAccumulator — wired into port 0
+             of an Accumulator method
+        WHEN the workflow is executed
+        THEN it runs: `isinstance` walks the whole chain."""
+        results = run(
+            {
+                "0": {"qualified_id": "start", "type": "float", "value": 1.0},
+                "1": {"qualified_id": "digits", "type": "int", "value": 2},
+                "2": {"qualified_id": "ledger", "type": "Ledger"},
+                "3": {"qualified_id": "amount", "type": "float", "value": 2.0},
+                "4": {"qualified_id": "add", "type": "Accumulator.add"},
+            },
+            {
+                "0": edge("0", "2", 0),
+                "1": edge("1", "2", 1),
+                "2": edge("2", "4", 0),
+                "3": edge("3", "4", 1),
+            },
+        )
+
+        assert results["4"] == 3.0
+
+    def test_an_instance_of_a_non_first_parent_is_accepted(self, run):
+        """GIVEN a Ledger wired into port 0 of a method of Resettable, its second parent
+        WHEN the workflow is executed
+        THEN it runs."""
+        results = run(
+            {
+                "0": {"qualified_id": "start", "type": "float", "value": 1.0},
+                "1": {"qualified_id": "digits", "type": "int", "value": 2},
+                "2": {"qualified_id": "ledger", "type": "Ledger"},
+                "3": {"qualified_id": "reset", "type": "Resettable.reset"},
+            },
+            {
+                "0": edge("0", "2", 0),
+                "1": edge("1", "2", 1),
+                "2": edge("2", "3", 0),
+            },
+        )
+
+        assert results["3"] == 0.0
+
     def test_an_unrelated_class_never_reaches_execution(self, write_graph, specimen_plugins):
         """GIVEN an unrelated class's instance wired into port 0 of a method
         WHEN the executor is merely constructed
@@ -435,6 +614,30 @@ class TestMethodNodes:
         )
 
         with pytest.raises(ValueError, match="Accumulator"):
+            WorkflowExecutor(str(path), plugins=[SPECIMEN])
+
+    def test_a_sibling_parent_never_reaches_execution(self, write_graph, specimen_plugins):
+        """GIVEN a Resettable — Ledger's second parent, unrelated to Accumulator — wired into
+             port 0 of an Accumulator method
+        WHEN the executor is merely constructed
+        THEN it is refused: sharing a subclass does not make two classes related."""
+        path = write_graph(
+            graph(
+                {
+                    "0": {"qualified_id": "level", "type": "float", "value": 1.0},
+                    "1": {"qualified_id": "resettable", "type": "Resettable"},
+                    "2": {"qualified_id": "amount", "type": "float", "value": 2.0},
+                    "3": {"qualified_id": "add", "type": "Accumulator.add"},
+                },
+                {
+                    "0": edge("0", "1", 0),
+                    "1": edge("1", "3", 0),
+                    "2": edge("2", "3", 1),
+                },
+            )
+        )
+
+        with pytest.raises(ValueError, match=r"feeds Resettable .* expects Accumulator"):
             WorkflowExecutor(str(path), plugins=[SPECIMEN])
 
     def test_a_value_the_edge_check_cannot_judge_is_rejected_at_run_time(self, run):
@@ -514,6 +717,30 @@ class TestExecutionOrder:
         WHEN it is executed
         THEN the results are empty and no error is raised."""
         assert run({}) == {}
+
+
+class TestLog:
+    """The pair of lines bracketing each node, in the reference backend's shape."""
+
+    def test_a_named_node_is_logged_with_its_name(self, run, capsys):
+        """GIVEN a node declaring a name
+        WHEN the graph is executed
+        THEN both lines carry the name after the qualified id."""
+        run({"0": {"qualified_id": "q", "type": "int", "value": 1, "name": "count"}})
+
+        out = capsys.readouterr().out
+        assert "Start running node 0 [q]: count (type = int)" in out
+        assert "Node 0 [q]: count (type = int) run" in out
+
+    def test_an_unnamed_node_is_logged_without_one(self, run, capsys):
+        """GIVEN a node with no name
+        WHEN the graph is executed
+        THEN neither line carries one — no empty ``: ``, no invented name."""
+        run({"0": {"qualified_id": "q", "type": "int", "value": 1}})
+
+        out = capsys.readouterr().out
+        assert "Start running node 0 [q] (type = int)" in out
+        assert "Node 0 [q] (type = int) run" in out
 
 
 class TestStatusMarkers:
@@ -609,3 +836,134 @@ class TestStatusMarkers:
 
         assert status.is_dir()
         assert list(status.iterdir()) == []
+
+
+@pytest.fixture
+def run_declared(write_graph, monkeypatch):
+    """Execute a graph against one plugin built with the decorators, handed to the host by name."""
+
+    def _run(plugin: Plugin, nodes: dict, edges: dict = None) -> dict:
+        monkeypatch.setattr("coral_app.load", lambda name: plugin)
+        path = write_graph(graph(nodes, edges))
+        return WorkflowExecutor(str(path), plugins=["declared"]).execute()
+
+    return _run
+
+
+class TestDeclaredMethods:
+    """A method node runs the attribute it was declared on, looked up on the instance."""
+
+    def test_a_renamed_method_runs_its_attribute(self, run_declared):
+        """GIVEN a method declared under a name other than its attribute
+        WHEN a graph calls it by that name
+        THEN the attribute's function runs."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Counter:
+            def __init__(self, start: int):
+                self.start = start
+
+            @plugin.method(name="current")
+            def get(self) -> int:
+                return self.start
+
+        results = run_declared(
+            plugin,
+            {
+                "0": {"type": "int", "value": 7},
+                "1": {"type": "Counter"},
+                "2": {"type": "Counter.current"},
+            },
+            {"0": edge("0", "1", 0), "1": edge("1", "2", 0)},
+        )
+
+        assert results["2"] == 7
+
+    def test_an_undeclared_override_runs_the_override(self, run_declared):
+        """GIVEN a declared method, overridden without a declaration in a registered subclass
+        WHEN a graph calls the subclass's method node
+        THEN the override runs, not the base's function."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            def __init__(self, start: int):
+                self.start = start
+
+            @plugin.method
+            def value(self) -> int:
+                return self.start
+
+        @plugin.cls
+        class Child(Base):
+            def value(self) -> int:
+                return -self.start
+
+        results = run_declared(
+            plugin,
+            {
+                "0": {"type": "int", "value": 7},
+                "1": {"type": "Child"},
+                "2": {"type": "Child.value"},
+            },
+            {"0": edge("0", "1", 0), "1": edge("1", "2", 0)},
+        )
+
+        assert results["2"] == -7
+
+    def test_a_method_whose_instance_is_not_called_self_runs(self, run_declared):
+        """GIVEN a declared method whose first parameter is called ``this``, wired with its
+             instance and one argument
+        WHEN the graph executes
+        THEN the method receives the instance and the argument, each once."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Counter:
+            def __init__(self, start: int):
+                self.start = start
+
+            @plugin.method
+            def scaled(this, factor: int) -> int:
+                return this.start * factor
+
+        results = run_declared(
+            plugin,
+            {
+                "0": {"type": "int", "value": 7},
+                "1": {"type": "Counter"},
+                "2": {"type": "int", "value": 3},
+                "3": {"type": "Counter.scaled"},
+            },
+            {"0": edge("0", "1", 0), "1": edge("1", "3", 0), "2": edge("2", "3", 1)},
+        )
+
+        assert results["3"] == 21
+
+    def test_a_renamed_class_runs(self, run_declared):
+        """GIVEN a class registered under a key other than its name, with a declared method
+        WHEN a graph builds an instance and calls the method by that key
+        THEN both run: the method's instance is checked against the class, whatever its key."""
+        plugin = Plugin()
+
+        @plugin.cls(name="Renamed")
+        class Counter:
+            def __init__(self, start: int):
+                self.start = start
+
+            @plugin.method
+            def get(self) -> int:
+                return self.start
+
+        results = run_declared(
+            plugin,
+            {
+                "0": {"type": "int", "value": 7},
+                "1": {"type": "Renamed"},
+                "2": {"type": "Renamed.get"},
+            },
+            {"0": edge("0", "1", 0), "1": edge("1", "2", 0)},
+        )
+
+        assert results["2"] == 7

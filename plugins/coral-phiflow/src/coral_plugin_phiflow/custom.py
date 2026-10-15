@@ -1,8 +1,6 @@
-from typing import Any, Dict, Tuple
+from typing import Any, Tuple
 
 from phi.flow import (
-    # Constants
-    ZERO_GRADIENT,
     # Classes
     Solve,
     Sphere,
@@ -16,10 +14,9 @@ from phi.flow import (
     plot,
     resample,
     union,
-    vec,
 )
 
-from .field._grid import PhiFlowStaggeredGrid, PhiFlowCenteredGrid
+from .field._grid import PhiFlowCenteredGrid, PhiFlowStaggeredGrid
 
 
 def phiflow_iterate(

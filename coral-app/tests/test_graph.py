@@ -19,6 +19,9 @@ node type             inputs                            outputs
 ``Widget``            ``size: float``                   ``Widget``
 ``Widget.resize``     ``self: Widget``, ``f: float``    ``float``
 ``Gadget``            ``size: float``                   ``Gadget``
+``Cog``               ``size: float``                   ``Cog``
+``Cog.spin``          ``self: Cog``                     ``float``
+``Gear``              ``size: float``                   ``Gear``
 ``list_new``          none                              ``list``
 ``set_new``           none                              ``set``
 ``dict_new``          none                              ``dict``
@@ -28,6 +31,7 @@ node type             inputs                            outputs
 ===================== ================================= ==========================
 """
 
+from fractions import Fraction
 from typing import Any
 
 import pytest
@@ -39,6 +43,7 @@ from coral_app.nodeports import (
     METHOD,
     PRIMITIVE,
     NodePorts,
+    Port,
     build_port_table,
 )
 
@@ -46,43 +51,82 @@ from coral_app.nodeports import (
 class Widget:
     """A plugin-supplied class."""
 
+    def __init__(self, size: float): ...
+
+    def resize(self, f: float) -> float:
+        """A stub: ``Graph`` only reads the ``Widget.resize`` port-table entry, never this."""
+        ...
+
 
 class Gadget:
     """An unrelated plugin-supplied class."""
+
+    def __init__(self, size: float): ...
 
 
 class Sprocket(Widget):
     """A subclass of Widget."""
 
 
+class Cog:
+    """Another class unrelated to Widget: Gear's second parent."""
+
+    def __init__(self, size: float): ...
+
+    def spin(self) -> float:
+        """A stub: ``Graph`` only reads the ``Cog.spin`` port-table entry, never this."""
+        ...
+
+
+class Gear(Sprocket, Cog):
+    """A Widget through a chain, and a Cog through a second parent."""
+
+
+def ports(kind, inputs=(), outputs=()) -> NodePorts:
+    """A port-table entry from ``(name, annotation)`` inputs and bare output annotations.
+
+    Outputs are left unnamed: ``Graph`` never reads an output's name. A method's port 0 is marked
+    as its instance, as ``build_port_table`` marks it.
+    """
+    return NodePorts(
+        kind=kind,
+        inputs=[
+            Port(name, annotation, instance=kind == METHOD and index == 0)
+            for index, (name, annotation) in enumerate(inputs)
+        ],
+        outputs=[Port("", annotation) for annotation in outputs],
+    )
+
+
 PORT_TABLE = {
-    "int": NodePorts(kind=PRIMITIVE, outputs=[int]),
-    "float": NodePorts(kind=PRIMITIVE, outputs=[float]),
-    "str": NodePorts(kind=PRIMITIVE, outputs=[str]),
-    "bool": NodePorts(kind=PRIMITIVE, outputs=[bool]),
-    "any": NodePorts(kind=PRIMITIVE, outputs=[Any]),
-    "none": NodePorts(kind=PRIMITIVE, outputs=[type(None)]),
-    "add": NodePorts(kind=FUNCTION, inputs=[("a", float), ("b", float)], outputs=[float]),
-    "sqrt": NodePorts(kind=FUNCTION, inputs=[("x", float)], outputs=[float]),
-    "label": NodePorts(kind=FUNCTION, inputs=[("text", str)], outputs=[str]),
-    "show": NodePorts(kind=FUNCTION, inputs=[("value", float)], outputs=[]),
-    "split": NodePorts(kind=FUNCTION, inputs=[("x", float)], outputs=[float, str, bool]),
-    "anything": NodePorts(kind=FUNCTION, inputs=[("value", Any)], outputs=[Any]),
-    "Widget": NodePorts(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Widget]),
-    "Widget.resize": NodePorts(
-        kind=METHOD, inputs=[("self", Widget), ("f", float)], outputs=[float]
-    ),
-    "Gadget": NodePorts(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Gadget]),
-    "Sprocket": NodePorts(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Sprocket]),
+    "int": ports(kind=PRIMITIVE, outputs=[int]),
+    "float": ports(kind=PRIMITIVE, outputs=[float]),
+    "str": ports(kind=PRIMITIVE, outputs=[str]),
+    "bool": ports(kind=PRIMITIVE, outputs=[bool]),
+    "any": ports(kind=PRIMITIVE, outputs=[Any]),
+    "none": ports(kind=PRIMITIVE, outputs=[type(None)]),
+    "add": ports(kind=FUNCTION, inputs=[("a", float), ("b", float)], outputs=[float]),
+    "sqrt": ports(kind=FUNCTION, inputs=[("x", float)], outputs=[float]),
+    "label": ports(kind=FUNCTION, inputs=[("text", str)], outputs=[str]),
+    "show": ports(kind=FUNCTION, inputs=[("value", float)], outputs=[]),
+    "split": ports(kind=FUNCTION, inputs=[("x", float)], outputs=[float, str, bool]),
+    "anything": ports(kind=FUNCTION, inputs=[("value", Any)], outputs=[Any]),
+    "Widget": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Widget]),
+    "Widget.resize": ports(kind=METHOD, inputs=[("self", Widget), ("f", float)], outputs=[float]),
+    "Gadget": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Gadget]),
+    "Sprocket": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Sprocket]),
+    "Cog": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Cog]),
+    "Cog.spin": ports(kind=METHOD, inputs=[("self", Cog)], outputs=[float]),
+    "Gear": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Gear]),
     # Collection-shaped entries, mirroring `coral_app.builtin_nodes`: a creator taking nothing and
     # returning a bare collection, and a consumer taking one. Hand-written like everything else here
     # — the point is the annotations `Graph` compares, not which module they came from.
-    "list_new": NodePorts(kind=FUNCTION, inputs=[], outputs=[list]),
-    "set_new": NodePorts(kind=FUNCTION, inputs=[], outputs=[set]),
-    "dict_new": NodePorts(kind=FUNCTION, inputs=[], outputs=[dict]),
-    "list_size": NodePorts(kind=FUNCTION, inputs=[("lst", list)], outputs=[int]),
-    "set_size": NodePorts(kind=FUNCTION, inputs=[("s", set)], outputs=[int]),
-    "dict_size": NodePorts(kind=FUNCTION, inputs=[("d", dict)], outputs=[int]),
+    "list_new": ports(kind=FUNCTION, inputs=[], outputs=[list]),
+    "set_new": ports(kind=FUNCTION, inputs=[], outputs=[set]),
+    "dict_new": ports(kind=FUNCTION, inputs=[], outputs=[dict]),
+    "list_size": ports(kind=FUNCTION, inputs=[("lst", list)], outputs=[int]),
+    "set_size": ports(kind=FUNCTION, inputs=[("s", set)], outputs=[int]),
+    "dict_size": ports(kind=FUNCTION, inputs=[("d", dict)], outputs=[int]),
 }
 
 
@@ -318,21 +362,59 @@ class TestNodeTypes:
         with pytest.raises(ValueError, match=r"Node '0' declares no 'type'"):
             build({"0": {"value": 1.0}}, {})
 
-    @pytest.mark.parametrize("collection", ["list", "set", "dict"])
-    def test_a_collection_is_not_a_node_type(self, collection):
-        """GIVEN a graph naming a collection type as a node
+    @pytest.mark.parametrize("collection, value", [("list", "[]"), ("set", "[]"), ("dict", "{}")])
+    def test_a_collection_is_a_primitive_node_type(self, collection, value):
+        """GIVEN a graph naming a collection type as a node, carrying a literal
         WHEN the graph is built against the real primitives-only port table
-        THEN check 4 rejects it: a collection is built by ``list_new`` and friends, so there is
-        exactly one way to make one.
+        THEN check 4 accepts it: a collection is a primitive, so it has an entry of that kind.
 
         The table here is built rather than hand-written — the point is what the *host* actually
         offers with no plugin at all, which a literal table could not show.
         """
         port_table = build_port_table(primitives=PRIMITIVES_MAP)
 
-        assert collection not in port_table
-        with pytest.raises(ValueError, match=rf"Node '0' has unknown type '{collection}'"):
-            build({"0": {"type": collection}}, {}, port_table)
+        assert port_table[collection].kind == PRIMITIVE
+        build({"0": {"type": collection, "value": value}}, {}, port_table)
+
+
+class TestLiterals:
+    """Check 10: every primitive's ``value`` is read while the graph is built, and kept."""
+
+    def test_the_parsed_values_are_exposed_on_the_graph(self):
+        """GIVEN an int primitive carrying a string, wired into a function
+        WHEN the graph is built
+        THEN `.literals` holds the int, cast, and has no entry for the function node."""
+        nodes = {"0": {"type": "int", "value": "42"}, "1": {"type": "sqrt"}}
+
+        graph = build(nodes, {"0": edge("0", "1")})
+
+        assert graph.literals == {"0": 42}
+
+    def test_a_bad_literal_fails_construction(self):
+        """GIVEN a bool primitive whose value is neither true nor false, beside a zero-input node
+        WHEN the graph is built
+        THEN ValueError names the primitive — before any node, the zero-input one included, runs."""
+        nodes = {"0": {"type": "list_new"}, "1": {"type": "bool", "value": "False"}}
+
+        with pytest.raises(ValueError, match=r"Node '1' .* needs true or false"):
+            build(nodes, {})
+
+    @pytest.mark.parametrize("type_name, raw", [("int", ""), ("float", "abc"), ("int", None)])
+    def test_a_scalar_the_cast_refuses_names_the_node(self, type_name, raw):
+        """GIVEN a scalar primitive whose value its type cannot cast
+        WHEN the graph is built
+        THEN ValueError names the node, chained to the cast's own error."""
+        with pytest.raises(ValueError, match=r"Node '0' of type .* cannot read") as caught:
+            build({"0": {"type": type_name, "value": raw}}, {})
+
+        assert isinstance(caught.value.__cause__, (TypeError, ValueError))
+
+    def test_a_missing_value_fails_construction(self):
+        """GIVEN an int primitive with no `value` field
+        WHEN the graph is built
+        THEN ValueError names the node, rather than the missing value being read as null."""
+        with pytest.raises(ValueError, match=r"Node '0' of type 'int' has no value"):
+            build({"0": {"type": "int"}}, {})
 
 
 class TestNodeIds:
@@ -687,9 +769,9 @@ class TestOutputPorts:
 class TestEdgeTypes:
     """Check 8: the source's output annotation against the target's input annotation."""
 
-    def _wire(self, source_type, target_type):
+    def _wire(self, source_type, target_type, value=1):
         """One edge from a primitive/constructor node into port 0 of a target node."""
-        nodes = {"0": {"type": source_type, "value": 1}, "1": {"type": target_type}}
+        nodes = {"0": {"type": source_type, "value": value}, "1": {"type": target_type}}
         return nodes, {"0": edge("0", "1", 0)}
 
     def test_identical_types_are_accepted(self):
@@ -708,7 +790,7 @@ class TestEdgeTypes:
         """GIVEN a bool primitive feeding a float parameter
         WHEN the graph is built
         THEN it is accepted — bool is an int, and int widens to float."""
-        assert build(*self._wire("bool", "sqrt")).order == ["0", "1"]
+        assert build(*self._wire("bool", "sqrt", True)).order == ["0", "1"]
 
     def test_str_into_float_is_rejected(self):
         """GIVEN a str primitive feeding a float parameter
@@ -728,7 +810,7 @@ class TestEdgeTypes:
         """GIVEN a float feeding an int parameter
         WHEN the graph is built
         THEN it raises — the tower widens, it does not narrow."""
-        table = dict(PORT_TABLE, count=NodePorts(kind=FUNCTION, inputs=[("n", int)], outputs=[int]))
+        table = dict(PORT_TABLE, count=ports(kind=FUNCTION, inputs=[("n", int)], outputs=[int]))
         nodes = {"0": {"type": "float", "value": 1.0}, "1": {"type": "count"}}
 
         with pytest.raises(ValueError, match=r"feeds float .* expects int"):
@@ -739,19 +821,43 @@ class TestEdgeTypes:
         WHEN the graph is built
         THEN it raises — bool is an int subclass, but widening never lands on bool."""
         table = dict(
-            PORT_TABLE, toggle=NodePorts(kind=FUNCTION, inputs=[("flag", bool)], outputs=[bool])
+            PORT_TABLE, toggle=ports(kind=FUNCTION, inputs=[("flag", bool)], outputs=[bool])
         )
         nodes = {"0": {"type": "int", "value": 5}, "1": {"type": "toggle"}}
 
         with pytest.raises(ValueError, match=r"feeds int .* expects bool"):
             build(nodes, {"0": edge("0", "1", 0)}, table)
 
+    def test_int_into_a_numeric_class_s_instance_port_is_rejected(self):
+        """GIVEN an int primitive feeding port 0, the instance, of a method of Fraction, a class
+             in the numeric tower
+        WHEN the graph is built
+        THEN it raises: the instance must be a Fraction, and no widening turns an int into one."""
+        table = dict(
+            PORT_TABLE,
+            **{
+                "Fraction.limit_denominator": ports(
+                    kind=METHOD,
+                    inputs=[("self", Fraction), ("max_denominator", int)],
+                    outputs=[Fraction],
+                )
+            },
+        )
+        nodes = {
+            "0": {"type": "int", "value": 5},
+            "1": {"type": "int", "value": 10},
+            "2": {"type": "Fraction.limit_denominator"},
+        }
+
+        with pytest.raises(ValueError, match=r"feeds int .* expects Fraction"):
+            build(nodes, {"0": edge("0", "2", 0), "1": edge("1", "2", 1)}, table)
+
     def test_bool_into_bool_is_accepted(self):
         """GIVEN a bool primitive feeding a bool parameter
         WHEN the graph is built
         THEN it is accepted — the bool guard must not refuse an exact match."""
         table = dict(
-            PORT_TABLE, toggle=NodePorts(kind=FUNCTION, inputs=[("flag", bool)], outputs=[bool])
+            PORT_TABLE, toggle=ports(kind=FUNCTION, inputs=[("flag", bool)], outputs=[bool])
         )
         nodes = {"0": {"type": "bool", "value": True}, "1": {"type": "toggle"}}
 
@@ -797,6 +903,34 @@ class TestEdgeTypes:
 
         assert build(nodes, edges).order[-1] == "3"
 
+    def test_a_grandparent_through_a_chain_is_accepted(self):
+        """GIVEN a Gear (Sprocket's subclass, so a Widget's grandchild) feeding a parameter
+        expecting Widget
+        WHEN the graph is built
+        THEN it is accepted."""
+        nodes = {
+            "0": {"type": "float", "value": 2.0},
+            "1": {"type": "Gear"},
+            "2": {"type": "float", "value": 3.0},
+            "3": {"type": "Widget.resize"},
+        }
+        edges = {"0": edge("0", "1", 0), "1": edge("1", "3", 0), "2": edge("2", "3", 1)}
+
+        assert build(nodes, edges).order[-1] == "3"
+
+    def test_a_non_first_parent_is_accepted(self):
+        """GIVEN a Gear(Sprocket, Cog) feeding a parameter expecting Cog, its second parent
+        WHEN the graph is built
+        THEN it is accepted."""
+        nodes = {
+            "0": {"type": "float", "value": 2.0},
+            "1": {"type": "Gear"},
+            "2": {"type": "Cog.spin"},
+        }
+        edges = {"0": edge("0", "1", 0), "1": edge("1", "2", 0)}
+
+        assert build(nodes, edges).order[-1] == "2"
+
     def test_unrelated_class_is_rejected(self):
         """GIVEN a Gadget feeding a parameter expecting Widget
         WHEN the graph is built
@@ -810,6 +944,21 @@ class TestEdgeTypes:
         edges = {"0": edge("0", "1", 0), "1": edge("1", "3", 0), "2": edge("2", "3", 1)}
 
         with pytest.raises(ValueError, match=r"feeds Gadget .* expects Widget"):
+            build(nodes, edges)
+
+    def test_a_parent_is_not_its_subclass_s_other_parent(self):
+        """GIVEN a Sprocket feeding a parameter expecting Cog, which only its subclass Gear derives
+        from
+        WHEN the graph is built
+        THEN it raises, naming both classes."""
+        nodes = {
+            "0": {"type": "float", "value": 2.0},
+            "1": {"type": "Sprocket"},
+            "2": {"type": "Cog.spin"},
+        }
+        edges = {"0": edge("0", "1", 0), "1": edge("1", "2", 0)}
+
+        with pytest.raises(ValueError, match=r"feeds Sprocket .* expects Cog"):
             build(nodes, edges)
 
     def test_class_into_a_scalar_is_rejected(self):
@@ -965,3 +1114,80 @@ class TestLookups:
 
         assert graph.order == ["0", "1"]
         assert graph.edges[0].id == "0"
+
+
+class TestNames:
+    """A node's optional ``name``: a caption that describes a node, never an address.
+
+    Nothing about it is validated — it is not unique, and anything but a non-empty string counts as
+    no name — so a graph never fails over it. What it changes is how messages name a node.
+    """
+
+    def test_a_declared_name_is_returned(self):
+        """GIVEN a node declaring a name
+        WHEN its name is requested
+        THEN the name comes back."""
+        graph = build({"0": {"type": "int", "value": 1, "name": "count"}}, {})
+
+        assert graph.name_of("0") == "count"
+
+    @pytest.mark.parametrize(
+        "extra",
+        [{}, {"name": ""}, {"name": 42}, {"name": None}],
+        ids=["absent", "empty", "number", "null"],
+    )
+    def test_anything_but_a_non_empty_string_is_no_name(self, extra):
+        """GIVEN a node whose name is absent, empty, or not a string
+        WHEN the graph is built and the node's name requested
+        THEN the graph constructs and the node has no name."""
+        graph = build({"0": {"type": "int", "value": 1, **extra}}, {})
+
+        assert graph.name_of("0") is None
+
+    def test_two_nodes_may_share_a_name(self):
+        """GIVEN two nodes declaring the same name
+        WHEN the graph is built
+        THEN it constructs — only ids must be unique, a name is a caption."""
+        nodes = {
+            "0": {"type": "int", "value": 1, "name": "same"},
+            "1": {"type": "int", "value": 2, "name": "same"},
+        }
+
+        assert build(nodes, {}).order == ["0", "1"]
+
+    def test_an_unnamed_node_is_described_by_its_id(self):
+        """GIVEN a node with no name
+        WHEN it is described
+        THEN the description is its quoted id alone."""
+        assert build({"0": {"type": "int", "value": 1}}, {}).describe("0") == "'0'"
+
+    def test_a_named_node_is_described_by_id_and_name(self):
+        """GIVEN a node declaring a name
+        WHEN it is described
+        THEN the description is its quoted id followed by its quoted name."""
+        graph = build({"0": {"type": "int", "value": 1, "name": "count"}}, {})
+
+        assert graph.describe("0") == "'0' ('count')"
+
+    def test_a_node_error_names_the_node(self):
+        """GIVEN a named two-input node with only one edge
+        WHEN the graph is built
+        THEN the error carries the node's name beside its id."""
+        nodes = {"0": {"type": "float", "value": 1.0}, "1": {"type": "add", "name": "total"}}
+
+        with pytest.raises(ValueError, match=r"Node '1' \('total'\) of type 'add' expects 2"):
+            build(nodes, {"0": edge("0", "1", 0)})
+
+    def test_an_edge_error_names_both_endpoints(self):
+        """GIVEN a named str primitive wired into a named float parameter
+        WHEN the graph is built
+        THEN the error carries both nodes' names beside their ids."""
+        nodes = {
+            "0": {"type": "str", "value": "x", "name": "word"},
+            "1": {"type": "sqrt", "name": "root"},
+        }
+
+        with pytest.raises(
+            ValueError, match=r"from node '0' \('word'\) into parameter 'x' of node '1' \('root'\)"
+        ):
+            build(nodes, {"0": edge("0", "1", 0)})

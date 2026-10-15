@@ -31,7 +31,7 @@
   },
   "bool": {
     "arguments": [],
-    "value": "",
+    "value": "false",
     "inputs": [],
     "outputs": [
       -1
@@ -58,6 +58,64 @@
     ],
     "node_type": "primitive",
     "type": "none"
+  },
+  "list": {
+    "arguments": [],
+    "value": "[]",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "list"
+  },
+  "set": {
+    "arguments": [],
+    "value": "[]",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "set"
+  },
+  "dict": {
+    "arguments": [],
+    "value": "{}",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "dict"
+  },
+  "pypde_solve_poisson_equation": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "PyPDEScalarField",
+        "name": "field"
+      },
+      {
+        "connection_type": "input",
+        "type": "str",
+        "name": "boundary"
+      },
+      {
+        "connection_type": "output",
+        "type": "PyPDEScalarField",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "function",
+    "type": "pypde_solve_poisson_equation"
   },
   "list_new": {
     "arguments": [
@@ -422,6 +480,19 @@
     "node_type": "function",
     "type": "dict_delete"
   },
+  "PyPDEGridBase": {
+    "arguments": [],
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PyPDEGridBase",
+    "derived": [
+      "PyPDEUnitGrid",
+      "PyPDECartesianGrid"
+    ]
+  },
   "PyPDEUnitGrid": {
     "arguments": [
       {
@@ -443,24 +514,53 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "PyPDEUnitGrid"
+    "type": "PyPDEUnitGrid",
+    "bases": [
+      "PyPDEGridBase"
+    ]
+  },
+  "PyPDECartesianGrid": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "str",
+        "name": "bounds"
+      },
+      {
+        "connection_type": "input",
+        "type": "str",
+        "name": "shape"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PyPDECartesianGrid",
+    "bases": [
+      "PyPDEGridBase"
+    ]
   },
   "PyPDEScalarField": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PyPDEGridBase",
         "name": "grid"
       },
       {
         "connection_type": "input",
-        "type": "float",
-        "name": "vmin"
+        "type": "str",
+        "name": "field_type"
       },
       {
         "connection_type": "input",
-        "type": "float",
-        "name": "vmax"
+        "type": "str",
+        "name": "data"
       }
     ],
     "inputs": [
@@ -542,7 +642,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PyPDEMovie",
         "name": "movie"
       },
       {
@@ -578,16 +678,170 @@
     "node_type": "constructor",
     "type": "PyPDEDiffusionPDE"
   },
-  "PyPDEDiffusionPDE.solve": {
+  "PyPDEShape": {
+    "arguments": [],
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PyPDEShape",
+    "derived": [
+      "PyPDECircle",
+      "PyPDERectangle"
+    ]
+  },
+  "PyPDECircle": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "float",
+        "name": "radius"
+      },
+      {
+        "connection_type": "input",
+        "type": "str",
+        "name": "center"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PyPDECircle",
+    "bases": [
+      "PyPDEShape"
+    ]
+  },
+  "PyPDERectangle": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "str",
+        "name": "center"
+      },
+      {
+        "connection_type": "input",
+        "type": "str",
+        "name": "sides"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PyPDERectangle",
+    "bases": [
+      "PyPDEShape"
+    ]
+  },
+  "PyPDEObstacleDiffusionPDE": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "diffusivity"
+      },
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "dx"
+      },
+      {
+        "connection_type": "input",
+        "type": "PyPDECartesianGrid",
+        "name": "grid"
+      },
+      {
+        "connection_type": "input",
+        "type": "PyPDEShape",
+        "name": "source"
+      },
+      {
+        "connection_type": "input",
+        "type": "PyPDEShape",
+        "name": "absorber"
+      },
+      {
+        "connection_type": "input",
+        "type": "PyPDEShape",
+        "name": "obstacle"
+      }
+    ],
+    "inputs": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "PyPDEObstacleDiffusionPDE"
+  },
+  "PyPDEScalarField.plot": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "PyPDEScalarField",
         "name": "self"
       },
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "str",
+        "name": "filename"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [],
+    "node_type": "method",
+    "type": "PyPDEScalarField.plot"
+  },
+  "PyPDEScalarField.to_file": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "PyPDEScalarField",
+        "name": "self"
+      },
+      {
+        "connection_type": "input",
+        "type": "str",
+        "name": "filename"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [],
+    "node_type": "method",
+    "type": "PyPDEScalarField.to_file"
+  },
+  "PyPDEDiffusionPDE.solve": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "PyPDEDiffusionPDE",
+        "name": "self"
+      },
+      {
+        "connection_type": "input",
+        "type": "PyPDEScalarField",
         "name": "state"
       },
       {
@@ -597,17 +851,17 @@
       },
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PyPDEFileStorage",
         "name": "storage"
       },
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PyPDEPlotTracker",
         "name": "plot"
       },
       {
         "connection_type": "output",
-        "type": "any",
+        "type": "PyPDEScalarField",
         "name": ""
       }
     ],
@@ -623,5 +877,73 @@
     ],
     "node_type": "method",
     "type": "PyPDEDiffusionPDE.solve"
+  },
+  "PyPDEObstacleDiffusionPDE.get_initial_condition": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "PyPDEObstacleDiffusionPDE",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "PyPDEScalarField",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "PyPDEObstacleDiffusionPDE.get_initial_condition"
+  },
+  "PyPDEObstacleDiffusionPDE.solve": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "PyPDEObstacleDiffusionPDE",
+        "name": "self"
+      },
+      {
+        "connection_type": "input",
+        "type": "PyPDEScalarField",
+        "name": "state"
+      },
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "t_range"
+      },
+      {
+        "connection_type": "input",
+        "type": "PyPDEFileStorage",
+        "name": "storage"
+      },
+      {
+        "connection_type": "input",
+        "type": "PyPDEPlotTracker",
+        "name": "plot"
+      },
+      {
+        "connection_type": "output",
+        "type": "PyPDEScalarField",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "outputs": [
+      5
+    ],
+    "node_type": "method",
+    "type": "PyPDEObstacleDiffusionPDE.solve"
   }
 }

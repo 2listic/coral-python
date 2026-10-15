@@ -9,7 +9,7 @@ installed; a marker would let the suite skip exactly the tests that assert that.
 
 import pytest
 from coral_app.builtin_nodes import (
-    BUILTIN_FUNCTIONS,
+    BUILTINS,
     dict_delete,
     dict_get,
     dict_new,
@@ -341,32 +341,35 @@ class TestSetToListDeterminism:
         assert set_to_list(set()) == []
 
 
-class TestBuiltinFunctionsTable:
-    """The table the host merges into the function map."""
+class TestBuiltinDeclarations:
+    """The builtins' declarations, which the host merges into the function map."""
 
     def test_every_entry_is_keyed_by_its_own_function_name(self):
-        """GIVEN the builtin table
-        WHEN each key is compared with its callable's __name__
+        """GIVEN the builtin declarations
+        WHEN each node type is compared with its callable's __name__
         THEN they match 1:1, so a node type never drifts from the function it runs."""
-        assert all(name == func.__name__ for name, func in BUILTIN_FUNCTIONS.items())
+        functions = BUILTINS.functions()
+        assert all(name == decl.target.__name__ for name, decl in functions.items())
 
     def test_no_name_contains_a_dot(self):
         """GIVEN the builtin node type names
         WHEN they are inspected
         THEN none contains a dot: in a node type a dot means a module or a class, and
         ``list.append`` is real Python for a method with different semantics."""
-        assert all("." not in name for name in BUILTIN_FUNCTIONS)
+        assert all("." not in name for name in BUILTINS.functions())
 
-    def test_the_table_covers_the_three_collections(self):
-        """GIVEN the builtin table
-        WHEN its keys are grouped by prefix
-        THEN each collection contributes its five operations."""
-        assert len(BUILTIN_FUNCTIONS) == 15
+    def test_the_declarations_cover_the_three_collections(self):
+        """GIVEN the builtin declarations
+        WHEN their node types are grouped by prefix
+        THEN each collection contributes its five operations, and there is no class."""
+        functions = BUILTINS.functions()
+        assert len(functions) == 15
         for prefix in ("list_", "set_", "dict_"):
-            assert len([name for name in BUILTIN_FUNCTIONS if name.startswith(prefix)]) == 5
+            assert len([name for name in functions if name.startswith(prefix)]) == 5
+        assert BUILTINS.classes() == {}
 
     def test_every_entry_is_callable(self):
-        """GIVEN the builtin table
-        WHEN each value is inspected
+        """GIVEN the builtin declarations
+        WHEN each target is inspected
         THEN it is callable, so the executor can resolve any of them."""
-        assert all(callable(func) for func in BUILTIN_FUNCTIONS.values())
+        assert all(callable(decl.target) for decl in BUILTINS.functions().values())

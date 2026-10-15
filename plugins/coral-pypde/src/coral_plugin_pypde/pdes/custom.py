@@ -1,10 +1,10 @@
 from ast import literal_eval
 
-from .obstacle import ObstacleDiffusionPDE
-from ..grids.cartesian import PyPDECartesianGrid
 from ..fields.scalar import PyPDEScalarField
+from ..grids.cartesian import PyPDECartesianGrid
 from ..storage.file import PyPDEFileStorage
 from ..trackers.trackers import PyPDEPlotTracker
+from .obstacle import ObstacleDiffusionPDE
 
 
 class PyPDEShape:
@@ -18,9 +18,9 @@ class PyPDECircle(PyPDEShape):
     """
 
     def __init__(
-            self,
-            radius: float,
-            center: str,
+        self,
+        radius: float,
+        center: str,
     ):
         self.radius = radius
         self.center = center
@@ -28,7 +28,7 @@ class PyPDECircle(PyPDEShape):
     def _build_mask(self, grid):
         xC, yC = literal_eval(self.center)
         x, y = grid.grid.cell_coords[..., 0], grid.grid.cell_coords[..., 1]
-        circle = (x - xC)**2 + (y - yC)**2 < self.radius**2
+        circle = (x - xC) ** 2 + (y - yC) ** 2 < self.radius**2
         self.mask = circle
 
 
@@ -39,9 +39,9 @@ class PyPDERectangle(PyPDEShape):
     """
 
     def __init__(
-            self,
-            center: str,
-            sides: str,
+        self,
+        center: str,
+        sides: str,
     ):
         self.center = center
         self.sides = sides
@@ -58,13 +58,13 @@ class PyPDEObstacleDiffusionPDE:
     """Wrapper for the custom obstacle diffusion equation."""
 
     def __init__(
-            self,
-            diffusivity: float,
-            dx: float,
-            grid: PyPDECartesianGrid,
-            source: PyPDEShape,
-            absorber: PyPDEShape,
-            obstacle: PyPDEShape,
+        self,
+        diffusivity: float,
+        dx: float,
+        grid: PyPDECartesianGrid,
+        source: PyPDEShape,
+        absorber: PyPDEShape,
+        obstacle: PyPDEShape,
     ):
         self.grid = grid
         source._build_mask(self.grid)
@@ -73,19 +73,20 @@ class PyPDEObstacleDiffusionPDE:
         self.source = source
         self.absorber = absorber
         self.obstacle = obstacle
-        self.equation = ObstacleDiffusionPDE(diffusivity, dx, self.source, self.absorber, self.obstacle)
+        self.equation = ObstacleDiffusionPDE(
+            diffusivity, dx, self.source, self.absorber, self.obstacle
+        )
 
     def get_initial_condition(self) -> PyPDEScalarField:
         state = self.equation.get_initial_state(self.grid.grid)
-        field = PyPDEScalarField(field_type="field", data=state)
-        return field
+        return PyPDEScalarField._holding(state)
 
     def solve(
-            self,
-            state: PyPDEScalarField,
-            t_range: int,
-            storage: PyPDEFileStorage,
-            plot: PyPDEPlotTracker,
+        self,
+        state: PyPDEScalarField,
+        t_range: int,
+        storage: PyPDEFileStorage,
+        plot: PyPDEPlotTracker,
     ) -> PyPDEScalarField:
         """Integrate to ``t_range``, feeding both trackers, and return the final state.
 

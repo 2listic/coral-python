@@ -14,7 +14,7 @@ requires-python = ">=3.12"
 dependencies = ["coral-core", "phiflow", "jax", "h5py"]
 
 [project.entry-points."coral.plugins"]
-phiflow = "coral_plugin_phiflow:PhiFlowPlugin"
+phiflow = "coral_plugin_phiflow:plugin"
 
 # Test-only: `tests/system/` drives this plugin's graphs through the host. A PEP 735 dependency group,
 # never `[project].dependencies` — the wheel still requires only `coral-core` and this plugin's real

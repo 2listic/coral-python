@@ -26,10 +26,12 @@ for a builtin method with *different* semantics: it mutates and returns ``None``
 assert something false.
 """
 
-from typing import Any, Callable, Dict
+from typing import Any
+
+from coral_core import Plugin
 
 __all__ = [
-    "BUILTIN_FUNCTIONS",
+    "BUILTINS",
     "list_new",
     "list_append",
     "list_get",
@@ -47,30 +49,39 @@ __all__ = [
     "dict_delete",
 ]
 
+#: The host's own node types, declared the way a plugin declares its own. Not discovered by entry
+#: point: merged into the function map after the plugins, so a plugin cannot shadow one of them.
+BUILTINS = Plugin()
+
 
 # ── list ──
 
 
+@BUILTINS.function
 def list_new() -> list:
     """Create an empty list."""
     return []
 
 
+@BUILTINS.function
 def list_append(lst: list, item: Any) -> list:
     """Return a new list with ``item`` added at the end."""
     return [*lst, item]
 
 
+@BUILTINS.function
 def list_get(lst: list, index: int) -> Any:
     """Return the element at ``index``, raising ``IndexError`` if there is none."""
     return lst[index]
 
 
+@BUILTINS.function
 def list_size(lst: list) -> int:
     """Return the number of elements in the list."""
     return len(lst)
 
 
+@BUILTINS.function
 def list_remove_at(lst: list, index: int) -> list:
     """Return a new list without the element at ``index``.
 
@@ -85,11 +96,13 @@ def list_remove_at(lst: list, index: int) -> list:
 # ── set ──
 
 
+@BUILTINS.function
 def set_new() -> set:
     """Create an empty set."""
     return set()
 
 
+@BUILTINS.function
 def set_add(s: set, item: Any) -> set:
     """Return a new set containing ``item`` as well.
 
@@ -99,6 +112,7 @@ def set_add(s: set, item: Any) -> set:
     return s | {item}
 
 
+@BUILTINS.function
 def set_to_list(s: set) -> list:
     """Return the set's elements as a **sorted** list.
 
@@ -111,11 +125,13 @@ def set_to_list(s: set) -> list:
     return sorted(s)
 
 
+@BUILTINS.function
 def set_size(s: set) -> int:
     """Return the number of elements in the set."""
     return len(s)
 
 
+@BUILTINS.function
 def set_remove(s: set, item: Any) -> set:
     """Return a new set without ``item``, raising ``KeyError`` if it is not there.
 
@@ -129,49 +145,33 @@ def set_remove(s: set, item: Any) -> set:
 # ── dict ──
 
 
+@BUILTINS.function
 def dict_new() -> dict:
     """Create an empty dictionary."""
     return {}
 
 
+@BUILTINS.function
 def dict_set(d: dict, key: Any, value: Any) -> dict:
     """Return a new dictionary with ``key`` mapped to ``value``, replacing any previous mapping."""
     return {**d, key: value}
 
 
+@BUILTINS.function
 def dict_get(d: dict, key: Any) -> Any:
     """Return the value ``key`` maps to, raising ``KeyError`` if it is absent."""
     return d[key]
 
 
+@BUILTINS.function
 def dict_size(d: dict) -> int:
     """Return the number of entries in the dictionary."""
     return len(d)
 
 
+@BUILTINS.function
 def dict_delete(d: dict, key: Any) -> dict:
     """Return a new dictionary without ``key``, raising ``KeyError`` if it is absent."""
     out = dict(d)
     del out[key]
     return out
-
-
-#: Node type -> callable, for every function the host itself provides. Merged into the function map
-#: after the plugins, so a plugin cannot shadow one of these names.
-BUILTIN_FUNCTIONS: Dict[str, Callable] = {
-    "list_new": list_new,
-    "list_append": list_append,
-    "list_get": list_get,
-    "list_size": list_size,
-    "list_remove_at": list_remove_at,
-    "set_new": set_new,
-    "set_add": set_add,
-    "set_to_list": set_to_list,
-    "set_size": set_size,
-    "set_remove": set_remove,
-    "dict_new": dict_new,
-    "dict_set": dict_set,
-    "dict_get": dict_get,
-    "dict_size": dict_size,
-    "dict_delete": dict_delete,
-}

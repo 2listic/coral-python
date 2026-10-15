@@ -14,5 +14,5 @@ grid = CartesianGrid([[0, 1]], 32, periodic=False)
 field = ScalarField(grid, 1)
 result = solve_poisson_equation(field, bc={"x-": {"value": 0}, "x+": {"derivative": 1}})
 
-result.plot(filename='poisson_1D.png')
-result.to_file(filename='poisson_1D.h5')
+result.plot(filename="poisson_1D.png")
+result.to_file(filename="poisson_1D.h5")

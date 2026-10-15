@@ -7,7 +7,8 @@
           "x": 858.5432233202406,
           "y": 653.8162439033258
         },
-        "qualified_id": "20"
+        "qualified_id": "20",
+        "name": "grid"
       },
       "21": {
         "type": "PyPDEScalarField",
@@ -15,25 +16,28 @@
           "x": 1338.3350445447802,
           "y": 684.5006045630348
         },
-        "qualified_id": "21"
+        "qualified_id": "21",
+        "name": "source_term"
       },
       "22": {
-        "type": "float",
+        "type": "str",
         "position": {
           "x": 867.3852739894373,
           "y": 830.5016418482965
         },
-        "value": "0.0",
-        "qualified_id": "22"
+        "value": "expression",
+        "qualified_id": "22",
+        "name": "field_type"
       },
       "23": {
-        "type": "float",
+        "type": "str",
         "position": {
           "x": 863.8328403135991,
           "y": 947.7657551373534
         },
-        "value": "1.0",
-        "qualified_id": "23"
+        "value": "1",
+        "qualified_id": "23",
+        "name": "field_data"
       },
       "24": {
         "type": "pypde_solve_poisson_equation",
@@ -41,7 +45,8 @@
           "x": 2071.1973896509344,
           "y": 727.9729277098899
         },
-        "qualified_id": "24"
+        "qualified_id": "24",
+        "name": "solve"
       },
       "25": {
         "type": "str",
@@ -50,7 +55,8 @@
           "y": 1055.5024198122428
         },
         "value": "{\"x-\": {\"value\": 0}, \"x+\": {\"derivative\": 1}}",
-        "qualified_id": "25"
+        "qualified_id": "25",
+        "name": "boundary"
       },
       "26": {
         "type": "str",
@@ -59,7 +65,8 @@
           "y": 664.9741932341291
         },
         "value": "[[0.0, 1.0]]",
-        "qualified_id": "26"
+        "qualified_id": "26",
+        "name": "bounds"
       },
       "27": {
         "type": "PyPDEScalarField.to_file",
@@ -67,7 +74,8 @@
           "x": 3115.1089411173084,
           "y": 755.2155890702671
         },
-        "qualified_id": "27"
+        "qualified_id": "27",
+        "name": "to_file"
       },
       "28": {
         "type": "PyPDEScalarField.plot",
@@ -75,7 +83,8 @@
           "x": 3018.673645888085,
           "y": 1325.2275222037756
         },
-        "qualified_id": "28"
+        "qualified_id": "28",
+        "name": "plot"
       },
       "29": {
         "type": "str",
@@ -84,7 +93,8 @@
           "y": 870.7671424718563
         },
         "value": "poisson.h5",
-        "qualified_id": "29"
+        "qualified_id": "29",
+        "name": "h5_file"
       },
       "30": {
         "type": "str",
@@ -93,16 +103,8 @@
           "y": 1406.8294773235773
         },
         "value": "poisson.png",
-        "qualified_id": "30"
-      },
-      "31": {
-        "type": "none",
-        "position": {
-          "x": 1015.9270322662135,
-          "y": 1080.8228606134517
-        },
-        "value": "",
-        "qualified_id": "31"
+        "qualified_id": "30",
+        "name": "png_file"
       },
       "32": {
         "type": "str",
@@ -111,7 +113,8 @@
           "y": 815.2025541212731
         },
         "value": "32",
-        "qualified_id": "32"
+        "qualified_id": "32",
+        "name": "shape"
       }
     },
     "edges": {
@@ -174,12 +177,6 @@
         "target": 28,
         "source_output": 0,
         "target_input": 1
-      },
-      "10": {
-        "source": 31,
-        "target": 21,
-        "source_output": 0,
-        "target_input": 3
       },
       "11": {
         "source": 32,

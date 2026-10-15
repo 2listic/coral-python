@@ -18,8 +18,8 @@ import pytest
 from coral_app.executor import WorkflowExecutor
 from phiflow_suite import EXAMPLES, PLUGIN_NAME
 
-#: The example a user is told to run: `coral -p "phiflow" run examples/phiflow/network-from-fe.json`.
-EXAMPLE = EXAMPLES / "phiflow" / "network-from-fe.json"
+#: The example a user is told to run: `coral -p "phiflow" run examples/phiflow/smoke_plume_2D.json`.
+EXAMPLE = EXAMPLES / "phiflow" / "smoke_plume_2D.json"
 
 #: What its `phiflow_plot_and_save` node is wired to write.
 OUTPUT_FILE = "simulation.mp4"

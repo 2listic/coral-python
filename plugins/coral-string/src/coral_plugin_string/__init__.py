@@ -1,16 +1,18 @@
 """coral-plugin-string — the StringProcessor class and print_text.
 
-Subclasses the coral-core ``Plugin`` contract; registered under the
-``coral.plugins`` entry-point group as ``string``.
+Every node type is declared on :data:`plugin`, the ``coral_core.Plugin`` instance registered
+under the ``coral.plugins`` entry-point group as ``string``.
 """
-
-from typing import Any, Dict
 
 from coral_core import Plugin
 
-__all__ = ["StringPlugin", "StringProcessor"]
+__all__ = ["StringProcessor", "plugin"]
+
+#: This plugin: the entry point's target, on which every node type below is declared.
+plugin = Plugin()
 
 
+@plugin.function
 def print_text(value: str) -> None:
     """Print a string with a message.
 
@@ -23,6 +25,7 @@ def print_text(value: str) -> None:
     print(f"Print: {value}")
 
 
+@plugin.cls
 class StringProcessor:
     """A class for string operations"""
 
@@ -30,30 +33,16 @@ class StringProcessor:
         """Initialize with optional prefix"""
         self.prefix = prefix
 
+    @plugin.method
     def concatenate(self, text: str) -> str:
         """Concatenate prefix with text"""
         result = self.prefix + text
         print(f"StringProcessor.concatenate('{text}') = '{result}'")
         return result
 
+    @plugin.method
     def repeat(self, text: str, times: int) -> str:
         """Repeat text n times"""
         result = text * times
         print(f"StringProcessor.repeat('{text}', {times}) = '{result}'")
         return result
-
-
-class StringPlugin(Plugin):
-    """String operations: the StringProcessor class and print_text."""
-
-    def get_functions(self) -> Dict[str, Any]:
-        """Return string operation function definitions"""
-        return {
-            "print_text": print_text,
-        }
-
-    def get_classes(self) -> Dict[str, Any]:
-        """Return string operation class definitions"""
-        return {
-            "StringProcessor": StringProcessor,
-        }

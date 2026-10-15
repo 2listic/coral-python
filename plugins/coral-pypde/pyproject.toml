@@ -16,7 +16,7 @@ dependencies = ["coral-core", "py-pde", "h5py"]
 
 # The entry-point name is this plugin's identity to the host and to the platform's `-p` option.
 [project.entry-points."coral.plugins"]
-pypde = "coral_plugin_pypde:PyPDEPlugin"
+pypde = "coral_plugin_pypde:plugin"
 
 # Test-only, so the wheel still requires only `coral-core` and this plugin's real libraries.
 [dependency-groups]

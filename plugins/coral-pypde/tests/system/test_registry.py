@@ -10,12 +10,11 @@ To regenerate, from the workspace root::
     uv run coral -p "pypde" register --output=plugins/coral-pypde/tests/system/golden/node_types.pypde.json
 """
 
-import inspect
 import json
 
 import pytest
 from coral_app.registry import save_registry_to_file
-from coral_plugin_pypde import PyPDEPlugin
+from coral_plugin_pypde import plugin
 from pypde_suite import GOLDEN, PLUGIN_NAME
 
 
@@ -52,25 +51,25 @@ class TestTheGoldenDescribesThisPlugin:
         """GIVEN this plugin's declared classes
         WHEN the golden is read
         THEN each appears as a constructor node under the class name."""
-        for name in PyPDEPlugin().get_classes():
+        for name in plugin.classes():
             assert registry[name]["node_type"] == "constructor", name
 
-    def test_every_public_method_is_a_method_node_and_no_private_one_is(self, registry):
+    def test_a_class_s_method_nodes_are_exactly_its_declared_methods(self, registry):
         """GIVEN this plugin's classes
         WHEN the golden is read
-        THEN each public method is present as `Class.method`, and no private one is.
+        THEN each class's `Class.*` method entries are exactly the methods it declares: a method
+        is a node because it is declared, not because it is public.
 
-        The private half is the point here: ``PyPDEScalarField._holding`` exists so that ``solve``
-        can return a typed field, and it must never become a node a graph could call."""
-        for class_name, cls in PyPDEPlugin().get_classes().items():
-            for member in dir(cls):
-                if not inspect.isfunction(getattr(cls, member)):
-                    continue
-                key = f"{class_name}.{member}"
-                if member.startswith("_"):
-                    assert key not in registry
-                else:
-                    assert registry[key]["node_type"] == "method", key
+        The undeclared side is the point here: ``PyPDEScalarField._holding`` exists so that
+        ``solve`` can return a typed field, and it must never become a node a graph could call."""
+        for class_name, declaration in plugin.classes().items():
+            in_golden = {
+                key
+                for key, entry in registry.items()
+                if entry["node_type"] == "method" and key.startswith(f"{class_name}.")
+            }
+            assert in_golden == set(declaration.methods), class_name
+        assert "PyPDEScalarField._holding" not in registry
 
     def test_solve_declares_five_inputs_and_one_output(self, registry):
         """GIVEN the solver's method node
@@ -85,26 +84,61 @@ class TestTheGoldenDescribesThisPlugin:
         assert names == ["self", "state", "t_range", "storage", "plot"]
         assert entry["outputs"] == [5]
 
-    def test_a_wrapper_typed_socket_renders_any(self, registry):
+    def test_a_wrapper_typed_socket_carries_the_wrapper_key(self, registry):
         """GIVEN the solver's ports, annotated with this plugin's own wrapper classes
         WHEN their socket types are read
-        THEN they are ``any``, while the plain ``int`` port keeps its name.
+        THEN each carries its wrapper's class key, and the plain ``int`` port keeps its name.
 
-        Neither a defect in this plugin nor something it can fix: the registry's type table knows the
-        six primitives and the three collection names, and every other class falls through to
-        ``any``. Worth pinning because of what follows — the editor cannot refuse a grid wired where
-        a field belongs, while the host's edge check, which reads the annotations rather than this
-        file, refuses it before the solver starts."""
+        Worth pinning because of what follows: the front end can now refuse a grid wired where a
+        field belongs, as the host's edge check, which reads the annotations rather than this file,
+        already does before the solver starts."""
         arguments = {
             arg["name"]: arg["type"]
             for arg in registry["PyPDEDiffusionPDE.solve"]["arguments"]
             if arg["name"]
         }
 
-        assert arguments["state"] == "any"
-        assert arguments["storage"] == "any"
-        assert arguments["plot"] == "any"
+        assert arguments["state"] == "PyPDEScalarField"
+        assert arguments["storage"] == "PyPDEFileStorage"
+        assert arguments["plot"] == "PyPDEPlotTracker"
         assert arguments["t_range"] == "int"
+
+    def test_both_hierarchies_carry_their_bases_and_derived(self, registry):
+        """GIVEN the two base classes and their subclasses
+        WHEN their golden entries are read
+        THEN each subclass lists its base in ``bases``, and each base lists its subclasses in
+        ``derived``.
+
+        The front end matches socket types by string, so these two lists are the only place the
+        hierarchy reaches it: they are what lets it accept a grid or a shape where its base is
+        expected."""
+        assert registry["PyPDEUnitGrid"]["bases"] == ["PyPDEGridBase"]
+        assert registry["PyPDECartesianGrid"]["bases"] == ["PyPDEGridBase"]
+        assert registry["PyPDEGridBase"]["derived"] == ["PyPDEUnitGrid", "PyPDECartesianGrid"]
+        assert registry["PyPDECircle"]["bases"] == ["PyPDEShape"]
+        assert registry["PyPDERectangle"]["bases"] == ["PyPDEShape"]
+        assert registry["PyPDEShape"]["derived"] == ["PyPDECircle", "PyPDERectangle"]
+
+    def test_a_port_annotated_with_a_base_carries_the_base_key(self, registry):
+        """GIVEN the ports annotated with one of the two base classes
+        WHEN their socket types are read
+        THEN each carries the base's key.
+
+        Were the base unregistered, the socket would read ``any`` and the editor would let any wire
+        in: registering it is what gives these ports a type in the UI."""
+        field = {
+            arg["name"]: arg["type"]
+            for arg in registry["PyPDEScalarField"]["arguments"]
+            if arg["connection_type"] == "input"
+        }
+        equation = {
+            arg["name"]: arg["type"]
+            for arg in registry["PyPDEObstacleDiffusionPDE"]["arguments"]
+            if arg["connection_type"] == "input"
+        }
+
+        assert field["grid"] == "PyPDEGridBase"
+        assert [equation[port] for port in ("source", "absorber", "obstacle")] == ["PyPDEShape"] * 3
 
     def test_the_golden_holds_no_foreign_plugin_entry(self, registry):
         """GIVEN the golden for this plugin alone
@@ -113,11 +147,13 @@ class TestTheGoldenDescribesThisPlugin:
 
         Guards against a golden regenerated with the wrong `-p`, which would quietly turn this file
         into a snapshot of somebody else's surface."""
-        from coral_app import BUILTIN_FUNCTIONS, PRIMITIVES_MAP
+        from coral_app import BUILTINS, PRIMITIVES_MAP
 
-        plugin = PyPDEPlugin()
-        mine = set(plugin.get_functions()) | set(plugin.get_classes())
-        methods = {key for key in registry if key.split(".")[0] in plugin.get_classes()}
-        host = set(BUILTIN_FUNCTIONS) | set(PRIMITIVES_MAP)
+        classes = plugin.classes()
+        mine = set(plugin.functions()) | set(classes)
+        methods = {
+            node_type for declaration in classes.values() for node_type in declaration.methods
+        }
+        host = set(BUILTINS.functions()) | set(PRIMITIVES_MAP)
 
         assert set(registry) - mine - methods - host == set()

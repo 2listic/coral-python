@@ -1,7 +1,6 @@
-from typing import Any, Dict, Tuple
+from typing import Any
 
-from phi.flow import StaggeredGrid, CenteredGrid
-from phi.flow import ZERO_GRADIENT
+from phi.flow import ZERO_GRADIENT, CenteredGrid, StaggeredGrid
 
 from ..geom._box import PhiFlowBox
 

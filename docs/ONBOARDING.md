@@ -58,17 +58,17 @@ per plugin under `plugins/`, with a strict one-directional dependency rule:
 
 ```
                    ┌──────────────────────────────┐
-                   │  coral-core                  │   the contract only: a Plugin
-                   │  Plugin (ABC):               │   ABC with two @abstractmethods.
-                   │    get_functions()           │   Depends on nothing internal.
-                   │    get_classes()             │
+                   │  coral-core                  │   the contract only: the Plugin
+                   │  Plugin:                     │   class, its three decorators and
+                   │    function / cls / method   │   the declarations they produce.
+                   │    functions() / classes()   │   Depends on nothing internal.
                    └───────────────▲──────────────┘
-                                   │ subclass
+                                   │ instance
         ┌────────────────────────────────────────────────────┐
-        │  coral-plugin-math    -> MathPlugin                │   each declares itself under the
-        │  coral-plugin-string  -> StringPlugin              │   entry-point group "coral.plugins",
-        │  coral-plugin-phiflow -> PhiFlowPlugin             │   pointing at its Plugin class
-        │  coral-plugin-pypde   -> PyPDEPlugin               │
+        │  coral-plugin-math    -> plugin                    │   each declares itself under the
+        │  coral-plugin-string  -> plugin                    │   entry-point group "coral.plugins",
+        │  coral-plugin-phiflow -> plugin                    │   pointing at its Plugin instance
+        │  coral-plugin-pypde   -> plugin                    │
         └──────────────────────────▲─────────────────────────┘
                                    │ discover() / load(name) — lazy: list without importing;
                                    │                           import only the requested plugin
@@ -88,20 +88,26 @@ per plugin under `plugins/`, with a strict one-directional dependency rule:
 ```
 
 **Discovery is lazy and via standard metadata.** Plugins declare themselves under the
-`importlib.metadata` entry-point group `coral.plugins`, pointing at their `Plugin` **class**. The host's
-`discover()` lists installed plugin names *without importing any*; `load(name)` imports **only** that one
-plugin, checks it subclasses `Plugin` (`TypeError` otherwise), and instantiates it. An unknown name →
-`LookupError`. This is what lets a plugin that was unknown when the host was built — including a third-party
+`importlib.metadata` entry-point group `coral.plugins`, pointing at their `Plugin` **instance**. The
+host's `discover()` lists installed plugin names *without importing any*; `load(name)` imports **only**
+that one plugin, checks it is a `Plugin` instance (`TypeError` otherwise), and returns it. An unknown
+name → `LookupError`. This is what lets a plugin that was unknown when the host was built — including a third-party
 one — be found and loaded purely from its installed metadata.
 
-**The contract is an enforced ABC, not a convention.** `coral-core`'s `Plugin` uses `@abstractmethod`, so a
-plugin that forgets `get_functions()` or `get_classes()` cannot even be instantiated. There is no `name`
-method — the entry-point name (`math` / `string` / `phiflow` / `pypde`) *is* the plugin's identity, and it's the string
-the platform's `-p` contract passes.
+**Node types are declared, not listed.** A plugin is an instance of `coral-core`'s `Plugin`; a function,
+a class or a method becomes a node type by being declared on it with `@plugin.function`, `@plugin.cls`
+or `@plugin.method`, which also carry that node's options — its name, input labels, output names, and
+the types its signature lacks. Only declared methods are nodes. What can be checked without a
+signature is checked by the decorator, at import, or — when it needs every class, as which methods a
+class ends up with does — by `classes()`. There is no `name` method — the entry-point name
+(`math` / `string` / `phiflow` / `pypde`) *is* the plugin's identity, and it's the string the platform's
+`-p` contract passes.
 
-Inside the host, `registry.py` and `executor.py` **do not import each other.** Both import only from
-`coral_app` (`from coral_app import PRIMITIVES_MAP, build_function_map, build_class_map` — identical line in
-both files). This is deliberate: the registry's job is to *describe* what's callable; the executor's job is to
+Inside the host, `registry.py` and `executor.py` **do not import each other** (a guard in
+`tests/invariants/test_source_rules.py` fails if one does). Both reach the plugins through the same line,
+`from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover`, and both turn what it
+returns into the port table with `nodeports.build_port_table`. This is deliberate: the registry's job is to
+*describe* what's callable; the executor's job is to
 *run* it. See [Extending internals](#extending-internals-or-contracts-persona-b) for why this decoupling
 matters.
 
@@ -145,8 +151,8 @@ markers and the `qualified_id` naming.
 ```
 1. Probe:    platform runs `coral-py -p "math,string" register`
              → host discovers plugins, loads math + string (only those), merges their
-               get_functions()/get_classes() and adds the host's own builtins
-             → nodeports.py introspects those callables into the port table
+               declarations (functions()/classes()) and adds the host's own builtins
+             → nodeports.py introspects the declared callables into the port table
              → registry.py renders the port table, writes node_types.json
              → platform reads it, populates the sidebar
 
@@ -165,16 +171,23 @@ markers and the `qualified_id` naming.
 
 The registry is entirely **annotation-driven**, and the mechanism that reads those annotations is the standard
 library's `inspect.signature`. It's worth understanding it precisely, because it's the single fact that
-explains why most libraries need a wrapper.
+explains why most libraries need their types written by hand.
 
-**How it works.** `nodeports.py` calls `inspect.signature(...)` on each callable — a function
-(`_function_ports`), a constructor (`_constructor_ports`, falling back to `cls.__init__` for a C extension
-type), or a method (`_method_ports`). It walks `sig.parameters` (ordered, each carrying a `.annotation`) plus
-`sig.return_annotation`, and stores the result as that node type's **port table** entry: one
-`(name, annotation)` per input, one annotation per output. `registry.py` then renders those annotations through
-`python_type_to_string`, which maps each against `TYPE_NAMES` — the six primitive node types (`int`, `float`,
-`str`, `bool`, `any`, `none`) plus the three collections (`list`, `set`, `dict`), which are socket type names
-without being node types. Three behaviours fall out of this:
+**How it works.** `nodeports.py` calls `inspect.signature(...)` on each declared callable — a function
+(`_function_ports`), a class for its constructor (`_constructor_ports`), or a method (`_method_ports`); a
+callable with no readable signature, such as many C extension types (`datetime.date`), is refused. It walks `sig.parameters`
+(ordered, each carrying a `.annotation`) plus `sig.return_annotation`, lets the declaration's
+`annotations=` fill the slots left empty, and stores the result as that node type's **port table**
+entry: one `Port(name, annotation, instance)` per input and per output — an input named by its parameter (or its
+`inputs=` label), an output by `outputs=` when the declaration names them, else `""` (Python gives a
+return value no name).
+`registry.py` then renders those annotations through
+`python_type_to_string`, which maps each against `PRIMITIVES_MAP` — the nine primitive node types: `int`,
+`float`, `str`, `bool`, `any`, `none` and the collections `list`, `set`, `dict` — and then against the
+**registered classes**, each written as its key in the class
+map (`Calculator`), the same string its constructor entry is keyed by. A class no selected plugin registers,
+and any parameterised generic (`List[int]`, `Optional[Calculator]`), is `"any"`. Three behaviours fall out of
+this:
 
 - A **missing parameter** annotation becomes `"any"` — usable, just loosely typed.
 - A **missing return** annotation produces **no output socket at all** (`_outputs_from_return` returns `[]`),
@@ -203,7 +216,7 @@ That is a hard boundary in two directions, and both are common:
   `"any"` inputs and no output.
 - **Modern pure-Python libraries stringize their annotations.** With `from __future__ import annotations`
   (PEP 563), `inspect.signature` returns the *string* `"float"` rather than the type `float`, and
-  `python_type_to_string`'s identity check against `TYPE_NAMES` misses it → `"any"`.
+  `python_type_to_string`'s identity check against `PRIMITIVES_MAP` misses it → `"any"`.
 
 We measured how much of the real ecosystem this rules out, and the answer is sobering: across **751 public
 callables** in `numpy` (461), `jax` (98), and `phi.flow` (192), **zero** are directly registrable into a clean,
@@ -211,7 +224,8 @@ wireable node — `numpy` because it's C (no annotations), `jax` because it uses
 callables come back as strings), `phi.flow` because its types aren't primitives. Scanning every third-party
 top-level module installed here, only three exposed *any* natively-usable callable, and those were incidental
 helpers (`pyparsing.col`, `opt_einsum.get_symbol`, `iniconfig.iscommentline`). **The practical conclusion:
-hand-written, type-hinted wrappers are the rule, not a corner case** — see
+types written by hand — in a declaration's `annotations=`, or in a typed wrapper — are the rule, not a
+corner case** — see
 [why `math.sqrt` needs a wrapper](#why-does-mathsqrt-need-a-wrapper-cant-we-load-python-functions-dynamically).
 
 **The alternatives, and our opinion on each.**
@@ -220,19 +234,22 @@ hand-written, type-hinted wrappers are the rule, not a corner case** — see
   `inspect.signature` leaves as strings. This is a cheap, low-risk change that would unlock the whole class of
   modern annotated pure-Python libraries (it would, for instance, make `jax`'s stringized signatures readable).
   *Our take: the one improvement worth doing first.* It doesn't fix C code (there are still no annotations to
-  resolve) and is still bounded by the six-primitive map, but it removes the most common avoidable failure.
+  resolve) and is still bounded by the primitive map, but it removes the most common avoidable failure.
 - **Static AST parsing of source files** — extracts signatures without importing, dodging import side effects.
   Heavier machinery, and still annotation-dependent (it reads the same hints). *Not worth it at this scale.*
 - **Explicit decorator / manual schema registration** — precise and introspection-free, but it trades every
-  signature for hand-written boilerplate. *Only worth it if we deliberately need to register many
-  un-annotatable callables.*
+  signature for hand-written boilerplate. *Adopted in its narrow form:* the decorators take
+  `annotations=` for exactly the slots a signature leaves empty — `math.atan2` and `fractions.Fraction`
+  are declared that way in the math plugin — and refuse a key for a slot the code already types, so a
+  declared type never contradicts the code.
 - **`.pyi` stub reading** — the *only* route that could recover types for C functions (`numpy` et al.), since
   that information lives solely in stubs. But it's high-complexity and fragile (stub discovery, version skew).
   *Probably not worth it; a hand-written wrapper is simpler and more honest about intent.*
 
 **Bottom line.** Keep `inspect.signature` for now — it's simple and fully sufficient for the code we own. If we
 later want more external libraries to "just work," the pragmatic path is `get_type_hints()` plus a richer type
-map, in that order. But wrappers remain unavoidable for C and array libraries no matter which reader we choose:
+map, in that order. But types written by hand — `annotations=` or a wrapper — remain unavoidable for C and
+array libraries no matter which reader we choose:
 that's a property of the Python ecosystem (no runtime types for compiled code), not a shortcoming of this
 design.
 
@@ -250,24 +267,25 @@ function of the graph rather than of JSON key order. (Those ready batches are al
 executing independent branches concurrently, which nothing does today.)
 
 **Recovering what a node is.** Because lean nodes carry only `{type, value?}`, something has to recover each
-node's *kind*. `nodeports.build_port_table()` decides it once per node **type** — not per node — by membership,
-in this precedence order:
+node's *kind*. `nodeports.build_port_table()` decides it once per node **type** — not per node — by where the
+type comes from:
 
 ```
 primitive     type in PRIMITIVES_MAP
 function      type in function_map
 constructor   type in class_map
-method        type splits on the last "." into a known class + a method name
+method        type is one of a class's declared methods, keyed "<class key>.<name>"
 ```
 
-Precedence matters: a dotted *function* name such as `math.sqrt` is tested against `function_map` before the
-`Class.method` split is attempted, so it stays a function even if some class were also called `math`. The
-executor reads the answer back as `graph.ports_of(node_id).kind` and never re-derives it.
+All four are declared names, so one name declared as two of them raises `DuplicateNodeTypeError`. A method
+key can only meet a dotted *function* name: a function `math.sqrt` is refused if some class `math` declares
+a `sqrt` method. The executor
+reads the answer back as `graph.ports_of(node_id).kind` and never re-derives it.
 
 Two things worth being precise about:
 
-- The port table records a node type's **argument shape** too, not just its kind: one `(name, annotation)` per
-  input port, one annotation per output. So nothing downstream introspects a second time — the executor binds
+- The port table records a node type's **argument shape** too, not just its kind: one `Port(name, annotation, instance)`
+  per input port and per output port. So nothing downstream introspects a second time — the executor binds
   a node's inputs with a plain positional call (`target(*arguments)`, no `inspect` import at all), because the
   values arrive in port order, which *is* parameter order.
 - Cost is paid per node *type* at startup rather than per node at run time, and lookups during the walk are
@@ -347,32 +365,29 @@ changes — the host discovers your plugin at runtime once it's installed.
    └── src/coral_plugin_mycfd/__init__.py
    ```
 
-2. **Write typed wrapper functions/classes** (not raw calls into the library) and a `Plugin`
-   subclass. See
-   [why wrapping is necessary](#why-does-mathsqrt-need-a-wrapper-cant-we-load-python-functions-dynamically)
-   below — the short version is: the registry can only produce a useful node if the function has
-   type-annotated parameters and a type-annotated return value. The `Plugin` ABC *enforces* both
-   methods (forget one and the class can't be instantiated):
+2. **Create the plugin and declare its node types on it.** See
+   [why `math.sqrt` needs a wrapper](#why-does-mathsqrt-need-a-wrapper-cant-we-load-python-functions-dynamically)
+   below — the short version is: the registry can only produce a useful node if every parameter and
+   the return value are typed, by the code or by `annotations=`, and every parameter can be passed
+   by position. A callable that meets that as it is can be declared directly; one whose API needs
+   adapting gets a typed wrapper:
 
    ```python
    # src/coral_plugin_mycfd/__init__.py
-   from typing import Any, Dict
+   from typing import Any
    from coral_core import Plugin
    from mycfd import Solver  # the real library — a hard dependency of this plugin (see step 3)
 
+   plugin = Plugin()
+
+   @plugin.function
    def create_solver(resolution: int) -> Any:
        """Wrap Solver's constructor with an explicit, registry-friendly signature."""
        return Solver(resolution=resolution)
-
-   class MyCFDPlugin(Plugin):
-       def get_functions(self) -> Dict[str, Any]:
-           return {"create_solver": create_solver}
-       def get_classes(self) -> Dict[str, Any]:
-           return {}
    ```
 
 3. **Declare the entry point and dependencies** in `plugins/coral-mycfd/pyproject.toml`. The
-   entry-point **name** (`mycfd`) is what `-p` references; the target is your `Plugin` **class**. Because
+   entry-point **name** (`mycfd`) is what `-p` references; the target is your `Plugin` **instance**. Because
    the plugin *declares* the real library as a hard dependency, installing the plugin guarantees it's
    importable — a broken install fails loud with `ImportError` (there is **no** `try/except AVAILABLE`
    guard; lazy discovery already means an unselected plugin is never imported):
@@ -389,7 +404,7 @@ changes — the host discovers your plugin at runtime once it's installed.
    dependencies = ["coral-core", "mycfd"]
 
    [project.entry-points."coral.plugins"]
-   mycfd = "coral_plugin_mycfd:MyCFDPlugin"
+   mycfd = "coral_plugin_mycfd:plugin"
 
    [tool.hatch.build.targets.wheel]
    packages = ["src/coral_plugin_mycfd"]
@@ -425,12 +440,13 @@ This comes up immediately once you look at `coral-plugin-math` — `math.sqrt` i
 instead there's a `math_sqrt(x: float) -> float` wrapper that calls it. The reason is structural,
 not stylistic:
 
-The registry (`registry.py:generate_registry`) is **annotation-driven**. For every parameter and
-return value it calls `inspect.signature(func)` and converts the annotation to a protocol type
-string via `python_type_to_string`:
+The registry is **annotation-driven**. `nodeports.build_port_table` calls `inspect.signature(func)`
+on every declared callable and records each parameter's and the return value's annotation; the
+registry (`registry.py:generate_registry`) then converts each one to a protocol type string via
+`python_type_to_string`:
 
 ```python
-def python_type_to_string(py_type) -> str:
+def python_type_to_string(py_type, class_names=None) -> str:
     # Handle empty/missing annotations
     if py_type is inspect.Signature.empty or py_type is None:
         return _TYPE_NAME_OF[Any]
@@ -454,14 +470,19 @@ exist at runtime for C-implemented functions; it lives only in `.pyi` stub files
 reads. Registering `math.sqrt` directly would therefore produce a node with an `"any"` input and
 **no output socket** — impossible to wire into anything downstream.
 
-The wrapper is the smallest fix: it supplies the annotations Python's own runtime introspection
-can't recover, and it's also a convenient place for logging and type coercion (e.g. converting a
-NumPy scalar back to a Python `float`). This is a real, structural constraint — not a stopgap —
-whenever you're wrapping a C extension or an unannotated library.
+There are two fixes, and both supply the annotations Python's own runtime introspection can't
+recover. The declaration can carry them: `plugin.function(math.sqrt, name="math.sqrt",
+annotations={"x": float, "return": float})` would do, and is exactly how the math plugin declares
+`math.atan2`. Or a typed wrapper can: that is what `math_sqrt` is, and it is also a convenient place
+for logging and type coercion (e.g. converting a NumPy scalar back to a Python `float`). A wrapper is
+still the only fix when no signature can be read at all (`inspect.signature(math.log)` raises), when a
+signature has no fixed set of positional ports (`math.hypot(*coordinates)`), or when the API needs adapting.
+This is a real, structural constraint — not a stopgap — whenever you're exposing a C extension or an
+unannotated library.
 
-**When you don't need a wrapper:** if the function or class is pure Python *and already carries
-type hints*, register it directly — no wrapper required. That's exactly what `Calculator` in
-`coral-plugin-math` does: its `__init__` and methods are annotated Python, so `registry.py` introspects
+**When you don't need either:** if the function or class is pure Python *and already carries
+type hints*, declare it directly — nothing to add. That's exactly what `Calculator` in
+`coral-plugin-math` does: its `__init__` and methods are annotated Python, so `nodeports.py` reads
 them without any adapter.
 
 ---
@@ -475,35 +496,37 @@ You want to change how coral-python works internally, or evolve its contract wit
 Because `registry.py` and `executor.py` never import each other and both consume the host surface
 only through `build_function_map`/`build_class_map`/`PRIMITIVES_MAP`, you can rewrite the entire
 discovery/loading layer in `coral_app/__init__.py` — a different discovery strategy, eager vs. lazy
-loading, passing a host context into `PluginClass(...)`, whatever — and both the registry generator and
+loading, passing a host context to the plugin, whatever — and both the registry generator and
 the executor keep working *unchanged*, as long as:
 
 1. `build_function_map(include=...)` / `build_class_map(include=...)` keep returning
-   `{name: callable}` / `{name: class}` dicts, and
+   `{name: Declaration}` / `{name: ClassDeclaration}` dicts, and
 2. the JSON shape each side produces/consumes stays `{type, arguments, inputs, outputs, node_type}`
    for registry entries and `{type, value?}` for lean graph nodes.
 
 That's a genuinely useful seam: it means "improve the registry's type system" and "improve how
 plugins are discovered/loaded" are separable projects. The plugin *contract* itself (`coral-core`'s
-`Plugin` ABC) and the entry-point group name (`coral.plugins`) are the one part that's public API —
+`Plugin`, its decorators and declarations) and the entry-point group name (`coral.plugins`) are the one
+part that's public API —
 once real third-party plugins exist, treat both as stable.
 
-**The cost of that decoupling:** it's enforced by *convention*, not by a shared interface or test
-that pins both sides together. `registry.py` and `executor.py` **independently** encode the same
-assumptions — e.g. that a dotted name like `"math.sqrt"` is a function, not a method (see the
-comment in `executor.py:_classify`: *"functions checked before the split so dotted names like
-`math.sqrt` resolve as functions, not methods"*), and that a method's `self` argument is always
-input index 0. Nothing checks that a change to one side doesn't silently break the other's
-assumptions — if you touch this boundary, update both and re-run the full suite (`uv run pytest`).
+**What keeps the two sides in step:** `registry.py` and `executor.py` share no code, but neither
+decides anything about a node type on its own. Both read the port table built by
+`nodeports.build_port_table`, the single place that decides a node's kind, its arity and its port
+order: for instance, that a dotted name like `"math.sqrt"` is a function, not a method (see the
+comment in `nodeports.py`'s `put`), and that a method's instance is always input index 0. A
+change to those rules is therefore made once, and `tests/invariants/test_source_rules.py` keeps it
+that way: the two consumers may not import each other, and `executor.py` may not import `inspect`.
 
 ### Concrete extension points
 
-- **Richer type system.** Nine type names round-trip through the registry: the six `PRIMITIVES_MAP`
-  node types plus `list`/`set`/`dict` from `COLLECTION_TYPES` (issue #25, which also demonstrated that a
-  type name need not be a node type). Every other annotation — a domain class, a parameterised generic
-  like `List[int]`, a non-primitive tuple element — still collapses to `"any"`. A richer scheme (e.g.
-  registering domain class names as their own protocol types, the way method `self` arguments already
-  use the class name) would give more precise sockets and better validation on the canvas.
+- **Richer type system (partly done).** The registry writes the nine `PRIMITIVES_MAP` node types,
+  among them `list`/`set`/`dict` (issue #25 added them as socket types, issue #35 as literal
+  primitives) and, since issue #44, every **registered class** under its class-map key, with
+  `bases`/`derived` on each constructor, listing its registered ancestors and descendants. What
+  still collapses to `"any"` is an unregistered class and every parameterised generic (`List[int]`,
+  `Optional[X]`): precise generic sockets need one canonical spelling
+  and new compatibility rules in both the front end and graph check 8.
 - **Lazy plugin import (done).** Entry-point discovery already imports only the plugins named in
   `-p`: `discover()` enumerates names without importing, and `load(name)` imports just that one. An
   unselected `phiflow` never triggers the PhiFlow/JAX import chain. (This was a weakness of the old
@@ -520,8 +543,9 @@ assumptions — if you touch this boundary, update both and re-run the full suit
   exception — are in [Per-node execution status](../CLAUDE.md#per-node-execution-status).
 *(Two entries that used to sit here — "enforcing the registry/executor convention" and "linear-time
 execution" — were resolved by issue #23. The port table is now the single source of a node type's kind and
-arity, which both `registry.py` and `executor.py` read and neither re-derives, and `tests/test_core_contract.py`
-enforces that boundary; ordering moved to `graphlib.TopologicalSorter` and incoming edges are bucketed once. See
+arity, which both `registry.py` and `executor.py` read and neither re-derives, and `TestStageSeparation` in
+`tests/invariants/test_source_rules.py` enforces that boundary; ordering moved to `graphlib.TopologicalSorter`
+and incoming edges are bucketed once. See
 [How a lean graph becomes results](#how-a-lean-graph-becomes-results--ordering-and-recovering-what-a-node-is).)*
 
 ---
@@ -532,16 +556,18 @@ enforces that boundary; ordering moved to `graphlib.TopologicalSorter` and incom
 
 Answered in full [above](#why-does-mathsqrt-need-a-wrapper-cant-we-load-python-functions-dynamically).
 Short version: the registry is annotation-driven, and Python doesn't expose runtime type
-annotations for C-implemented functions — there's nothing to introspect. Pure Python functions and
-classes *with* type hints (like `Calculator`) need no wrapper at all.
+annotations for C-implemented functions — there's nothing to introspect, so the types are written by
+hand, in `annotations=` or in a wrapper. Pure Python functions and classes *with* type hints (like
+`Calculator`) need neither.
 
 ### Does the registry/executor decoupling really let someone rewrite the discovery layer under the same contract?
 
 Yes — see [Extending internals](#the-decoupling-is-real-and-its-your-extension-point) above. It's a
-genuine architectural property (verified: neither module imports the other; both only touch
-`coral_app`'s public surface), with one honest caveat: the split *between `registry.py` and
-`executor.py`* is convention-based, not contract-enforced, so changes on one side need a matching check
-on the other. (The *plugin* contract, by contrast, is now an enforced ABC — see below.)
+genuine architectural property, and an enforced one: neither module imports the other
+(`tests/invariants/test_source_rules.py` fails if one does), both only touch `coral_app`'s public
+surface, and the rules they share — a node's kind, arity and port order — live in one place, the
+port table, instead of being encoded on each side. (The *plugin* contract is checked by its
+decorators — see below.)
 
 ### Why discover plugins via entry points instead of a `_MODULES` dict in one package?
 
@@ -557,10 +583,13 @@ The plugin architecture removes both limits:
   built. The host reads standard metadata; a plugin never writes host-owned files or runs post-install
   hooks. (Rejected alternatives: path-scanning + `inspect`, namespace-package scanning, and
   `pluggy`/`stevedore` — which just wrap entry points. Canonical stdlib wins.)
-- **The contract is an ABC** (`coral_core.Plugin`), not a `typing.Protocol` or a bare `register()` hook, so
-  `@abstractmethod` *enforces* that a plugin implements both methods. The entry point resolves to the
-  **class**; the host instantiates it (`PluginClass()`), which is the natural place to later inject a
-  host-provided context object.
+- **The contract is a `Plugin` instance with decorators** (`coral_core.Plugin`), not a `typing.Protocol`,
+  a bare `register()` hook, or a subclass returning dicts. Each node's options sit next to the code
+  they describe, a plugin can declare callables it did not write (`plugin.function(math.atan2, ...)`),
+  and the decorators check what they are given at import. The entry point resolves to that
+  **instance**, which the host uses as is. (It used to be an ABC whose subclasses overrode
+  `get_functions()` / `get_classes()`, with every public method a node and output names stored on the
+  function by a separate `@outputs`.)
 
 Two things worth knowing if you work in `coral_app/__init__.py`:
 - `build_function_map` and `build_class_map` share a small `_selected(include, exclude)` helper that
@@ -575,8 +604,9 @@ Two things worth knowing if you work in `coral_app/__init__.py`:
   duplicate it hid was `print_result`, declared by both `coral-plugin-math` and `coral-plugin-string`; with
   all plugins selected the platform silently lost one of the two. Each now names its own (`print_number`,
   `print_text`).
-- `BUILTIN_FUNCTIONS` is still applied **after** the plugin merge, but that is now purely about key order
-  in `node_types.json`: the builtins come last, leaving every plugin entry where it was.
+- `BUILTINS` — a `Plugin` declared like any other, but merged without discovery — is still applied
+  **after** the plugin merge, but that is now purely about key order in `node_types.json`: the builtins
+  come last, leaving every plugin entry where it was.
 
 ### Why are the list/set/dict operations in the host rather than a plugin?
 
@@ -587,9 +617,10 @@ remembered to install `coral-plugin-collections`. The host already ships primiti
 reasoning; the collections are the same argument one level up, so they live in
 `coral_app/builtin_nodes.py` next to `primitives.py`.
 
-The consequence is the precedence rule above: since a builtin is a guarantee rather than a contribution,
-a plugin declaring `list_append` is ignored rather than winning. A graph names only node types, so a
-plugin that silently redefined one would produce a wrong answer with nothing in the graph to point at.
+The consequence is the ownership rule above: since a builtin is a guarantee rather than a contribution,
+a plugin declaring `list_append` is refused with `DuplicateNodeTypeError` rather than winning. A graph
+names only node types, so a plugin that silently redefined one would produce a wrong answer with
+nothing in the graph to point at.
 
 **Why bare `list`, and not a `CoralList` wrapper class?** A wrapper would have been the tidier object
 model — real methods, a real constructor, no 15 free functions. It was rejected because of what crosses
@@ -607,6 +638,14 @@ would fail graph check 6; `list.append` mutates and returns `None`, so it would 
 being C extension types they expose no introspectable methods at all. Free functions are not a stylistic
 preference here, they are the only thing that works.
 
+**And the literal form.** Since issue #35 a collection can also be a primitive node whose `value` is a
+JSON string: `{"type": "set", "value": "[1, 2, 3]"}`. This is how the C++ backend builds one: it has no
+collection operations at all, and registers `std::set<unsigned int>` as an elementary type whose
+`value` it `json::parse`s. A JSON string is also the only thing the editor's text box can produce. The
+two forms are complementary rather than redundant: a literal cannot contain computed values, the
+operations can. Parity is of the *model*, not of the JSON: the type string is `set`, not
+`std::set<unsigned int>`, so a graph using one still runs on one backend only.
+
 ---
 
 ## Strengths & weaknesses
@@ -616,8 +655,9 @@ preference here, they are the only thing that works.
 - Clean separation with a real, verifiable decoupling: a `coral-core` contract, a `coral-app` host, and
   independently installable `coral-plugin-*` distributions; inside the host, `registry` and `executor`
   stay decoupled (describe vs. run).
-- **Enforced plugin contract.** `coral-core.Plugin` is an ABC — a plugin that omits `get_functions()` or
-  `get_classes()` can't even be instantiated. No duck typing.
+- **Declarative plugin contract.** A plugin declares its node types on a `coral-core.Plugin` instance;
+  the decorators check targets and options at import, methods are nodes only when declared, and
+  callables from other libraries are declared as they are. No duck typing.
 - **Lazy, standards-based discovery.** Plugins are found via `importlib.metadata` entry points and
   imported only when selected, so an unused `phiflow` never pays its import cost — and third-party plugins
   can be added purely by installing them.
@@ -625,24 +665,26 @@ preference here, they are the only thing that works.
   needs zero backend-specific code to drive it.
 - The lean, type-keyed graph protocol matches the platform's current export format exactly (no
   adapter needed on the platform side).
-- Small, well-tested surface: **100 passing tests** covering the contract, discovery/loading, registry
-  generation (with byte-level golden pins), and execution.
+- Small, well-tested surface: **an extensive test suite** covering the contract, discovery/loading,
+  registry generation (with byte-level golden pins), and execution.
 
 **Weaknesses**
 
-- **Lossy type system** — only six primitive types round-trip through the registry; everything
-  else becomes `"any"`, which weakens connection validation on the canvas.
+- **Lossy type system** — primitives, collections and registered classes round-trip through the
+  registry; unregistered classes and every parameterised generic (`List[int]`) become `"any"`, which
+  weakens connection validation on the canvas. Subclass instances are refused on the canvas where
+  a base is expected until the front end reads `bases` (rule `{type} ∪ bases ∪ {base}`); graph
+  validation and execution already accept them.
 - **Annotation asymmetry** — a missing parameter annotation becomes `"any"` (still usable), but a
   missing return annotation produces *no output socket* (the node becomes a dead end). Easy to trip
   over when writing a new wrapper.
-- **C-extension methods are silently dropped.** `_add_methods`'s `inspect.isfunction` check filters
-  out methods of C-implemented classes (e.g. `datetime`); only their constructors register. Wrapping
-  in a pure-Python class is the only workaround.
-- **Convention, not contract, between `registry.py` and `executor.py`** (see above) — they independently
-  encode the same `type`-classification assumptions. The *plugin* contract is now ABC-enforced, but this
-  internal host seam is still convention-based — a latent risk for future changes.
-- **Manual-wrapping boilerplate** is the price of the annotation-driven registry; it doesn't scale
-  to "wrap an entire large library" without some repetition.
+- **C-extension classes are only partly usable.** One registers its constructor only if a signature
+  can be read from it and every parameter is positional (`decimal.Decimal` can; `datetime.date`
+  cannot), and none of its methods can be declared, since they are not plain functions. Wrapping in
+  a pure-Python class is the only workaround.
+- **Hand-written types** are the price of the annotation-driven registry: `annotations=` removes the
+  wrapper where only types are missing, but every slot is still written by hand, which doesn't scale to
+  "expose an entire large library" without some repetition.
 
 ---
 

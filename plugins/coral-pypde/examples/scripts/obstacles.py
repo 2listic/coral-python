@@ -1,5 +1,5 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import pde
 
 
@@ -12,6 +12,7 @@ class ObstacleDiffusionPDE(pde.PDEBase):
       that interact with the environment through their border
     * Obstacles have fixed (zero) concentration and do not interact.
     """
+
     def __init__(self, diffusivity, dx, obstacle, source, absorber):
         super().__init__()
 
@@ -81,9 +82,9 @@ x, y = grid.cell_coords[..., 0], grid.cell_coords[..., 1]
 # --------------------------------------------------
 # Define regions
 # --------------------------------------------------
-source = (x - 0.20)**2 + (y - 0.50)**2 < 0.07**2
-absorber = (x - 0.80)**2 + (y - 0.50)**2 < 0.025**2
-obstacle = (x - 0.50)**2 + (y - 0.50)**2 < 0.12**2
+source = (x - 0.20) ** 2 + (y - 0.50) ** 2 < 0.07**2
+absorber = (x - 0.80) ** 2 + (y - 0.50) ** 2 < 0.025**2
+obstacle = (x - 0.50) ** 2 + (y - 0.50) ** 2 < 0.12**2
 
 assert not np.any(obstacle & source)
 assert not np.any(obstacle & absorber)
@@ -116,9 +117,6 @@ result = eq.solve(
 )
 
 
-
-sdfi
-
 # --------------------------------------------------
 # Plot
 # --------------------------------------------------
@@ -133,12 +131,9 @@ im = ax.imshow(
     vmax=1.0,
 )
 
-ax.contour(x.T, y.T, obstacle.T.astype(float),
-           levels=[0.5], colors="white", linewidths=1.5)
-ax.contour(x.T, y.T, source.T.astype(float),
-           levels=[0.5], colors="red", linewidths=1.5)
-ax.contour(x.T, y.T, absorber.T.astype(float),
-           levels=[0.5], colors="cyan", linewidths=1.5)
+ax.contour(x.T, y.T, obstacle.T.astype(float), levels=[0.5], colors="white", linewidths=1.5)
+ax.contour(x.T, y.T, source.T.astype(float), levels=[0.5], colors="red", linewidths=1.5)
+ax.contour(x.T, y.T, absorber.T.astype(float), levels=[0.5], colors="cyan", linewidths=1.5)
 
 fig.colorbar(im, ax=ax, label="Concentration")
 ax.set_xlabel("x")
@@ -146,5 +141,5 @@ ax.set_ylabel("y")
 ax.set_title("Diffusion with obstacle, source and absorber")
 ax.set_aspect("equal")
 plt.tight_layout()
+plt.savefig("obstacles.png")
 plt.show()
-plt.savefig('ciao.pdf')

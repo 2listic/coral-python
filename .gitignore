@@ -20,5 +20,8 @@ run-*
 *.hdf5
 *.h5
 *.png
+
+# Per-node status markers written by `coral run` (see --touch-dir).
 *.running
 *.succeeded
+*.failed

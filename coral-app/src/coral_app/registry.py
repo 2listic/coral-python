@@ -1,41 +1,47 @@
 import inspect
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
-from coral_app import PRIMITIVES_MAP, TYPE_NAMES, build_class_map, build_function_map, discover
-from coral_app.nodeports import NodePorts, build_port_table, methods_of
+from coral_core import ClassDeclaration, Declaration
+
+from coral_app import PRIMITIVES_MAP, build_class_map, build_function_map, discover
+from coral_app.nodeports import NodePorts, Port, build_port_table, methods_of
+from coral_app.primitives import DEFAULT_LITERAL
 
 # Python type -> the name the file format uses for it, for the socket types written on every
-# argument. Built from `TYPE_NAMES`, not from `PRIMITIVES_MAP`: the collections are renderable type
-# names without being node types, so more types can appear on a socket than can be a node.
-_TYPE_NAME_OF = {v: k for k, v in TYPE_NAMES.items()}
+# argument. Every primitive type name is a socket type name, and each also keys a primitive entry.
+_TYPE_NAME_OF = {v: k for k, v in PRIMITIVES_MAP.items()}
 
 
-def _create_input_argument(param_name: str, type_annotation) -> Dict:
+def _create_input_argument(port: Port, class_names: Mapping[type, str]) -> Dict:
     """Create an input argument dictionary"""
     return {
         "connection_type": "input",
-        "type": python_type_to_string(type_annotation),
-        "name": param_name,
+        "type": python_type_to_string(port.annotation, class_names),
+        "name": port.name,
     }
 
 
-def _create_output_argument(type_annotation) -> Dict:
-    """Create an output argument dictionary"""
-    return {"connection_type": "output", "type": python_type_to_string(type_annotation), "name": ""}
+def _create_output_argument(port: Port, class_names: Mapping[type, str]) -> Dict:
+    """Create an output argument dictionary; its name is ``""`` unless the callable declared one."""
+    return {
+        "connection_type": "output",
+        "type": python_type_to_string(port.annotation, class_names),
+        "name": port.name,
+    }
 
 
-def _number_inputs(ports: NodePorts):
+def _number_inputs(ports: NodePorts, class_names: Mapping[type, str]):
     """Number a node's input ports for the file format.
 
     Returns:
         tuple: (input_arguments, input_indices) — indices are 0-based, one per input port.
     """
-    arguments = [_create_input_argument(name, annotation) for name, annotation in ports.inputs]
+    arguments = [_create_input_argument(port, class_names) for port in ports.inputs]
     return arguments, list(range(len(ports.inputs)))
 
 
-def _number_outputs(ports: NodePorts, first_idx: int):
+def _number_outputs(ports: NodePorts, first_idx: int, class_names: Mapping[type, str]):
     """Number a node's output ports for the file format.
 
     The file format numbers outputs in a per-node index space that *continues after the inputs*, so
@@ -45,14 +51,16 @@ def _number_outputs(ports: NodePorts, first_idx: int):
     Returns:
         tuple: (output_arguments, output_indices)
     """
-    arguments = [_create_output_argument(annotation) for annotation in ports.outputs]
+    arguments = [_create_output_argument(port, class_names) for port in ports.outputs]
     return arguments, list(range(first_idx, first_idx + len(ports.outputs)))
 
 
-def _add_function_node(registry: Dict, func_name: str, ports: NodePorts) -> None:
+def _add_function_node(
+    registry: Dict, func_name: str, ports: NodePorts, class_names: Mapping[type, str]
+) -> None:
     """Add a function node to the registry, keyed by its name."""
-    arguments, inputs = _number_inputs(ports)
-    output_arguments, outputs = _number_outputs(ports, len(inputs))
+    arguments, inputs = _number_inputs(ports, class_names)
+    output_arguments, outputs = _number_outputs(ports, len(inputs), class_names)
     arguments.extend(output_arguments)
 
     # `type` is the function name — the single node identifier (the editor looks entries up as
@@ -66,25 +74,48 @@ def _add_function_node(registry: Dict, func_name: str, ports: NodePorts) -> None
     }
 
 
-def _add_constructor(registry: Dict, class_name: str, ports: NodePorts) -> None:
+def _add_constructor(
+    registry: Dict,
+    class_name: str,
+    cls: type,
+    ports: NodePorts,
+    class_names: Mapping[type, str],
+) -> None:
     """Add a constructor node to the registry, keyed by the class name.
 
     The instance a constructor produces is written as ``outputs: [-1]`` with no output argument —
     the file format's convention for "one unnamed output".
-    """
-    arguments, inputs = _number_inputs(ports)
 
-    registry[class_name] = {
+    The entry also carries ``"bases"``, the keys of every registered ancestor in MRO order, and
+    ``"derived"``, the keys of every registered descendant in class-map order; each is omitted
+    when empty. Only class-map keys are listed: an unregistered class in between is skipped (its
+    own ancestors are still found), and a type-name ancestor such as ``float`` is never listed.
+    """
+    arguments, inputs = _number_inputs(ports, class_names)
+
+    entry = {
         "arguments": arguments,
         "inputs": inputs,
         "outputs": [-1],
         "node_type": "constructor",
         "type": class_name,
     }
+    bases = [class_names[c] for c in cls.__mro__[1:] if c in class_names]
+    derived = [name for other, name in class_names.items() if cls in other.__mro__[1:]]
+    if bases:
+        entry["bases"] = bases
+    if derived:
+        entry["derived"] = derived
+    registry[class_name] = entry
 
 
-def _add_methods(registry: Dict, class_name: str, port_table: Dict[str, NodePorts]) -> None:
-    """Add all public methods of a class to the registry, keyed by 'Class.method'.
+def _add_methods(
+    registry: Dict,
+    class_name: str,
+    port_table: Dict[str, NodePorts],
+    class_names: Mapping[type, str],
+) -> None:
+    """Add all declared methods of a class to the registry, keyed by their method node type.
 
     Which methods exist, and that the instance occupies input port 0, both come from the port
     table.
@@ -92,8 +123,8 @@ def _add_methods(registry: Dict, class_name: str, port_table: Dict[str, NodePort
     for fully_qualified_name in methods_of(port_table, class_name):
         ports = port_table[fully_qualified_name]
 
-        arguments, inputs = _number_inputs(ports)
-        output_arguments, outputs = _number_outputs(ports, len(inputs))
+        arguments, inputs = _number_inputs(ports, class_names)
+        output_arguments, outputs = _number_outputs(ports, len(inputs), class_names)
         arguments.extend(output_arguments)
 
         registry[fully_qualified_name] = {
@@ -106,9 +137,9 @@ def _add_methods(registry: Dict, class_name: str, port_table: Dict[str, NodePort
 
 
 def generate_registry(
-    function_map: Dict[str, callable],
+    function_map: Dict[str, Declaration],
     primitives: List[str] = None,
-    class_map: Dict[str, type] = None,
+    class_map: Dict[str, ClassDeclaration] = None,
 ) -> Dict:
     """Generate the node registry in the DealiiX platform format.
 
@@ -118,10 +149,16 @@ def generate_registry(
     dicts, index numbering, the ``[-1]`` convention — is decided here; the arity and annotations
     come from the port table, which the executor reads too.
 
+    A socket typed with a registered class carries the class's key in ``class_map``, the same
+    string its constructor entry is keyed by. Any other class is ``"any"``. A constructor whose
+    class has registered ancestors or descendants also carries ``"bases"`` / ``"derived"``, their
+    keys.
+
     Args:
-        function_map: Mapping of function name -> callable.
+        function_map: Mapping of function name -> declaration.
         primitives: List of primitive type names to include (always added).
-        class_map: Optional mapping of class name -> class (adds constructors and methods).
+        class_map: Optional mapping of class name -> class declaration (adds constructors and
+            methods).
 
     Returns:
         The registry dict keyed by node ``type``.
@@ -137,8 +174,17 @@ def generate_registry(
 
     # One entry per node type, describing its connections. Note the emission loops below iterate the
     # *maps*, never the table: the key order of `node_types.json` is part of the contract, and the
-    # table is only ever a lookup.
-    port_table = build_port_table(function_map=function_map, class_map=class_map)
+    # table is only ever a lookup. The primitives go in too, so that a function or class named after
+    # one is refused here exactly as it is when a graph is run.
+    port_table = build_port_table(
+        function_map=function_map,
+        class_map=class_map,
+        primitives={name: PRIMITIVES_MAP[name] for name in primitives},
+    )
+
+    # Each registered class is named by its key. The port table has already refused a class
+    # registered under two keys, so this inversion loses nothing.
+    class_names = {declaration.target: name for name, declaration in (class_map or {}).items()}
 
     # Add primitive types, keyed by the primitive type name. Primitives take no inputs, but the
     # empty `arguments` list is required: the platform's registry validator skips any entry lacking
@@ -146,7 +192,7 @@ def generate_registry(
     for prim_type in primitives:
         registry[prim_type] = {
             "arguments": [],
-            "value": "",
+            "value": DEFAULT_LITERAL.get(prim_type, ""),
             "inputs": [],
             "outputs": [-1],
             "node_type": "primitive",
@@ -155,32 +201,55 @@ def generate_registry(
 
     # Add functions
     for func_name in function_map:
-        _add_function_node(registry, func_name, port_table[func_name])
+        _add_function_node(registry, func_name, port_table[func_name], class_names)
 
     # Add class constructors and methods
     if class_map:
         for class_name in class_map:
-            _add_constructor(registry, class_name, port_table[class_name])
+            _add_constructor(
+                registry,
+                class_name,
+                class_map[class_name].target,
+                port_table[class_name],
+                class_names,
+            )
 
         for class_name in class_map:
-            _add_methods(registry, class_name, port_table)
+            _add_methods(registry, class_name, port_table, class_names)
 
     return registry
 
 
-def python_type_to_string(py_type) -> str:
-    """Convert Python type annotation to string"""
+def python_type_to_string(py_type, class_names: Mapping[type, str] = None) -> str:
+    """Name an annotation the way the file format writes a socket type.
+
+    Three sources of names, tried in order:
+
+    - the primitives (``PRIMITIVES_MAP``): ``float`` -> ``"float"``, ``list`` -> ``"list"``;
+    - the registered classes, by their key in the class map (``class_names``): the string that also
+      keys the class's constructor entry;
+    - anything else is ``"any"``: a class no selected plugin registers, a missing annotation, and
+      every parameterised generic (``List[int]``, ``Optional[X]``), even around a registered class.
+
+    Args:
+        py_type: The annotation.
+        class_names: Class -> its key in the class map. Omitted, no class has a name.
+    """
 
     # Handle empty/missing annotations
     if py_type is inspect.Signature.empty or py_type is None:
         return _TYPE_NAME_OF[Any]
 
-    # Handle the named types: the primitives plus the collections
+    # Handle the primitive type names
     if py_type in _TYPE_NAME_OF:
         return _TYPE_NAME_OF[py_type]
 
+    # Handle the registered classes, by their key in the class map
+    if class_names and py_type in class_names:
+        return class_names[py_type]
+
     # Default fallback for unknown types. A parameterised generic such as `List[int]` lands here
-    # too: only the bare `list` is a name the format knows.
+    # too: only the bare `list` is a name the format knows, and `List[X]` is not `X`.
     return _TYPE_NAME_OF[Any]
 
 

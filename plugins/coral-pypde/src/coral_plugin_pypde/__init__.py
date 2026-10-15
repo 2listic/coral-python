@@ -1,55 +1,69 @@
 """coral-plugin-pypde — py-pde PDE-solver wrappers.
 
-Subclasses the coral-core ``Plugin`` contract; registered under the
-``coral.plugins`` entry-point group as ``pypde``.
+Every node type is declared on :data:`plugin`, the ``coral_core.Plugin`` instance registered
+under the ``coral.plugins`` entry-point group as ``pypde``.
 
 py-pde is a hard dependency of this distribution, so its import is unconditional: a broken
 install fails loud with ``ImportError`` instead of silently registering nothing.
 
-Every port below is annotated with a *wrapper* type rather than ``Any``, so the graph's
+Every port is annotated with a *wrapper* type rather than ``Any``, so the graph's
 edge-type check can judge a py-pde workflow before the solver starts: a grid wired where a
 field belongs is refused while the graph is being constructed, not after a simulation has run.
 """
 
-from typing import Any, Dict
-
 from coral_core import Plugin
 
-from .pdes.laplace import pypde_solve_poisson_equation, pypde_solve_laplace_equation
-
-from .grids.cartesian import PyPDEUnitGrid, PyPDECartesianGrid
 from .fields.scalar import PyPDEScalarField
-from .storage.file import PyPDEFileStorage
-from .visualization.movies import PyPDEMovie
-from .trackers.trackers import PyPDEPlotTracker
+from .grids.base import PyPDEGridBase
+from .grids.cartesian import PyPDECartesianGrid, PyPDEUnitGrid
+from .pdes.custom import PyPDECircle, PyPDEObstacleDiffusionPDE, PyPDERectangle, PyPDEShape
 from .pdes.diffusion import PyPDEDiffusionPDE
-from .pdes.custom import PyPDEObstacleDiffusionPDE, PyPDECircle, PyPDERectangle
+from .pdes.laplace import pypde_solve_poisson_equation
+from .storage.file import PyPDEFileStorage
+from .trackers.trackers import PyPDEPlotTracker
+from .visualization.movies import PyPDEMovie
 
+__all__ = [
+    "PyPDECartesianGrid",
+    "PyPDECircle",
+    "PyPDEDiffusionPDE",
+    "PyPDEFileStorage",
+    "PyPDEGridBase",
+    "PyPDEMovie",
+    "PyPDEObstacleDiffusionPDE",
+    "PyPDEPlotTracker",
+    "PyPDERectangle",
+    "PyPDEScalarField",
+    "PyPDEShape",
+    "PyPDEUnitGrid",
+    "plugin",
+    "pypde_solve_poisson_equation",
+]
 
-__all__ = ["PyPDEPlugin"]
+#: This plugin: the entry point's target, on which every node type below is declared.
+plugin = Plugin()
 
+plugin.cls(PyPDEGridBase)
+plugin.cls(PyPDEUnitGrid)
+plugin.cls(PyPDECartesianGrid)
 
-class PyPDEPlugin(Plugin):
-    """py-pde PDE-solver wrappers."""
+plugin.cls(PyPDEScalarField)
+plugin.method(PyPDEScalarField.plot)
+plugin.method(PyPDEScalarField.to_file)
 
-    def get_functions(self) -> Dict[str, Any]:
-        """Return py-pde function definitions — this plugin declares none."""
-        return {
-            "pypde_solve_laplace_equation": pypde_solve_laplace_equation,
-            "pypde_solve_poisson_equation": pypde_solve_poisson_equation,
-        }
+plugin.cls(PyPDEFileStorage)
+plugin.cls(PyPDEMovie)
+plugin.cls(PyPDEPlotTracker)
 
-    def get_classes(self) -> Dict[str, Any]:
-        """Return py-pde class definitions"""
-        return {
-            "PyPDEUnitGrid": PyPDEUnitGrid,
-            "PyPDECartesianGrid": PyPDECartesianGrid,
-            "PyPDEScalarField": PyPDEScalarField,
-            "PyPDEFileStorage": PyPDEFileStorage,
-            "PyPDEMovie": PyPDEMovie,
-            "PyPDEPlotTracker": PyPDEPlotTracker,
-            "PyPDEDiffusionPDE": PyPDEDiffusionPDE,
-            "PyPDECircle": PyPDECircle,
-            "PyPDERectangle": PyPDERectangle,
-            "PyPDEObstacleDiffusionPDE": PyPDEObstacleDiffusionPDE,
-        }
+plugin.cls(PyPDEDiffusionPDE)
+plugin.method(PyPDEDiffusionPDE.solve)
+
+plugin.cls(PyPDEShape)
+plugin.cls(PyPDECircle)
+plugin.cls(PyPDERectangle)
+
+plugin.cls(PyPDEObstacleDiffusionPDE)
+plugin.method(PyPDEObstacleDiffusionPDE.get_initial_condition)
+plugin.method(PyPDEObstacleDiffusionPDE.solve)
+
+plugin.function(pypde_solve_poisson_equation)

@@ -31,7 +31,7 @@
   },
   "bool": {
     "arguments": [],
-    "value": "",
+    "value": "false",
     "inputs": [],
     "outputs": [
       -1
@@ -58,6 +58,36 @@
     ],
     "node_type": "primitive",
     "type": "none"
+  },
+  "list": {
+    "arguments": [],
+    "value": "[]",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "list"
+  },
+  "set": {
+    "arguments": [],
+    "value": "[]",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "set"
+  },
+  "dict": {
+    "arguments": [],
+    "value": "{}",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "dict"
   },
   "add_pair": {
     "arguments": [
@@ -119,17 +149,17 @@
       {
         "connection_type": "output",
         "type": "float",
-        "name": ""
+        "name": "value"
       },
       {
         "connection_type": "output",
         "type": "str",
-        "name": ""
+        "name": "text"
       },
       {
         "connection_type": "output",
         "type": "bool",
-        "name": ""
+        "name": "positive"
       }
     ],
     "inputs": [
@@ -723,7 +753,11 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "Accumulator"
+    "type": "Accumulator",
+    "derived": [
+      "PreciseAccumulator",
+      "Ledger"
+    ]
   },
   "Gauge": {
     "arguments": [
@@ -763,7 +797,61 @@
       -1
     ],
     "node_type": "constructor",
-    "type": "PreciseAccumulator"
+    "type": "PreciseAccumulator",
+    "bases": [
+      "Accumulator"
+    ],
+    "derived": [
+      "Ledger"
+    ]
+  },
+  "Resettable": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "level"
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "Resettable",
+    "derived": [
+      "Ledger"
+    ]
+  },
+  "Ledger": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "start"
+      },
+      {
+        "connection_type": "input",
+        "type": "int",
+        "name": "digits"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "Ledger",
+    "bases": [
+      "PreciseAccumulator",
+      "Accumulator",
+      "Resettable"
+    ]
   },
   "Tally": {
     "arguments": [
@@ -786,7 +874,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "Accumulator",
         "name": "self"
       },
       {
@@ -797,7 +885,7 @@
       {
         "connection_type": "output",
         "type": "float",
-        "name": ""
+        "name": "total"
       }
     ],
     "inputs": [
@@ -814,7 +902,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "Accumulator",
         "name": "self"
       },
       {
@@ -836,7 +924,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "Gauge",
         "name": "self"
       },
       {
@@ -858,7 +946,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PreciseAccumulator",
         "name": "self"
       },
       {
@@ -869,7 +957,7 @@
       {
         "connection_type": "output",
         "type": "float",
-        "name": ""
+        "name": "total"
       }
     ],
     "inputs": [
@@ -886,7 +974,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PreciseAccumulator",
         "name": "self"
       },
       {
@@ -908,7 +996,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PreciseAccumulator",
         "name": "self"
       },
       {
@@ -926,11 +1014,127 @@
     "node_type": "method",
     "type": "PreciseAccumulator.total"
   },
+  "Resettable.reset": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Resettable",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Resettable.reset"
+  },
+  "Ledger.add": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Ledger",
+        "name": "self"
+      },
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "amount"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": "total"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2
+    ],
+    "node_type": "method",
+    "type": "Ledger.add"
+  },
+  "Ledger.reset": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Ledger",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Ledger.reset"
+  },
+  "Ledger.rounded": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Ledger",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Ledger.rounded"
+  },
+  "Ledger.total": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Ledger",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Ledger.total"
+  },
   "Tally.bump": {
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "Tally",
         "name": "self"
       },
       {

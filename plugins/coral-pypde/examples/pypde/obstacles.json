@@ -8,7 +8,8 @@
           "y": 0
         },
         "value": "obstacles.hdf5",
-        "qualified_id": "6"
+        "qualified_id": "6",
+        "name": "storage_file"
       },
       "7": {
         "type": "str",
@@ -17,7 +18,8 @@
           "y": 142
         },
         "value": "truncate",
-        "qualified_id": "7"
+        "qualified_id": "7",
+        "name": "write_mode"
       },
       "8": {
         "type": "float",
@@ -26,7 +28,8 @@
           "y": 284
         },
         "value": "1",
-        "qualified_id": "8"
+        "qualified_id": "8",
+        "name": "storage_interval"
       },
       "9": {
         "type": "PyPDEFileStorage",
@@ -34,7 +37,8 @@
           "x": 1330,
           "y": 17.5
         },
-        "qualified_id": "9"
+        "qualified_id": "9",
+        "name": "storage"
       },
       "10": {
         "type": "str",
@@ -43,7 +47,8 @@
           "y": 217
         },
         "value": "obstacles.mp4",
-        "qualified_id": "10"
+        "qualified_id": "10",
+        "name": "movie_file"
       },
       "11": {
         "type": "int",
@@ -52,7 +57,8 @@
           "y": 359
         },
         "value": "5",
-        "qualified_id": "11"
+        "qualified_id": "11",
+        "name": "framerate"
       },
       "12": {
         "type": "int",
@@ -61,7 +67,8 @@
           "y": 501
         },
         "value": "200",
-        "qualified_id": "12"
+        "qualified_id": "12",
+        "name": "dpi"
       },
       "13": {
         "type": "int",
@@ -70,7 +77,8 @@
           "y": 643
         },
         "value": "6000",
-        "qualified_id": "13"
+        "qualified_id": "13",
+        "name": "bitrate"
       },
       "14": {
         "type": "PyPDEMovie",
@@ -78,7 +86,8 @@
           "x": 798,
           "y": 426
         },
-        "qualified_id": "14"
+        "qualified_id": "14",
+        "name": "movie"
       },
       "15": {
         "type": "float",
@@ -87,7 +96,8 @@
           "y": 763.5
         },
         "value": "1",
-        "qualified_id": "15"
+        "qualified_id": "15",
+        "name": "plot_interval"
       },
       "16": {
         "type": "PyPDEPlotTracker",
@@ -95,7 +105,8 @@
           "x": 1327,
           "y": 506
         },
-        "qualified_id": "16"
+        "qualified_id": "16",
+        "name": "plot"
       },
       "19": {
         "type": "int",
@@ -104,7 +115,8 @@
           "y": 940.25
         },
         "value": "100",
-        "qualified_id": "19"
+        "qualified_id": "19",
+        "name": "t_range"
       },
       "25": {
         "type": "float",
@@ -113,7 +125,8 @@
           "y": 785
         },
         "value": "0.002",
-        "qualified_id": "25"
+        "qualified_id": "25",
+        "name": "diffusivity"
       },
       "26": {
         "type": "float",
@@ -122,7 +135,8 @@
           "y": 927
         },
         "value": "0.008",
-        "qualified_id": "26"
+        "qualified_id": "26",
+        "name": "dx"
       },
       "29": {
         "type": "PyPDECartesianGrid",
@@ -130,7 +144,8 @@
           "x": 330,
           "y": 1921
         },
-        "qualified_id": "29"
+        "qualified_id": "29",
+        "name": "grid"
       },
       "30": {
         "type": "str",
@@ -139,7 +154,8 @@
           "y": 2024.5
         },
         "value": "[[0.0, 1.0], [0.0, 1.0]]",
-        "qualified_id": "30"
+        "qualified_id": "30",
+        "name": "bounds"
       },
       "31": {
         "type": "float",
@@ -148,7 +164,8 @@
           "y": 1740.5
         },
         "value": "0.07",
-        "qualified_id": "31"
+        "qualified_id": "31",
+        "name": "source_radius"
       },
       "32": {
         "type": "float",
@@ -157,7 +174,8 @@
           "y": 1456.5
         },
         "value": "0.025",
-        "qualified_id": "32"
+        "qualified_id": "32",
+        "name": "absorber_radius"
       },
       "34": {
         "type": "str",
@@ -166,7 +184,8 @@
           "y": 1598.5
         },
         "value": "[0.2, 0.5]",
-        "qualified_id": "34"
+        "qualified_id": "34",
+        "name": "source_center"
       },
       "35": {
         "type": "str",
@@ -175,7 +194,8 @@
           "y": 1314.5
         },
         "value": "[0.8, 0.5]",
-        "qualified_id": "35"
+        "qualified_id": "35",
+        "name": "absorber_center"
       },
       "36": {
         "type": "str",
@@ -184,7 +204,8 @@
           "y": 1172.5
         },
         "value": "[0.5, 0.5]",
-        "qualified_id": "36"
+        "qualified_id": "36",
+        "name": "obstacle_center"
       },
       "38": {
         "type": "PyPDEObstacleDiffusionPDE.solve",
@@ -192,7 +213,8 @@
           "x": 1836,
           "y": 860
         },
-        "qualified_id": "38"
+        "qualified_id": "38",
+        "name": "solve"
       },
       "39": {
         "type": "str",
@@ -201,7 +223,8 @@
           "y": 1882.5
         },
         "value": "[120, 120]",
-        "qualified_id": "39"
+        "qualified_id": "39",
+        "name": "shape"
       },
       "41": {
         "type": "PyPDEObstacleDiffusionPDE.get_initial_condition",
@@ -209,7 +232,8 @@
           "x": 1206,
           "y": 1278.5
         },
-        "qualified_id": "41"
+        "qualified_id": "41",
+        "name": "initial_state"
       },
       "42": {
         "type": "PyPDEObstacleDiffusionPDE",
@@ -217,7 +241,8 @@
           "x": 736,
           "y": 1125.5
         },
-        "qualified_id": "42"
+        "qualified_id": "42",
+        "name": "pde"
       },
       "45": {
         "type": "PyPDECircle",
@@ -225,7 +250,8 @@
           "x": 360.5,
           "y": 1637
         },
-        "qualified_id": "45"
+        "qualified_id": "45",
+        "name": "source"
       },
       "46": {
         "type": "PyPDECircle",
@@ -233,7 +259,8 @@
           "x": 360.5,
           "y": 1353
         },
-        "qualified_id": "46"
+        "qualified_id": "46",
+        "name": "absorber"
       },
       "49": {
         "type": "PyPDERectangle",
@@ -241,7 +268,8 @@
           "x": 344.5,
           "y": 1069
         },
-        "qualified_id": "49"
+        "qualified_id": "49",
+        "name": "obstacle"
       },
       "50": {
         "type": "str",
@@ -250,7 +278,8 @@
           "y": 1030.5
         },
         "value": "[0.02, 0.06]",
-        "qualified_id": "50"
+        "qualified_id": "50",
+        "name": "obstacle_sides"
       }
     },
     "edges": {

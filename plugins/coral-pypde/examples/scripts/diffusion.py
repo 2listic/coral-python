@@ -11,15 +11,14 @@ https://github.com/zwicker-group/py-pde/blob/master/examples/output/trajectory_i
 """
 
 import pde
-
 from pde.visualization.movies import Movie
 
 # generate grid and initial condition
 grid = pde.UnitGrid([32, 32])
 state = pde.ScalarField.random_uniform(grid, 0.2, 0.3)
 
-outHDF5 = 'plugins/coral-pypde/examples/scripts/diffusion.hdf5'
-outMP4 = 'plugins/coral-pypde/examples/scripts/diffusion.mp4'
+outHDF5 = "diffusion.hdf5"
+outMP4 = "diffusion.mp4"
 
 # create tracker which writes to hdf5
 writer = pde.FileStorage(outHDF5, write_mode="truncate")

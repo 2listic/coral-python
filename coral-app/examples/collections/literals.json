@@ -1,0 +1,21 @@
+{
+  "workflow": {
+    "nodes": {
+      "0": { "qualified_id": "0", "type": "list", "value": "[10, 20, 30]", "name": "tens" },
+      "1": { "qualified_id": "1", "type": "int", "value": "1", "name": "index_1" },
+      "2": { "qualified_id": "2", "type": "list_get", "name": "second" },
+      "3": { "qualified_id": "3", "type": "set", "value": "[3, 1, 2, 3]", "name": "with_duplicate" },
+      "4": { "qualified_id": "4", "type": "set_size", "name": "size" },
+      "5": { "qualified_id": "5", "type": "dict", "value": "{\"a\": 1}", "name": "a_to_1" },
+      "6": { "qualified_id": "6", "type": "str", "value": "a", "name": "key_a" },
+      "7": { "qualified_id": "7", "type": "dict_get", "name": "value_of_a" }
+    },
+    "edges": {
+      "0": { "source": 0, "target": 2, "source_output": 0, "target_input": 0 },
+      "1": { "source": 1, "target": 2, "source_output": 0, "target_input": 1 },
+      "2": { "source": 3, "target": 4, "source_output": 0, "target_input": 0 },
+      "3": { "source": 5, "target": 7, "source_output": 0, "target_input": 0 },
+      "4": { "source": 6, "target": 7, "source_output": 0, "target_input": 1 }
+    }
+  }
+}

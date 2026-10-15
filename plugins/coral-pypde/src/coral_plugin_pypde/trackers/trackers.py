@@ -2,6 +2,7 @@ from pde import PlotTracker
 
 from ..visualization.movies import PyPDEMovie
 
+
 class PyPDEPlotTracker:
     """Wrapper for a PlotTracker drawing frames into a movie.
 

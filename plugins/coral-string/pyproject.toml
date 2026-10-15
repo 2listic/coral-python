@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "coral-plugin-string"
 version = "0.0.0"
-description = "Coral plugin: the StringProcessor class and print_result."
+description = "Coral plugin: the StringProcessor class and print_text."
 requires-python = ">=3.12"
 dependencies = ["coral-core"]
 
 [project.entry-points."coral.plugins"]
-string = "coral_plugin_string:StringPlugin"
+string = "coral_plugin_string:plugin"
 
 # Test-only: `tests/system/` drives this plugin through the host. A PEP 735 dependency group, never
 # `[project].dependencies` — the wheel still requires nothing but `coral-core`, keeping the direction

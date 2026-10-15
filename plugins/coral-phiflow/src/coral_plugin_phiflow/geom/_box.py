@@ -1,6 +1,6 @@
-from typing import Any, Dict, Tuple
-from phi.flow import Box, Cuboid
-from phi.flow import vec
+from typing import Any
+
+from phi.flow import Box, Cuboid, vec
 
 
 class PhiFlowCuboid:

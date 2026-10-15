@@ -1,7 +1,6 @@
 from ast import literal_eval
-from typing import Any, Dict
 
-from pde import solve_poisson_equation, solve_laplace_equation
+from pde import solve_poisson_equation
 
 from ..fields.scalar import PyPDEScalarField
 
@@ -9,14 +8,12 @@ from ..fields.scalar import PyPDEScalarField
 def pypde_solve_poisson_equation(
     field: PyPDEScalarField,
     boundary: str,
-) -> Any:
+) -> PyPDEScalarField:
     """Solve Poisson equation using pypde `solve_poisson_equation`"""
     boundary = literal_eval(boundary)
     result = solve_poisson_equation(field.field, bc=boundary)
-    
-    return PyPDEScalarField(field=result)
+
+    return PyPDEScalarField._holding(result)
 
 
-def pypde_solve_laplace_equation():
-    """Solve Laplace equation using pypde `solve_poisson_equation`"""
-    pass
+# TODO: wrap py-pde's `solve_laplace_equation` as a node.

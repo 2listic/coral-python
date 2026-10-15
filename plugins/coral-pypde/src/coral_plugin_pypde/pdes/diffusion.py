@@ -28,4 +28,3 @@ class PyPDEDiffusionPDE:
         )
         plot.movie.save()
         return PyPDEScalarField._holding(final)
-

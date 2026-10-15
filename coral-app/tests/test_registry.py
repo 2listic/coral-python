@@ -12,11 +12,14 @@ anyone can see what changed.
 
 import json
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, Optional
 
 import pytest
-from coral_app import BUILTIN_FUNCTIONS, PRIMITIVES_MAP, build_class_map, build_function_map
+from coral_app import BUILTINS, PRIMITIVES_MAP, build_class_map, build_function_map
+from coral_app.errors import DuplicateNodeTypeError
 from coral_app.registry import generate_registry, python_type_to_string, save_registry_to_file
+from coral_core import Plugin
+from host_suite import declared_classes, declared_functions
 from specimen import RIVAL, SPECIMEN
 
 GOLDEN = Path(__file__).parent / "golden" / "node_types.format.json"
@@ -57,7 +60,7 @@ class TestPythonTypeToString:
 
     @pytest.mark.parametrize("py_type, name", [(list, "list"), (set, "set"), (dict, "dict")])
     def test_collection_types(self, py_type, name):
-        """GIVEN a bare collection type, which is a socket type but not a node type
+        """GIVEN a bare collection type, a primitive node type like the scalars
         WHEN it is rendered
         THEN it gets its own name rather than collapsing to 'any'."""
         assert python_type_to_string(py_type) == name
@@ -82,14 +85,36 @@ class TestPythonTypeToString:
         assert python_type_to_string(inspect.Signature.empty) == "any"
 
     def test_an_unknown_class_is_any(self):
-        """GIVEN a class the format has no name for
+        """GIVEN a class not registered by any selected plugin
         WHEN it is rendered
-        THEN it is 'any' — an instance socket carries no class name in this format."""
+        THEN it is 'any' — no node could produce it, so there is no name to give it."""
 
         class Custom:
             pass
 
         assert python_type_to_string(Custom) == "any"
+
+    def test_a_registered_class_is_its_key(self):
+        """GIVEN a class and a lookup naming it
+        WHEN it is rendered with that lookup
+        THEN it is the name the lookup gives."""
+
+        class Custom:
+            pass
+
+        assert python_type_to_string(Custom, {Custom: "Custom"}) == "Custom"
+
+    def test_a_registered_class_inside_a_generic_is_any(self):
+        """GIVEN a registered class wrapped in List[...] or Optional[...]
+        WHEN each is rendered with the lookup
+        THEN both are 'any': only the bare class has a name."""
+
+        class Custom:
+            pass
+
+        names = {Custom: "Custom"}
+        assert python_type_to_string(List[Custom], names) == "any"
+        assert python_type_to_string(Optional[Custom], names) == "any"
 
 
 class TestEveryEntryIsWellFormed:
@@ -225,14 +250,11 @@ class TestConstructorAndMethodEntries:
     def test_a_method_takes_the_instance_at_port_zero(self, registry):
         """GIVEN a method with one parameter
         WHEN its entry is read
-        THEN port 0 is the instance and the parameter follows.
-
-        The instance socket renders as 'any': the format has no name for a class, which is why an
-        instance edge is checked by the *graph* against annotations rather than by the editor."""
+        THEN port 0 is the instance, typed with the class's key, and the parameter follows."""
         entry = registry["Accumulator.add"]
 
         assert inputs_of(entry) == [
-            {"connection_type": "input", "type": "any", "name": "self"},
+            {"connection_type": "input", "type": "Accumulator", "name": "self"},
             {"connection_type": "input", "type": "float", "name": "amount"},
         ]
         assert entry["outputs"] == [2]
@@ -260,6 +282,303 @@ class TestConstructorAndMethodEntries:
         assert registry["PreciseAccumulator.add"]["node_type"] == "method"
 
 
+class TestOutputNames:
+    """An output's ``name`` is what ``outputs=`` declared, or ``""``; the editor shows it as the label."""
+
+    def test_a_function_s_declared_names_are_written(self, registry):
+        """GIVEN a specimen function decorated with three output names
+        WHEN its entry is read
+        THEN each output argument carries its name, in order."""
+        names = [arg["name"] for arg in outputs_of(registry["split_triple"])]
+
+        assert names == ["value", "text", "positive"]
+
+    def test_a_method_s_declared_name_is_written(self, registry):
+        """GIVEN a specimen method decorated with one output name
+        WHEN its entry is read
+        THEN its output argument carries it."""
+        assert [arg["name"] for arg in outputs_of(registry["Accumulator.add"])] == ["total"]
+
+    def test_an_inherited_method_writes_its_base_s_names(self, registry):
+        """GIVEN a subclass inheriting a decorated method
+        WHEN the subclass's method entry is read
+        THEN it carries the same name as the base's."""
+        names = [arg["name"] for arg in outputs_of(registry["PreciseAccumulator.add"])]
+
+        assert names == ["total"]
+
+    def test_every_undecorated_output_is_unnamed(self, registry):
+        """GIVEN the specimen registry, where only four entries carry outputs=
+        WHEN every other entry's output arguments are read
+        THEN each has the name "": a name nobody declared is never invented."""
+        decorated = {"split_triple", "Accumulator.add", "PreciseAccumulator.add", "Ledger.add"}
+        names = {
+            node_type: [arg["name"] for arg in outputs_of(entry)]
+            for node_type, entry in registry.items()
+            if node_type not in decorated
+        }
+
+        assert {node_type: n for node_type, n in names.items() if any(n)} == {}
+
+
+class TestDeclaredNames:
+    """What ``name=`` and ``inputs=`` declare reaches the file: an entry's key, an input's name."""
+
+    def test_an_input_label_is_the_argument_s_name(self):
+        """GIVEN a function declared with inputs= relabelling one parameter
+        WHEN the registry is generated
+        THEN that input argument's name is the label, and the other keeps its parameter's."""
+        plugin = Plugin()
+
+        def scale(value: float, factor: float) -> float:
+            return value * factor
+
+        plugin.function(scale, inputs={"factor": "by"})
+        registry = generate_registry(plugin.functions(), list(PRIMITIVES_MAP))
+
+        assert [arg["name"] for arg in inputs_of(registry["scale"])] == ["value", "by"]
+
+    def test_a_renamed_method_is_keyed_by_its_declared_name(self):
+        """GIVEN a method declared under a name other than its attribute
+        WHEN the registry is generated
+        THEN its entry is keyed and typed by the declared name, and the attribute's name is no key."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Counter:
+            def __init__(self, start: int):
+                self.start = start
+
+            @plugin.method(name="current")
+            def get(self) -> int:
+                return self.start
+
+        registry = generate_registry({}, list(PRIMITIVES_MAP), plugin.classes())
+
+        assert "Counter.get" not in registry
+        assert registry["Counter.current"]["type"] == "Counter.current"
+
+
+class TestClassSockets:
+    """A socket typed with a registered class carries the class's key: the string the front end
+    also gives the instance that class's constructor produces, so the two match."""
+
+    def test_the_key_is_used_not_the_class_name(self):
+        """GIVEN a class registered under a key other than its ``__name__``
+        WHEN the registry is generated
+        THEN its instance port carries the key, which is what names its constructor entry."""
+
+        class Custom:
+            def ping(self) -> int:
+                return 0
+
+        registry = generate_registry(
+            {}, list(PRIMITIVES_MAP), declared_classes({"Renamed": Custom}, [Custom.ping])
+        )
+
+        assert inputs_of(registry["Renamed.ping"])[0]["type"] == "Renamed"
+
+    def test_an_inherited_method_takes_the_subclass_at_port_zero(self, registry):
+        """GIVEN a subclass whose method is inherited from its base
+        WHEN its entry is read
+        THEN the instance port carries the subclass's key, not the base's."""
+        assert inputs_of(registry["PreciseAccumulator.add"])[0]["type"] == "PreciseAccumulator"
+
+    def test_a_parameter_annotated_with_a_registered_class_carries_its_key(self):
+        """GIVEN a constructor taking an instance of another registered class
+        WHEN the registry is generated
+        THEN that input is typed with the other class's key."""
+
+        class Engine:
+            pass
+
+        class Car:
+            def __init__(self, engine: Engine):
+                self.engine = engine
+
+        registry = generate_registry(
+            {}, list(PRIMITIVES_MAP), declared_classes({"Engine": Engine, "Car": Car})
+        )
+
+        assert inputs_of(registry["Car"]) == [
+            {"connection_type": "input", "type": "Engine", "name": "engine"}
+        ]
+
+    def test_a_return_annotated_with_a_registered_class_carries_its_key(self):
+        """GIVEN a function returning an instance of a registered class
+        WHEN the registry is generated
+        THEN its output is typed with the class's key."""
+
+        class Engine:
+            pass
+
+        def build() -> Engine:
+            return Engine()
+
+        registry = generate_registry(
+            declared_functions({"build": build}),
+            list(PRIMITIVES_MAP),
+            declared_classes({"Engine": Engine}),
+        )
+
+        assert outputs_of(registry["build"]) == [
+            {"connection_type": "output", "type": "Engine", "name": ""}
+        ]
+
+
+class TestBases:
+    """A constructor names its registered ancestors in ``bases`` (MRO order, nearest first) and
+    its registered descendants in ``derived`` (class-map order); each key is absent when empty."""
+
+    def test_bases_follow_the_mro(self, registry):
+        """GIVEN the specimen Ledger(PreciseAccumulator, Resettable), PreciseAccumulator(Accumulator)
+        WHEN Ledger's constructor entry is read
+        THEN ``bases`` lists the chain before the second parent, as the MRO does."""
+        assert registry["Ledger"]["bases"] == ["PreciseAccumulator", "Accumulator", "Resettable"]
+
+    def test_derived_lists_every_registered_descendant(self, registry):
+        """GIVEN the specimen hierarchy
+        WHEN the constructor entries are read
+        THEN each class's ``derived`` lists its direct and indirect subclasses."""
+        assert registry["Accumulator"]["derived"] == ["PreciseAccumulator", "Ledger"]
+        assert registry["PreciseAccumulator"]["derived"] == ["Ledger"]
+        assert registry["Resettable"]["derived"] == ["Ledger"]
+
+    def test_empty_lists_are_absent(self, registry):
+        """GIVEN classes with no registered ancestor, or no registered descendant
+        WHEN their constructor entries are read
+        THEN the corresponding key is absent — not null nor empty."""
+        assert "bases" not in registry["Accumulator"]
+        assert "bases" not in registry["Gauge"]
+        assert "derived" not in registry["Ledger"]
+        assert "derived" not in registry["Gauge"]
+
+    def test_multiple_parents_are_all_listed(self):
+        """GIVEN D(A, B), all three registered
+        WHEN the registry is generated
+        THEN D's bases are A and B, in declaration order."""
+
+        class A:
+            pass
+
+        class B:
+            pass
+
+        class D(A, B):
+            pass
+
+        registry = generate_registry(
+            {}, list(PRIMITIVES_MAP), declared_classes({"A": A, "B": B, "D": D})
+        )
+
+        assert registry["D"]["bases"] == ["A", "B"]
+
+    def test_a_diamond_lists_the_shared_ancestor_once(self):
+        """GIVEN D(B, C) with B(A) and C(A), all registered
+        WHEN the registry is generated
+        THEN D's bases are B, C, A — A once, last, as in the MRO."""
+
+        class A:
+            pass
+
+        class B(A):
+            pass
+
+        class C(A):
+            pass
+
+        class D(B, C):
+            pass
+
+        registry = generate_registry(
+            {}, list(PRIMITIVES_MAP), declared_classes({"A": A, "B": B, "C": C, "D": D})
+        )
+
+        assert registry["D"]["bases"] == ["B", "C", "A"]
+
+    def test_an_unregistered_intermediate_is_skipped(self):
+        """GIVEN C(B(A)) with only A and C registered
+        WHEN the registry is generated
+        THEN C's bases are [A] and A's derived is [C]: B has no node, but A is still found."""
+
+        class A:
+            pass
+
+        class B(A):
+            pass
+
+        class C(B):
+            pass
+
+        registry = generate_registry({}, list(PRIMITIVES_MAP), declared_classes({"A": A, "C": C}))
+
+        assert registry["C"]["bases"] == ["A"]
+        assert registry["A"]["derived"] == ["C"]
+
+    def test_lists_carry_keys_not_names(self):
+        """GIVEN a base class registered under a key other than its ``__name__``
+        WHEN the registry is generated
+        THEN both lists use that key."""
+
+        class A:
+            pass
+
+        class B(A):
+            pass
+
+        registry = generate_registry(
+            {}, list(PRIMITIVES_MAP), declared_classes({"Root": A, "B": B})
+        )
+
+        assert registry["B"]["bases"] == ["Root"]
+        assert registry["Root"]["derived"] == ["B"]
+
+    def test_derived_follows_class_map_order(self):
+        """GIVEN B(A) and C(A), registered in the order A, C, B
+        WHEN the registry is generated
+        THEN A's derived is [C, B]: class-map order, not definition order."""
+
+        class A:
+            pass
+
+        class B(A):
+            pass
+
+        class C(A):
+            pass
+
+        registry = generate_registry(
+            {}, list(PRIMITIVES_MAP), declared_classes({"A": A, "C": C, "B": B})
+        )
+
+        assert registry["A"]["derived"] == ["C", "B"]
+
+    def test_a_type_name_ancestor_is_not_listed(self):
+        """GIVEN MyFloat(float), registered alone
+        WHEN the registry is generated
+        THEN it has no ``bases``: ``float`` is a type name, not a class-map key."""
+
+        class MyFloat(float):
+            pass
+
+        registry = generate_registry(
+            {}, list(PRIMITIVES_MAP), declared_classes({"MyFloat": MyFloat})
+        )
+
+        assert "bases" not in registry["MyFloat"]
+
+    def test_no_entry_carries_base_and_no_method_carries_the_lists(self, registry):
+        """GIVEN the specimen, whose subclasses have methods of their own and inherited ones
+        WHEN every entry is read
+        THEN none carries the former ``base`` key, and no method entry carries ``bases`` or
+        ``derived``: only a constructor entry does."""
+        methods = [entry for entry in registry.values() if entry["node_type"] == "method"]
+
+        assert methods
+        assert all("base" not in entry for entry in registry.values())
+        assert all("bases" not in entry and "derived" not in entry for entry in methods)
+
+
 class TestPrimitiveEntries:
     """Primitives are always present, and are the one kind carrying a `value`."""
 
@@ -278,11 +597,63 @@ class TestPrimitiveEntries:
             "type": "int",
         }
 
+    @pytest.mark.parametrize("collection, value", [("list", "[]"), ("set", "[]"), ("dict", "{}")])
+    def test_a_collection_entry_defaults_to_the_empty_literal(self, registry, collection, value):
+        """GIVEN a collection primitive type
+        WHEN its entry is read
+        THEN it is a primitive entry whose `value` is the empty literal: the editor copies it into a
+        dropped node, which is then a valid empty collection rather than an unparsable ``""``."""
+        assert registry[collection] == {
+            "arguments": [],
+            "value": value,
+            "inputs": [],
+            "outputs": [-1],
+            "node_type": "primitive",
+            "type": collection,
+        }
+
+    def test_a_bool_entry_defaults_to_false(self, registry):
+        """GIVEN the bool primitive type
+        WHEN its entry is read
+        THEN its `value` is "false": a dropped bool node is then valid, where "" would be refused."""
+        assert registry["bool"]["value"] == "false"
+
     def test_every_primitive_is_present(self, registry):
         """GIVEN any plugin selection
         WHEN the registry is generated
         THEN every primitive type name has an entry: they are the host's, not a plugin's."""
         assert set(PRIMITIVES_MAP) <= set(registry)
+
+    def test_a_class_named_after_a_primitive_is_refused(self):
+        """GIVEN a class keyed ``int``
+        WHEN the registry is generated
+        THEN DuplicateNodeTypeError is raised, as it is when a graph is run with the same class."""
+
+        class Widget:
+            pass
+
+        with pytest.raises(DuplicateNodeTypeError):
+            generate_registry(
+                build_function_map(include=[]),
+                list(PRIMITIVES_MAP),
+                declared_classes({"int": Widget}),
+            )
+
+    def test_a_class_named_after_a_collection_is_refused(self):
+        """GIVEN a class keyed ``set``
+        WHEN the registry is generated
+        THEN DuplicateNodeTypeError is raised, since it collides with the primitive ``set``, as it
+        is when a graph is run with the same class."""
+
+        class Widget:
+            pass
+
+        with pytest.raises(DuplicateNodeTypeError):
+            generate_registry(
+                build_function_map(include=[]),
+                list(PRIMITIVES_MAP),
+                declared_classes({"set": Widget}),
+            )
 
 
 class TestBuiltinCollectionEntries:
@@ -477,9 +848,15 @@ class TestFormatGolden:
     a plugin adding a function cannot move these bytes, and a format change shows up as a diff here
     rather than in three plugin packages at once.
 
-    Regenerate deliberately, never to make a failure go away::
+    Regenerate deliberately, never to make a failure go away (from the repo root, dedented)::
 
-        uv run python -c "..."   # see the command in the test below
+        uv run python -c "
+        import sys; sys.path.insert(0, 'coral-app/tests')
+        import coral_app, specimen
+        coral_app.load = lambda n: specimen.PLUGINS[n]
+        from coral_app.registry import save_registry_to_file
+        save_registry_to_file('coral-app/tests/golden/node_types.format.json',
+                              plugins=[specimen.SPECIMEN, specimen.RIVAL])"
     """
 
     def test_the_registry_for_the_specimen_plugins_matches_the_golden(
@@ -506,4 +883,4 @@ class TestFormatGolden:
 
         kinds = {entry["node_type"] for entry in entries.values()}
         assert kinds == {"primitive", "function", "constructor", "method"}
-        assert set(BUILTIN_FUNCTIONS) <= set(entries)
+        assert set(BUILTINS.functions()) <= set(entries)

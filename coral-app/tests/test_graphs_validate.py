@@ -1,10 +1,10 @@
 """Every graph this package ships is **valid**, checked without executing it.
 
 The graph JSON is the other half of the contract with the DealiiX platform, and validating one is
-free: constructing a ``Graph`` runs all nine checks — declared nodes, no subgraph, unique
+free: constructing a ``Graph`` runs all ten checks — declared nodes, no subgraph, unique
 ``qualified_id``, known node types, contiguous ``target_input``, arity, ``source_output`` range, edge
-type compatibility, acyclicity — and touches no callable. Executing one, by contrast, costs whatever
-the graph does.
+type compatibility, acyclicity, readable literals — and touches no callable. Executing one, by
+contrast, costs whatever the graph does.
 
 Separating the two is what lets the format be pinned at ~0 ms per graph. The graphs here happen to be
 cheap to run as well — they are the host's collection examples, which ``test_examples.py`` executes —

@@ -8,7 +8,8 @@
           "y": 1172.5
         },
         "value": "32",
-        "qualified_id": "0"
+        "qualified_id": "0",
+        "name": "nx"
       },
       "1": {
         "type": "int",
@@ -17,7 +18,8 @@
           "y": 834.75
         },
         "value": "32",
-        "qualified_id": "1"
+        "qualified_id": "1",
+        "name": "ny"
       },
       "2": {
         "type": "PyPDEUnitGrid",
@@ -25,7 +27,8 @@
           "x": 330,
           "y": 1069
         },
-        "qualified_id": "2"
+        "qualified_id": "2",
+        "name": "grid"
       },
       "5": {
         "type": "PyPDEScalarField",
@@ -33,7 +36,8 @@
           "x": 700.5,
           "y": 1014.25
         },
-        "qualified_id": "5"
+        "qualified_id": "5",
+        "name": "initial_state"
       },
       "6": {
         "type": "str",
@@ -42,7 +46,8 @@
           "y": 785
         },
         "value": "diffusion.hdf5",
-        "qualified_id": "6"
+        "qualified_id": "6",
+        "name": "storage_file"
       },
       "7": {
         "type": "str",
@@ -51,7 +56,8 @@
           "y": 643
         },
         "value": "truncate",
-        "qualified_id": "7"
+        "qualified_id": "7",
+        "name": "write_mode"
       },
       "8": {
         "type": "float",
@@ -60,7 +66,8 @@
           "y": 501
         },
         "value": "1",
-        "qualified_id": "8"
+        "qualified_id": "8",
+        "name": "storage_interval"
       },
       "9": {
         "type": "PyPDEFileStorage",
@@ -68,7 +75,8 @@
           "x": 699.5,
           "y": 589.5
         },
-        "qualified_id": "9"
+        "qualified_id": "9",
+        "name": "storage"
       },
       "10": {
         "type": "str",
@@ -77,7 +85,8 @@
           "y": 692.75
         },
         "value": "diffusion.mp4",
-        "qualified_id": "10"
+        "qualified_id": "10",
+        "name": "movie_file"
       },
       "11": {
         "type": "int",
@@ -86,7 +95,8 @@
           "y": 550.75
         },
         "value": "3",
-        "qualified_id": "11"
+        "qualified_id": "11",
+        "name": "framerate"
       },
       "12": {
         "type": "int",
@@ -95,7 +105,8 @@
           "y": 142
         },
         "value": "200",
-        "qualified_id": "12"
+        "qualified_id": "12",
+        "name": "dpi"
       },
       "13": {
         "type": "int",
@@ -104,7 +115,8 @@
           "y": 0
         },
         "value": "6000",
-        "qualified_id": "13"
+        "qualified_id": "13",
+        "name": "bitrate"
       },
       "14": {
         "type": "PyPDEMovie",
@@ -112,7 +124,8 @@
           "x": 336.5,
           "y": 209
         },
-        "qualified_id": "14"
+        "qualified_id": "14",
+        "name": "movie"
       },
       "15": {
         "type": "float",
@@ -121,7 +134,8 @@
           "y": 67
         },
         "value": "1",
-        "qualified_id": "15"
+        "qualified_id": "15",
+        "name": "plot_interval"
       },
       "16": {
         "type": "PyPDEPlotTracker",
@@ -129,7 +143,8 @@
           "x": 696.5,
           "y": 105.75
         },
-        "qualified_id": "16"
+        "qualified_id": "16",
+        "name": "plot"
       },
       "17": {
         "type": "float",
@@ -138,7 +153,8 @@
           "y": 1393.8162876435797
         },
         "value": "0.1",
-        "qualified_id": "17"
+        "qualified_id": "17",
+        "name": "diffusivity"
       },
       "18": {
         "type": "PyPDEDiffusionPDE",
@@ -146,7 +162,8 @@
           "x": 704.3421803298544,
           "y": 1382.8162876435795
         },
-        "qualified_id": "18"
+        "qualified_id": "18",
+        "name": "pde"
       },
       "19": {
         "type": "int",
@@ -155,7 +172,8 @@
           "y": 838.5
         },
         "value": "20",
-        "qualified_id": "19"
+        "qualified_id": "19",
+        "name": "t_range"
       },
       "20": {
         "type": "PyPDEDiffusionPDE.solve",
@@ -163,7 +181,8 @@
           "x": 1092,
           "y": 742
         },
-        "qualified_id": "20"
+        "qualified_id": "20",
+        "name": "solve"
       },
       "21": {
         "type": "str",
@@ -172,7 +191,8 @@
           "y": 1272.6583383127763
         },
         "value": "random_uniform",
-        "qualified_id": "21"
+        "qualified_id": "21",
+        "name": "field_type"
       },
       "22": {
         "type": "str",
@@ -181,7 +201,8 @@
           "y": 954.6567823848839
         },
         "value": "{\"vmin\": 0.2, \"vmax\": 0.3}",
-        "qualified_id": "22"
+        "qualified_id": "22",
+        "name": "field_data"
       }
     },
     "edges": {

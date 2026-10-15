@@ -4,15 +4,17 @@ The graphs are the same files ``test_graphs_validate.py`` constructs; here they 
 asserts **values**, not that execution "did not raise": three of these were previously executed by
 tests that asserted nothing at all, which is a wall-clock cost with no failure mode.
 
-Three files are real editor exports and one is the collections/math interop graph. Their arithmetic is
-this plugin's business, which is why the expected numbers live here rather than in the host's suite.
+Three files are real editor exports, one is the collections/math interop graph and one runs the
+nodes declared on callables defined elsewhere. Their arithmetic is this plugin's business, which is
+why the expected numbers live here rather than in the host's suite.
 """
 
 import math
+from fractions import Fraction
 
 import pytest
 from coral_app.executor import WorkflowExecutor
-from math_suite import GRAPHS, PLUGIN_NAME
+from math_suite import GRAPHS, PLUGIN_NAME, node_named
 
 
 def run(path):
@@ -141,28 +143,6 @@ class TestTheClassesExport:
         assert results["3"] is None
 
 
-#: ``network-collections-math.json``'s nodes by the name each one plays. The protocol requires
-#: integer node ids, which therefore carry no meaning; the meaning lives here, so the assertions
-#: below still read as sentences about the graph rather than about node "6". Every node is listed,
-#: not only the asserted ones, so the map doubles as the graph's legend.
-#:
-#: Nothing ties the map to the file: renumber the graph without updating this and the assertions
-#: move to the wrong nodes. Both are hand-maintained together, deliberately — the alternative was a
-#: ``"name"`` field the protocol has no room for.
-NODES = {
-    "three": "0",
-    "four": "1",
-    "index_0": "2",
-    "index_1": "3",
-    "empty": "4",
-    "with_three": "5",
-    "with_both": "6",
-    "first": "7",
-    "second": "8",
-    "total": "9",
-}
-
-
 class TestTheCollectionsInteropGraph:
     """``network-collections-math.json`` — the host's builtins feeding this plugin's ``add``.
 
@@ -172,24 +152,55 @@ class TestTheCollectionsInteropGraph:
     """
 
     @pytest.fixture(scope="class")
-    def results(self):
-        return run(GRAPHS / "network-collections-math.json")
+    def result(self):
+        """Execute the graph once, returning a lookup from a node's ``name`` to its result."""
+        executor = WorkflowExecutor(
+            str(GRAPHS / "network-collections-math.json"), plugins=[PLUGIN_NAME]
+        )
+        executor.execute()
+        return lambda name: executor.results[node_named(executor.graph, name)]
 
-    def test_the_list_is_built_by_the_host_builtins(self, results):
+    def test_the_list_is_built_by_the_host_builtins(self, result):
         """GIVEN list_new followed by two list_append nodes
         WHEN the graph is executed
         THEN each append returns a *new* list, leaving the previous one untouched.
 
         The builtins are pure by design: several downstream nodes may read one result, in an order the
         topological sort chooses, so in-place mutation would make the outcome depend on that choice."""
-        assert results[NODES["empty"]] == []
-        assert results[NODES["with_three"]] == [3.0]
-        assert results[NODES["with_both"]] == [3.0, 4.0]
+        assert result("empty") == []
+        assert result("with_three") == [3.0]
+        assert result("with_both") == [3.0, 4.0]
 
-    def test_extraction_feeds_the_plugin_function(self, results):
+    def test_extraction_feeds_the_plugin_function(self, result):
         """GIVEN two list_get nodes feeding this plugin's add
         WHEN the graph is executed
         THEN the elements come out in index order and their sum is computed by `add`."""
-        assert results[NODES["first"]] == 3.0
-        assert results[NODES["second"]] == 4.0
-        assert results[NODES["total"]] == 7.0
+        assert result("first") == 3.0
+        assert result("second") == 4.0
+        assert result("total") == 7.0
+
+
+class TestTheCallFormGraph:
+    """``network-call-form.json`` — ``math.atan2``, a ``Fraction`` and its ``limit_denominator``:
+    the nodes declared on callables defined elsewhere, run through the host like any other."""
+
+    @pytest.fixture(scope="class")
+    def result(self):
+        """Execute the graph once, returning a lookup from a node's ``name`` to its result."""
+        executor = WorkflowExecutor(str(GRAPHS / "network-call-form.json"), plugins=[PLUGIN_NAME])
+        executor.execute()
+        return lambda name: executor.results[node_named(executor.graph, name)]
+
+    def test_atan2_runs_the_builtin(self, result):
+        """GIVEN ``math.atan2`` fed ``y = 1.0`` and ``x = 0.0``
+        WHEN the graph is executed
+        THEN the angle is exactly ``pi / 2``: the builtin itself ran, with its arguments in order —
+             swapped, it would be 0."""
+        assert result("angle") == math.pi / 2
+
+    def test_the_fraction_is_built_and_its_method_runs(self, result):
+        """GIVEN a ``Fraction`` built from 3141592 / 1000000 and limited to denominators <= 1000
+        WHEN the graph is executed
+        THEN the constructor holds the exact ratio, and ``limit_denominator`` returns 355/113."""
+        assert result("ratio") == Fraction(3141592, 1000000)
+        assert result("limited") == Fraction(355, 113)

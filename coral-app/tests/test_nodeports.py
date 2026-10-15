@@ -1,23 +1,31 @@
 """Tests for the port table (stage 2) — ``coral_app.nodeports``.
 
-Everything here runs on hand-written maps rather than on installed plugins: the port table's job is
-to describe *any* callable, so the tests need no plugin and are never skipped. Whether the real
-plugins are described correctly is proven by the golden registry files.
+Everything here runs on hand-written declarations rather than on installed plugins: the port
+table's job is to describe *any* callable, so the tests need no plugin and are never skipped.
+Whether the real plugins are described correctly is proven by the golden registry files.
+
+Which methods a class declares, and with which labels, is ``coral_core``'s business and tested
+there; here a declaration is taken as given, and what is tested is the ports read from it.
 """
 
+import datetime
 import inspect
 from typing import Any, Tuple
 
 import pytest
+from coral_app import PRIMITIVES_MAP
 from coral_app.errors import DuplicateNodeTypeError
 from coral_app.nodeports import (
     CONSTRUCTOR,
     FUNCTION,
     METHOD,
     PRIMITIVE,
+    Port,
     build_port_table,
     methods_of,
 )
+from coral_core import Plugin
+from host_suite import declared_classes, declared_functions
 
 
 def annotated(a: int, b: str) -> float:
@@ -60,7 +68,7 @@ def returns_variadic_Tuple(x: float) -> Tuple[Any, ...]:
 
 
 class Widget:
-    """A class with one public method and assorted things that must not be registered."""
+    """A class with two declared methods (:data:`WIDGET_METHODS`) and members that are not."""
 
     class_attribute = 42
 
@@ -82,6 +90,9 @@ class Widget:
         return x
 
 
+#: The methods of :class:`Widget` declared wherever it is.
+WIDGET_METHODS = (Widget.resize, Widget.describe)
+
 PRIMITIVES = {"int": int, "float": float, "str": str, "any": Any}
 
 
@@ -93,8 +104,10 @@ class TestTableCoverage:
         WHEN the port table is built
         THEN it holds exactly one entry per primitive, function, constructor and method."""
         table = build_port_table(
-            function_map={"annotated": annotated, "returns_nothing": returns_nothing},
-            class_map={"Widget": Widget},
+            function_map=declared_functions(
+                {"annotated": annotated, "returns_nothing": returns_nothing}
+            ),
+            class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS),
             primitives=PRIMITIVES,
         )
 
@@ -107,7 +120,6 @@ class TestTableCoverage:
             "returns_nothing",
             "Widget",
             "Widget.describe",
-            "Widget.helper",
             "Widget.resize",
         }
 
@@ -116,8 +128,8 @@ class TestTableCoverage:
         WHEN each entry's kind is read
         THEN it names the node type it was derived from."""
         table = build_port_table(
-            function_map={"annotated": annotated},
-            class_map={"Widget": Widget},
+            function_map=declared_functions({"annotated": annotated}),
+            class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS),
             primitives=PRIMITIVES,
         )
 
@@ -140,33 +152,37 @@ class TestInputs:
         """GIVEN an annotated function
         WHEN its ports are read
         THEN its inputs are its parameters, in declaration order, with their annotations."""
-        table = build_port_table(function_map={"annotated": annotated})
+        table = build_port_table(function_map=declared_functions({"annotated": annotated}))
 
-        assert table["annotated"].inputs == [("a", int), ("b", str)]
+        assert table["annotated"].inputs == [Port("a", int), Port("b", str)]
 
     def test_constructor_inputs_omit_self(self):
         """GIVEN a class
         WHEN its constructor ports are read
         THEN the inputs are the ``__init__`` parameters without ``self``."""
-        table = build_port_table(class_map={"Widget": Widget})
+        table = build_port_table(class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS))
 
-        assert table["Widget"].inputs == [("size", float), ("label", str)]
+        assert table["Widget"].inputs == [Port("size", float), Port("label", str)]
 
     def test_method_input_zero_is_the_instance(self):
         """GIVEN a class method
         WHEN its ports are read
-        THEN port 0 is ``self``, annotated with the class, and the parameters follow."""
-        table = build_port_table(class_map={"Widget": Widget})
+        THEN port 0 is ``self``, annotated with the class and marked as the instance, and the
+             parameters follow."""
+        table = build_port_table(class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS))
 
-        assert table["Widget.resize"].inputs == [("self", Widget), ("factor", float)]
+        assert table["Widget.resize"].inputs == [
+            Port("self", Widget, instance=True),
+            Port("factor", float),
+        ]
 
     def test_method_with_no_parameters_has_only_the_instance(self):
         """GIVEN a method taking nothing but ``self``
         WHEN its ports are read
         THEN it has exactly one input, the instance."""
-        table = build_port_table(class_map={"Widget": Widget})
+        table = build_port_table(class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS))
 
-        assert table["Widget.describe"].inputs == [("self", Widget)]
+        assert table["Widget.describe"].inputs == [Port("self", Widget, instance=True)]
 
     def test_primitive_has_no_inputs(self):
         """GIVEN a primitive type
@@ -180,10 +196,10 @@ class TestInputs:
         """GIVEN a parameter with no annotation
         WHEN its port is read
         THEN the annotation is ``Any``, not ``Signature.empty``."""
-        table = build_port_table(function_map={"unannotated": unannotated})
+        table = build_port_table(function_map=declared_functions({"unannotated": unannotated}))
 
-        assert table["unannotated"].inputs == [("x", Any)]
-        assert table["unannotated"].inputs[0][1] is not inspect.Signature.empty
+        assert table["unannotated"].inputs == [Port("x", Any)]
+        assert table["unannotated"].inputs[0].annotation is not inspect.Signature.empty
 
 
 class TestOutputs:
@@ -193,23 +209,27 @@ class TestOutputs:
         """GIVEN a function returning one value
         WHEN its ports are read
         THEN it has a single output carrying the return annotation."""
-        table = build_port_table(function_map={"annotated": annotated})
+        table = build_port_table(function_map=declared_functions({"annotated": annotated}))
 
-        assert table["annotated"].outputs == [float]
+        assert table["annotated"].outputs == [Port("", float)]
 
     def test_tuple_return_gives_one_output_per_element(self):
         """GIVEN a function annotated ``Tuple[float, str, bool]``
         WHEN its ports are read
         THEN it has three outputs, one per element, in order."""
-        table = build_port_table(function_map={"returns_triple": returns_triple})
+        table = build_port_table(
+            function_map=declared_functions({"returns_triple": returns_triple})
+        )
 
-        assert table["returns_triple"].outputs == [float, str, bool]
+        assert table["returns_triple"].outputs == [Port("", float), Port("", str), Port("", bool)]
 
     def test_none_return_gives_no_outputs(self):
         """GIVEN a function annotated ``-> None``
         WHEN its ports are read
         THEN it has no outputs — there is nothing to pass on."""
-        table = build_port_table(function_map={"returns_nothing": returns_nothing})
+        table = build_port_table(
+            function_map=declared_functions({"returns_nothing": returns_nothing})
+        )
 
         assert table["returns_nothing"].outputs == []
 
@@ -217,7 +237,7 @@ class TestOutputs:
         """GIVEN a function with no return annotation
         WHEN its ports are read
         THEN it has no outputs, exactly as an explicit ``-> None`` does."""
-        table = build_port_table(function_map={"unannotated": unannotated})
+        table = build_port_table(function_map=declared_functions({"unannotated": unannotated}))
 
         assert table["unannotated"].outputs == []
 
@@ -225,9 +245,9 @@ class TestOutputs:
         """GIVEN a class
         WHEN its constructor ports are read
         THEN it has one output, annotated with the class itself."""
-        table = build_port_table(class_map={"Widget": Widget})
+        table = build_port_table(class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS))
 
-        assert table["Widget"].outputs == [Widget]
+        assert table["Widget"].outputs == [Port("", Widget)]
 
     def test_primitive_outputs_its_own_type(self):
         """GIVEN a primitive type
@@ -235,95 +255,76 @@ class TestOutputs:
         THEN it has one output, annotated with that type."""
         table = build_port_table(primitives=PRIMITIVES)
 
-        assert table["int"].outputs == [int]
-        assert table["any"].outputs == [Any]
+        assert table["int"].outputs == [Port("", int)]
+        assert table["any"].outputs == [Port("", Any)]
 
 
 class TestMethodEnumeration:
-    """Which members of a class become method nodes."""
+    """Which method nodes a class contributes: the ones its declaration lists."""
 
-    def test_underscore_names_are_skipped(self):
-        """GIVEN a class with a private method and dunder methods
+    def test_only_declared_methods_are_entries(self):
+        """GIVEN Widget declared with two of its methods
         WHEN the table is built
-        THEN no underscore-prefixed name becomes a node type."""
-        table = build_port_table(class_map={"Widget": Widget})
+        THEN those two are its method entries; its private method, staticmethod and plain
+        attribute are not."""
+        table = build_port_table(class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS))
 
-        assert "Widget._private" not in table
-        assert not any("._" in node_type for node_type in table)
+        assert methods_of(table, "Widget") == ["Widget.describe", "Widget.resize"]
 
-    def test_non_callable_attributes_are_skipped(self):
-        """GIVEN a class carrying a plain (non-callable) class attribute
+    def test_a_renamed_method_keeps_its_attribute(self):
+        """GIVEN a method declared under a name other than its attribute
         WHEN the table is built
-        THEN it does not become a node type."""
-        table = build_port_table(class_map={"Widget": Widget})
+        THEN its entry is keyed by the declared name and records the attribute, which is what the
+        executor looks up on the instance."""
+        plugin = Plugin()
 
-        assert "Widget.class_attribute" not in table
+        @plugin.cls
+        class Counter:
+            @plugin.method(name="current")
+            def get(self) -> int:
+                return 0
 
-    def test_staticmethods_are_registered_as_methods(self):
-        """GIVEN a class with a staticmethod
+        table = build_port_table(class_map=plugin.classes())
+
+        assert table["Counter.current"].attribute == "get"
+        assert "Counter.get" not in table
+
+    def test_only_a_method_has_an_attribute(self):
+        """GIVEN a function and a class
         WHEN the table is built
-        THEN it registers as a method node with an instance at port 0.
+        THEN only the method entries carry an attribute."""
+        table = build_port_table(
+            function_map=declared_functions({"annotated": annotated}),
+            class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS),
+        )
 
-        Not a design choice: ``getattr(cls, name)`` on a staticmethod yields the plain function, so
-        the ``inspect.isfunction`` filter admits it. Pinned here as long-standing behaviour that no
-        installed plugin exercises (none has a staticmethod)."""
-        table = build_port_table(class_map={"Widget": Widget})
+        assert table["annotated"].attribute is None
+        assert table["Widget"].attribute is None
+        assert table["Widget.resize"].attribute == "resize"
 
-        assert table["Widget.helper"].kind == METHOD
-        assert table["Widget.helper"].inputs == [("self", Widget), ("x", int)]
-
-    def test_c_extension_class_registers_a_constructor_and_no_methods(self):
-        """GIVEN a C extension class, whose methods are not ``inspect.isfunction``
+    def test_a_c_extension_class_is_refused(self):
+        """GIVEN a C extension class from which no signature can be read
         WHEN the table is built
-        THEN it contributes a constructor entry only — ``signature(cls)`` refusing on such a type
-             must not abort the table."""
-        import datetime
-
-        table = build_port_table(class_map={"date": datetime.date})
-
-        assert table["date"].kind == CONSTRUCTOR
-        assert methods_of(table, "date") == []
+        THEN ValueError naming the node type: without a signature there are no ports to read."""
+        with pytest.raises(ValueError, match="'date'"):
+            build_port_table(class_map=declared_classes({"date": datetime.date}))
 
     def test_methods_of_lists_one_class(self):
         """GIVEN a table built from two classes
         WHEN one class's methods are requested
         THEN only that class's fully qualified method keys come back."""
-        table = build_port_table(class_map={"Widget": Widget, "Other": Widget})
 
-        assert methods_of(table, "Widget") == [
-            "Widget.describe",
-            "Widget.helper",
-            "Widget.resize",
-        ]
+        class Other:
+            def resize(self, factor: float) -> float:
+                return factor
 
-
-class TestPrecedence:
-    """A collision with a *method* key resolves the way the executor's old ``_classify`` did.
-
-    A ``Class.method`` entry is derived from a class the host was handed, not declared by anyone, so
-    there is no competing claim to refuse: whoever declared the name keeps it. Collisions between two
-    *declared* node types are a different matter — see :class:`TestDeclaredNameClashIsRefused`.
-    """
-
-    def test_a_dotted_function_name_wins_over_a_method(self):
-        """GIVEN a function named ``Widget.resize`` alongside the class ``Widget``
-        WHEN the table is built
-        THEN the function keeps the key — function beats method, as before."""
         table = build_port_table(
-            function_map={"Widget.resize": annotated},
-            class_map={"Widget": Widget},
+            class_map=declared_classes(
+                {"Widget": Widget, "Other": Other}, [*WIDGET_METHODS, Other.resize]
+            )
         )
 
-        assert table["Widget.resize"].kind == FUNCTION
-        assert table["Widget.resize"].inputs == [("a", int), ("b", str)]
-
-    def test_a_constructor_wins_over_a_method_of_the_same_key(self):
-        """GIVEN a class keyed ``Widget.resize`` alongside the class ``Widget``
-        WHEN the table is built
-        THEN the constructor keeps the key, and nothing is refused."""
-        table = build_port_table(class_map={"Widget.resize": Widget, "Widget": Widget})
-
-        assert table["Widget.resize"].kind == CONSTRUCTOR
+        assert methods_of(table, "Widget") == ["Widget.describe", "Widget.resize"]
 
 
 class TestDeclaredNameClashIsRefused:
@@ -341,34 +342,111 @@ class TestDeclaredNameClashIsRefused:
         THEN DuplicateNodeTypeError is raised, rather than the function silently winning."""
         with pytest.raises(DuplicateNodeTypeError):
             build_port_table(
-                function_map={"Widget": annotated},
-                class_map={"Widget": Widget},
+                function_map=declared_functions({"Widget": annotated}),
+                class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS),
             )
+
+    def test_a_dotted_function_named_after_a_declared_method_raises(self):
+        """GIVEN a function named ``Widget.resize`` alongside the class ``Widget`` declaring ``resize``
+        WHEN the table is built
+        THEN DuplicateNodeTypeError names both kinds, rather than the function silently hiding the
+        method."""
+        with pytest.raises(DuplicateNodeTypeError) as raised:
+            build_port_table(
+                function_map=declared_functions({"Widget.resize": annotated}),
+                class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS),
+            )
+
+        message = str(raised.value)
+        assert "Widget.resize" in message
+        assert FUNCTION in message and METHOD in message
 
     def test_a_function_named_after_a_primitive_raises(self):
         """GIVEN a function named ``int``
         WHEN the table is built alongside the primitives
         THEN DuplicateNodeTypeError is raised — a primitive is a node type too."""
         with pytest.raises(DuplicateNodeTypeError):
-            build_port_table(function_map={"int": annotated}, primitives=PRIMITIVES)
+            build_port_table(
+                function_map=declared_functions({"int": annotated}), primitives=PRIMITIVES
+            )
 
     def test_a_class_named_after_a_primitive_raises(self):
         """GIVEN a class keyed ``float``
         WHEN the table is built alongside the primitives
         THEN DuplicateNodeTypeError is raised."""
         with pytest.raises(DuplicateNodeTypeError):
-            build_port_table(class_map={"float": Widget}, primitives=PRIMITIVES)
+            build_port_table(class_map=declared_classes({"float": Widget}), primitives=PRIMITIVES)
 
     def test_the_message_names_the_node_type_and_both_kinds(self):
         """GIVEN a function and a class both named ``Widget``
         WHEN the table is built
         THEN the message names the node type and the two kinds that claimed it."""
         with pytest.raises(DuplicateNodeTypeError) as raised:
-            build_port_table(function_map={"Widget": annotated}, class_map={"Widget": Widget})
+            build_port_table(
+                function_map=declared_functions({"Widget": annotated}),
+                class_map=declared_classes({"Widget": Widget}, WIDGET_METHODS),
+            )
 
         message = str(raised.value)
         assert "Widget" in message
         assert FUNCTION in message and CONSTRUCTOR in message
+
+
+class TestCollectionNamesCollideWithPrimitives:
+    """``list``, ``set`` and ``dict`` are primitive node types, so a bare name claiming one collides."""
+
+    def test_a_class_named_after_a_collection_raises(self):
+        """GIVEN a class keyed ``list``, alongside the primitives
+        WHEN the table is built
+        THEN DuplicateNodeTypeError is raised, naming the primitive it collides with."""
+        with pytest.raises(DuplicateNodeTypeError, match="primitive"):
+            build_port_table(
+                class_map=declared_classes({"list": Widget}), primitives=PRIMITIVES_MAP
+            )
+
+    def test_a_function_named_after_a_collection_raises(self):
+        """GIVEN a function keyed ``dict``, alongside the primitives
+        WHEN the table is built
+        THEN DuplicateNodeTypeError is raised, naming the primitive it collides with."""
+        with pytest.raises(DuplicateNodeTypeError, match="primitive"):
+            build_port_table(
+                function_map=declared_functions({"dict": annotated}), primitives=PRIMITIVES_MAP
+            )
+
+    def test_a_method_named_after_a_collection_is_accepted(self):
+        """GIVEN a class with a declared method named ``list``
+        WHEN the table is built
+        THEN ``Shelf.list`` is a method entry: its key carries the class, so it never meets the
+        primitive ``list``."""
+
+        class Shelf:
+            def list(self) -> str:
+                return ""
+
+        table = build_port_table(
+            class_map=declared_classes({"Shelf": Shelf}, [Shelf.list]), primitives=PRIMITIVES_MAP
+        )
+
+        assert table["Shelf.list"].kind == METHOD
+
+
+class TestAClassHasOneKey:
+    """A class is named by its key, so one registered under two keys is refused."""
+
+    def test_a_class_under_two_keys_raises(self):
+        """GIVEN one class registered under the keys ``First`` and ``Second``, by two plugins
+        WHEN the table is built
+        THEN DuplicateNodeTypeError is raised, and the message names both keys."""
+        with pytest.raises(DuplicateNodeTypeError) as raised:
+            build_port_table(
+                class_map={
+                    **declared_classes({"First": Widget}),
+                    **declared_classes({"Second": Widget}),
+                }
+            )
+
+        message = str(raised.value)
+        assert "'First'" in message and "'Second'" in message
 
 
 class TestTupleReturnAnnotations:
@@ -383,9 +461,11 @@ class TestTupleReturnAnnotations:
         """GIVEN a function returning ``Tuple[float, str, bool]``
         WHEN the table is built
         THEN it has one output port per declared element."""
-        table = build_port_table(function_map={"returns_triple": returns_triple})
+        table = build_port_table(
+            function_map=declared_functions({"returns_triple": returns_triple})
+        )
 
-        assert table["returns_triple"].outputs == [float, str, bool]
+        assert table["returns_triple"].outputs == [Port("", float), Port("", str), Port("", bool)]
 
     def test_plain_tuple_is_a_single_output(self):
         """GIVEN a function annotated with plain ``tuple`` rather than ``Tuple[...]``
@@ -394,9 +474,9 @@ class TestTupleReturnAnnotations:
 
         This is the case output-port resolution hinges on: one output that happens to carry a
         tuple, which the executor must pass on whole instead of indexing into."""
-        table = build_port_table(function_map={"pair": returns_bare_tuple})
+        table = build_port_table(function_map=declared_functions({"pair": returns_bare_tuple}))
 
-        assert table["pair"].outputs == [tuple]
+        assert table["pair"].outputs == [Port("", tuple)]
 
     @pytest.mark.parametrize(
         "func",
@@ -409,17 +489,17 @@ class TestTupleReturnAnnotations:
         THEN it raises ValueError naming the node type, rather than silently producing the wrong
         number of ports."""
         with pytest.raises(ValueError, match="does not declare its output ports"):
-            build_port_table(function_map={"offender": func})
+            build_port_table(function_map=declared_functions({"offender": func}))
 
     def test_the_message_names_the_offending_node_type(self):
         """GIVEN a badly annotated function registered under a given node type
         WHEN the table is built
         THEN the error names that node type, so the author knows which function to fix."""
         with pytest.raises(ValueError, match="'offender'"):
-            build_port_table(function_map={"offender": returns_bare_Tuple})
+            build_port_table(function_map=declared_functions({"offender": returns_bare_Tuple}))
 
     def test_a_method_is_rejected_the_same_way(self):
-        """GIVEN a class whose public method returns a bare ``Tuple``
+        """GIVEN a class whose declared method returns a bare ``Tuple``
         WHEN the table is built
         THEN it raises, naming the ``Class.method`` node type — the check is not function-only."""
 
@@ -428,4 +508,448 @@ class TestTupleReturnAnnotations:
                 return ()
 
         with pytest.raises(ValueError, match="'Broken.compute'"):
-            build_port_table(class_map={"Broken": Broken})
+            build_port_table(class_map=declared_classes({"Broken": Broken}, [Broken.compute]))
+
+
+class TestOutputNames:
+    """``outputs=`` names a callable's outputs; the annotation alone decides how many there are.
+
+    The decorator checks the names on their own when it is applied. Whether there is one name per
+    output depends on the return annotation, which only the port table reads — so that check lives
+    here.
+    """
+
+    def test_a_function_s_names_reach_its_outputs(self):
+        """GIVEN a function returning three values, declared with three names
+        WHEN the table is built
+        THEN each output port carries its name, in order, next to its annotation."""
+        plugin = Plugin()
+
+        @plugin.function(outputs=("value", "text", "flag"))
+        def triple(x: float) -> Tuple[float, str, bool]:
+            return x, "", False
+
+        table = build_port_table(function_map=plugin.functions())
+
+        assert table["triple"].outputs == [
+            Port("value", float),
+            Port("text", str),
+            Port("flag", bool),
+        ]
+
+    def test_a_method_s_name_reaches_its_output(self):
+        """GIVEN a method declared with one name
+        WHEN the table is built
+        THEN its single output port carries it."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method(outputs="reading")
+            def read(self) -> float:
+                return 0.0
+
+        table = build_port_table(class_map=plugin.classes())
+
+        assert table["Meter.read"].outputs == [Port("reading", float)]
+
+    def test_an_inherited_method_keeps_its_base_s_names(self):
+        """GIVEN a subclass inheriting a method declared with a name
+        WHEN the table is built
+        THEN the subclass's entry carries the same name."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method(outputs="reading")
+            def read(self) -> float:
+                return 0.0
+
+        @plugin.cls
+        class FineMeter(Meter):
+            pass
+
+        table = build_port_table(class_map=plugin.classes())
+
+        assert table["FineMeter.read"].outputs == [Port("reading", float)]
+
+    def test_an_undeclared_callable_s_outputs_are_unnamed(self):
+        """GIVEN a function returning three values, declared without outputs=
+        WHEN the table is built
+        THEN every output's name is "" — no placeholder is invented."""
+        table = build_port_table(
+            function_map=declared_functions({"returns_triple": returns_triple})
+        )
+
+        assert [port.name for port in table["returns_triple"].outputs] == ["", "", ""]
+
+    def test_too_few_names_are_refused(self):
+        """GIVEN a function returning three values, declared with two names
+        WHEN the table is built
+        THEN ValueError names the node type."""
+        plugin = Plugin()
+        plugin.function(returns_triple, name="offender", outputs=("value", "text"))
+
+        with pytest.raises(ValueError, match="'offender'"):
+            build_port_table(function_map=plugin.functions())
+
+    def test_too_many_names_are_refused(self):
+        """GIVEN a function returning one value, declared with two names
+        WHEN the table is built
+        THEN ValueError gives both counts."""
+        plugin = Plugin()
+        plugin.function(annotated, outputs=("value", "text"))
+
+        with pytest.raises(ValueError, match=r"names 2 outputs.*declares 1"):
+            build_port_table(function_map=plugin.functions())
+
+    def test_names_on_a_callable_returning_nothing_are_refused(self):
+        """GIVEN a function annotated ``-> None``, declared with a name
+        WHEN the table is built
+        THEN ValueError: there is no output to carry the name."""
+        plugin = Plugin()
+        plugin.function(returns_nothing, outputs="result")
+
+        with pytest.raises(ValueError, match="declares 0"):
+            build_port_table(function_map=plugin.functions())
+
+
+def keyword_only(a: int, *, b: int) -> int:
+    """A function with a keyword-only parameter."""
+    return a + b
+
+
+def variadic(*args: int) -> int:
+    """A function taking ``*args``."""
+    return sum(args)
+
+
+def keywords(**kwargs: int) -> int:
+    """A function taking ``**kwargs``."""
+    return len(kwargs)
+
+
+class TestSignatures:
+    """Every port is passed by position, so the signature must have one parameter per port."""
+
+    @pytest.mark.parametrize(
+        "func",
+        [keyword_only, variadic, keywords],
+        ids=["keyword-only", "*args", "**kwargs"],
+    )
+    def test_a_non_positional_parameter_is_refused(self, func):
+        """GIVEN a function with a keyword-only, *args or **kwargs parameter
+        WHEN the table is built
+        THEN ValueError naming the node type: no edge could ever feed that parameter."""
+        with pytest.raises(ValueError, match=r"'offender'.*cannot be passed by position"):
+            build_port_table(function_map=declared_functions({"offender": func}))
+
+    def test_a_positional_only_parameter_is_accepted(self):
+        """GIVEN a function with a positional-only parameter, as builtins have
+        WHEN the table is built
+        THEN it is an input port like any other."""
+
+        def f(a: int, /, b: int) -> int:
+            return a + b
+
+        table = build_port_table(function_map=declared_functions({"f": f}))
+
+        assert table["f"].inputs == [Port("a", int), Port("b", int)]
+
+    def test_a_constructor_with_a_keyword_only_parameter_is_refused(self):
+        """GIVEN a class whose constructor has a keyword-only parameter
+        WHEN the table is built
+        THEN ValueError naming the class: the class cannot be a node type at all."""
+
+        class Strict:
+            def __init__(self, *, size: float):
+                self.size = size
+
+        with pytest.raises(ValueError, match=r"'Strict'.*\['size'\]"):
+            build_port_table(class_map=declared_classes({"Strict": Strict}))
+
+    def test_a_callable_without_a_signature_is_refused(self):
+        """GIVEN a builtin from which no signature can be read
+        WHEN the table is built
+        THEN ValueError naming the node type, chained to the reason."""
+        with pytest.raises(ValueError, match="'max'") as raised:
+            build_port_table(function_map=declared_functions({"max": max}))
+
+        assert raised.value.__cause__ is not None
+
+    def test_a_method_s_first_parameter_is_its_instance_whatever_its_name(self):
+        """GIVEN a declared method whose first parameter is not called ``self``
+        WHEN the table is built
+        THEN that parameter is port 0, the instance, and is not an input of its own."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method
+            def scaled(this, factor: float) -> float:
+                return factor
+
+        table = build_port_table(class_map=plugin.classes())
+
+        assert table["Meter.scaled"].inputs == [
+            Port("self", Meter, instance=True),
+            Port("factor", float),
+        ]
+
+    def test_a_method_without_parameters_is_refused(self):
+        """GIVEN a declared method taking no parameter at all
+        WHEN the table is built
+        THEN ValueError naming the node type: nothing could receive the instance."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method
+            def broken() -> float:
+                return 0.0
+
+        with pytest.raises(ValueError, match=r"'Meter.broken'.*instance"):
+            build_port_table(class_map=plugin.classes())
+
+
+class TestAnnotations:
+    """``annotations=`` fills the types a signature leaves out, and nothing else."""
+
+    def test_a_missing_parameter_type_is_filled(self):
+        """GIVEN an unannotated parameter, declared with annotations=
+        WHEN the table is built
+        THEN its port carries the declared type."""
+        plugin = Plugin()
+        plugin.function(unannotated, annotations={"x": float})
+
+        table = build_port_table(function_map=plugin.functions())
+
+        assert table["unannotated"].inputs == [Port("x", float)]
+
+    def test_a_missing_return_type_is_filled(self):
+        """GIVEN a callable with no return annotation, declared with annotations={"return": ...}
+        WHEN the table is built
+        THEN it has the declared output — the annotation is what decides there is one."""
+        plugin = Plugin()
+        plugin.function(unannotated, annotations={"x": float, "return": float})
+
+        table = build_port_table(function_map=plugin.functions())
+
+        assert table["unannotated"].outputs == [Port("", float)]
+
+    def test_a_constructor_parameter_is_filled(self):
+        """GIVEN a class whose constructor parameter is unannotated, declared with annotations=
+        WHEN the table is built
+        THEN the constructor's port carries the declared type."""
+
+        class Box:
+            def __init__(self, size):
+                self.size = size
+
+        plugin = Plugin()
+        plugin.cls(Box, annotations={"size": float})
+
+        table = build_port_table(class_map=plugin.classes())
+
+        assert table["Box"].inputs == [Port("size", float)]
+
+    def test_a_method_parameter_is_filled(self):
+        """GIVEN a method whose parameter is unannotated, declared with annotations=
+        WHEN the table is built
+        THEN the parameter's port, after the instance, carries the declared type."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method(annotations={"scale": float})
+            def read(self, scale) -> float:
+                return scale
+
+        table = build_port_table(class_map=plugin.classes())
+
+        assert table["Meter.read"].inputs == [
+            Port("self", Meter, instance=True),
+            Port("scale", float),
+        ]
+
+    @pytest.mark.parametrize("key", ["a", "return"])
+    def test_an_annotated_slot_is_refused(self, key):
+        """GIVEN a parameter or return the code already annotates
+        WHEN annotations= types it again
+        THEN ValueError: a declared type must never contradict the code."""
+        plugin = Plugin()
+        plugin.function(annotated, annotations={key: float})
+
+        with pytest.raises(ValueError, match="already annotates"):
+            build_port_table(function_map=plugin.functions())
+
+    def test_an_explicit_any_counts_as_annotated(self):
+        """GIVEN a parameter annotated ``Any``
+        WHEN annotations= types it
+        THEN ValueError: ``Any`` is a declared type, not a missing one."""
+
+        def loose(x: Any) -> Any:
+            return x
+
+        plugin = Plugin()
+        plugin.function(loose, annotations={"x": float})
+
+        with pytest.raises(ValueError, match="already annotates"):
+            build_port_table(function_map=plugin.functions())
+
+    def test_a_key_naming_no_parameter_is_refused(self):
+        """GIVEN annotations= naming a parameter the callable does not have
+        WHEN the table is built
+        THEN ValueError listing the parameters it does have."""
+        plugin = Plugin()
+        plugin.function(unannotated, annotations={"y": float})
+
+        with pytest.raises(ValueError, match=r"'y'.*\['x'\]"):
+            build_port_table(function_map=plugin.functions())
+
+    def test_self_is_refused_on_a_method(self):
+        """GIVEN a method declared with annotations= naming ``self``
+        WHEN the table is built
+        THEN ValueError: port 0 is the instance, typed by its class."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method(annotations={"self": int})
+            def read(self) -> float:
+                return 0.0
+
+        with pytest.raises(ValueError, match="instance"):
+            build_port_table(class_map=plugin.classes())
+
+    def test_a_differently_named_instance_is_refused_too(self):
+        """GIVEN a method whose first parameter is ``this``, declared with annotations= naming it
+        WHEN the table is built
+        THEN ValueError: it is port 0, the instance, whatever its name."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method(annotations={"this": int})
+            def read(this) -> float:
+                return 0.0
+
+        with pytest.raises(ValueError, match="instance"):
+            build_port_table(class_map=plugin.classes())
+
+    def test_return_is_refused_on_a_constructor(self):
+        """GIVEN a class declared with annotations={"return": ...}
+        WHEN the table is built
+        THEN ValueError: a constructor's output is the instance."""
+
+        class Box:
+            def __init__(self, size: float):
+                self.size = size
+
+        plugin = Plugin()
+        plugin.cls(Box, annotations={"return": int})
+
+        with pytest.raises(ValueError, match="constructor"):
+            build_port_table(class_map=plugin.classes())
+
+    @pytest.mark.parametrize("option", ["inputs", "annotations"])
+    def test_self_is_not_a_constructor_parameter(self, option):
+        """GIVEN a class declared with inputs= or annotations= naming ``self``
+        WHEN the table is built
+        THEN ValueError naming it: a constructor's ports are its parameters after the instance."""
+
+        class Box:
+            def __init__(self, size: float):
+                self.size = size
+
+        plugin = Plugin()
+        plugin.cls(Box, **{option: {"self": "box" if option == "inputs" else float}})
+
+        with pytest.raises(ValueError, match="'self'"):
+            build_port_table(class_map=plugin.classes())
+
+
+class TestInputLabels:
+    """``inputs=`` relabels input ports; the editor tells ports apart by their labels."""
+
+    def test_a_labelled_port_takes_the_label(self):
+        """GIVEN a function declared with inputs= relabelling one parameter
+        WHEN the table is built
+        THEN that port carries the label, and the others keep their parameter's name."""
+        plugin = Plugin()
+        plugin.function(annotated, inputs={"b": "text"})
+
+        table = build_port_table(function_map=plugin.functions())
+
+        assert table["annotated"].inputs == [Port("a", int), Port("text", str)]
+
+    def test_a_key_naming_no_parameter_is_refused(self):
+        """GIVEN inputs= naming a parameter the callable does not have
+        WHEN the table is built
+        THEN ValueError naming it."""
+        plugin = Plugin()
+        plugin.function(annotated, inputs={"c": "third"})
+
+        with pytest.raises(ValueError, match="'c'"):
+            build_port_table(function_map=plugin.functions())
+
+    def test_self_is_refused_on_a_method(self):
+        """GIVEN a method declared with inputs= naming ``self``
+        WHEN the table is built
+        THEN ValueError: port 0 is the instance."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method(inputs={"self": "meter"})
+            def read(self) -> float:
+                return 0.0
+
+        with pytest.raises(ValueError, match="instance"):
+            build_port_table(class_map=plugin.classes())
+
+    def test_two_ports_with_one_label_are_refused(self):
+        """GIVEN a label equal to another parameter's name
+        WHEN the table is built
+        THEN ValueError: the two ports could not be told apart."""
+        plugin = Plugin()
+        plugin.function(annotated, inputs={"b": "a"})
+
+        with pytest.raises(ValueError, match="distinct"):
+            build_port_table(function_map=plugin.functions())
+
+    def test_a_method_label_cannot_be_self(self):
+        """GIVEN a method parameter relabelled ``self``
+        WHEN the table is built
+        THEN ValueError: port 0 is already called that."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Meter:
+            @plugin.method(inputs={"scale": "self"})
+            def read(self, scale: float) -> float:
+                return scale
+
+        with pytest.raises(ValueError, match="distinct"):
+            build_port_table(class_map=plugin.classes())
+
+    def test_a_parameter_can_be_both_relabelled_and_typed(self):
+        """GIVEN an unannotated parameter declared with both inputs= and annotations=
+        WHEN the table is built
+        THEN its port carries the label and the declared type."""
+        plugin = Plugin()
+        plugin.function(unannotated, inputs={"x": "value"}, annotations={"x": float})
+
+        table = build_port_table(function_map=plugin.functions())
+
+        assert table["unannotated"].inputs == [Port("value", float)]
+
+    def test_annotations_are_keyed_by_parameter_not_by_label(self):
+        """GIVEN a parameter relabelled with inputs=, and annotations= keyed by the label
+        WHEN the table is built
+        THEN ValueError naming the label: annotations= names parameters, and a label is not one."""
+        plugin = Plugin()
+        plugin.function(unannotated, inputs={"x": "value"}, annotations={"value": float})
+
+        with pytest.raises(ValueError, match="'value'"):
+            build_port_table(function_map=plugin.functions())

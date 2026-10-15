@@ -1,8 +1,9 @@
 """Stage 3: read a workflow graph, validate it, and put it in execution order.
 
 Construction is where a graph is judged. Every defect raises ``ValueError`` here — a node that
-cannot be identified, a wiring error, an incompatible edge, a cycle — before the first node runs: a
-long PhiFlow simulation must never be spent on a graph that was already known to be broken.
+cannot be identified, a wiring error, an incompatible edge, a cycle, a literal that cannot be read —
+before the first node runs: a long PhiFlow simulation must never be spent on a graph that was
+already known to be broken.
 
 The port table (stage 2) arrives as plain data, so this module introspects nothing and knows nothing
 about plugins: give it a node/edge dict and a table and it will tell you whether the two agree.
@@ -17,8 +18,9 @@ from dataclasses import dataclass
 from graphlib import CycleError, TopologicalSorter
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
-from coral_app.nodeports import NodePorts
+from coral_app.nodeports import PRIMITIVE, NodePorts
 from coral_app.nodestatus import qualified_ids
+from coral_app.primitives import read_literal
 
 __all__ = ["Edge", "Graph"]
 
@@ -58,7 +60,7 @@ def _numeric_rank(annotation: type) -> Optional[int]:
     )
 
 
-def _is_compatible(source_annotation, target_annotation) -> bool:
+def _is_compatible(source_annotation, target_annotation, *, widening: bool = True) -> bool:
     """Whether a value annotated ``source_annotation`` may feed ``target_annotation``.
 
     Deliberately narrow — it returns ``True`` whenever the answer is not certain, because wrongly
@@ -73,6 +75,8 @@ def _is_compatible(source_annotation, target_annotation) -> bool:
     - ``bool`` as the *target* is the one exception the tower needs: ``bool`` is an ``int`` subclass,
       so it shares ``int``'s rank, and without a guard any Integral would be accepted where a
       ``bool`` is expected. Widening never lands on ``bool``.
+    - ``widening=False`` turns the tower off, so only the class itself or a subclass is accepted.
+      It is for a method's instance, which the executor checks with ``isinstance``.
     """
     if source_annotation is Any or target_annotation is Any:
         return True
@@ -82,6 +86,9 @@ def _is_compatible(source_annotation, target_annotation) -> bool:
 
     if issubclass(source_annotation, target_annotation):
         return True
+
+    if not widening:
+        return False
 
     # `bool` is an `int` subclass, so the tower ranks it alongside `int` — without this, any
     # Integral would be accepted where a `bool` is expected. Widening never lands on `bool`.
@@ -112,6 +119,10 @@ class Graph:
             :func:`_read_id` enforces — and a graph whose nodes cannot be told apart is not
             executable. The rules themselves stay in :mod:`coral_app.nodestatus`, which owns the
             filename convention they come from.
+        literals: Node id -> value, for every primitive node, read by
+            :func:`~coral_app.primitives.read_literal` during construction (check 10). A literal
+            is static data in the JSON, so a bad one is a defect of the graph like any other; the
+            executor takes each value from here and parses nothing itself.
     """
 
     def __init__(
@@ -131,7 +142,8 @@ class Graph:
         Raises:
             ValueError: on any structural, identity, wiring, typing or ordering defect — including
                 a node that declares no ``qualified_id``, one that cannot be a filename, or one
-                another node already declares. The message names the offending node or edge.
+                another node already declares, and a primitive whose ``value`` is missing or cannot
+                be read. The message names the offending node or edge.
         """
         self.nodes: Dict[str, dict] = _read_nodes(nodes)
         self.edges: List[Edge] = _read_edges(edges)
@@ -163,6 +175,10 @@ class Graph:
 
         self.order: List[str] = self._build_order()
 
+        # Check 10: a literal is static data, so it is read here like any other defect and kept —
+        # the executor takes each value from this mapping and parses nothing itself.
+        self.literals: Dict[str, Any] = self._read_literals()
+
     @classmethod
     def from_file(cls, workflow_file: str, port_table: Mapping[str, NodePorts]) -> "Graph":
         """Load a graph from a workflow JSON file and validate it.
@@ -191,6 +207,21 @@ class Graph:
     def inputs_of(self, node_id: str) -> List[Edge]:
         """The node's incoming edges, sorted by ``target_input`` — i.e. in parameter order."""
         return self._incoming[node_id]
+
+    def name_of(self, node_id: str) -> Optional[str]:
+        """The node's ``name``, or ``None`` when it has none.
+
+        A name is an optional caption the editor shows and the reference backend logs. It is not
+        unique and addresses nothing — the id does that — so it is never validated: anything but a
+        non-empty string counts as no name, rather than failing a graph over a label.
+        """
+        name = self.node(node_id).get("name")
+        return name if isinstance(name, str) and name else None
+
+    def describe(self, node_id: str) -> str:
+        """The node as messages name it: its id, followed by its name when it has one."""
+        name = self.name_of(node_id)
+        return f"{node_id!r}" if name is None else f"{node_id!r} ({name!r})"
 
     # Validation. Each method is one of the checks, run in the order listed in __init__ — where
     # check 3, the qualified ids, is `nodestatus.qualified_ids` rather than a method here.
@@ -227,21 +258,21 @@ class Graph:
             nested = isinstance(value, Mapping) and "workflow" in value
             if nested or node.get("node_type") == "network":
                 raise ValueError(
-                    f"Node {node_id!r} carries a nested workflow (a subnetwork node); nested "
-                    f"subgraphs are not supported. Node ids repeat across nesting levels, so such "
-                    f"a graph cannot be read as one flat set of nodes"
+                    f"Node {self.describe(node_id)} carries a nested workflow (a subnetwork "
+                    f"node); nested subgraphs are not supported. Node ids repeat across nesting "
+                    f"levels, so such a graph cannot be read as one flat set of nodes"
                 )
 
     def _check_node_types_are_known(self) -> None:
         """Every node's ``type`` must have a port-table entry."""
         for node_id, node in self.nodes.items():
             if "type" not in node:
-                raise ValueError(f"Node {node_id!r} declares no 'type'")
+                raise ValueError(f"Node {self.describe(node_id)} declares no 'type'")
             node_type = node["type"]
             if node_type not in self.port_table:
                 raise ValueError(
-                    f"Node {node_id!r} has unknown type {node_type!r}: not a loaded primitive, "
-                    f"function, class, or method"
+                    f"Node {self.describe(node_id)} has unknown type {node_type!r}: not a "
+                    f"loaded primitive, function, class, or method"
                 )
 
     def _check_input_ports_are_contiguous(self) -> None:
@@ -254,7 +285,7 @@ class Graph:
             ports = [edge.target_input for edge in incoming]
             if sorted(ports) != list(range(len(ports))):
                 raise ValueError(
-                    f"Node {node_id!r} of type {self.nodes[node_id]['type']!r} has "
+                    f"Node {self.describe(node_id)} of type {self.nodes[node_id]['type']!r} has "
                     f"{len(ports)} incoming edges on input ports {sorted(ports)}; "
                     f"expected exactly {list(range(len(ports)))} — a port is duplicated "
                     f"or out of range"
@@ -271,8 +302,8 @@ class Graph:
             if len(incoming) != expected:
                 node_type = self.nodes[node_id]["type"]
                 raise ValueError(
-                    f"Node {node_id!r} of type {node_type!r} expects {expected} inputs "
-                    f"but received {len(incoming)}"
+                    f"Node {self.describe(node_id)} of type {node_type!r} expects {expected} "
+                    f"inputs but received {len(incoming)}"
                 )
 
     def _check_output_ports_exist(self) -> None:
@@ -289,8 +320,8 @@ class Graph:
 
             if not outputs:
                 raise ValueError(
-                    f"Edge {edge.id!r} reads an output of node {edge.source!r}, but its type "
-                    f"{source_type!r} returns nothing"
+                    f"Edge {edge.id!r} reads an output of node {self.describe(edge.source)}, "
+                    f"but its type {source_type!r} returns nothing"
                 )
 
             if len(outputs) == 1:
@@ -303,8 +334,8 @@ class Graph:
             if not valid:
                 raise ValueError(
                     f"Edge {edge.id!r} reads output {edge.source_output!r} of node "
-                    f"{edge.source!r}, but its type {source_type!r} has {len(outputs)} "
-                    f"output(s) — valid: {allowed}"
+                    f"{self.describe(edge.source)}, but its type {source_type!r} has "
+                    f"{len(outputs)} output(s) — valid: {allowed}"
                 )
 
     def _check_edge_types(self) -> None:
@@ -319,13 +350,17 @@ class Graph:
             ports = self.ports_of(edge.target)
             # `target_input` is a safe index here: checks 5 and 6 established that this node's
             # incoming edges occupy exactly ports 0..n-1 for its type's n inputs.
-            target_name, target_annotation = ports.inputs[edge.target_input]
+            target = ports.inputs[edge.target_input]
 
-            if not _is_compatible(source_annotation, target_annotation):
+            # A method's instance is checked with `isinstance` when the node runs, so no widening
+            # reaches it: an `int` is not a `Fraction` there.
+            if not _is_compatible(
+                source_annotation, target.annotation, widening=not target.instance
+            ):
                 raise ValueError(
                     f"Edge {edge.id!r} feeds {_name(source_annotation)} from node "
-                    f"{edge.source!r} into parameter {target_name!r} of node {edge.target!r}, "
-                    f"which expects {_name(target_annotation)}"
+                    f"{self.describe(edge.source)} into parameter {target.name!r} of node "
+                    f"{self.describe(edge.target)}, which expects {_name(target.annotation)}"
                 )
 
     def _output_annotation(self, edge: Edge):
@@ -333,8 +368,28 @@ class Graph:
         outputs = self.ports_of(edge.source).outputs
         if len(outputs) == 1:
             # `None` (key omitted) and -1 both mean "the only output".
-            return outputs[0]
-        return outputs[edge.source_output]
+            return outputs[0].annotation
+        return outputs[edge.source_output].annotation
+
+    def _read_literals(self) -> Dict[str, Any]:
+        """Every primitive's ``value``, read the way its type says, by node id.
+
+        A literal is static data in the JSON, so it is judged here rather than when its node is
+        reached — by then a zero-input sibling may already have run. ``none`` is the one type that
+        needs no ``value``; any other primitive without one would be read as ``null``, which
+        ``str`` turns into ``"None"`` and ``any`` passes on. Parsing errors propagate as
+        :func:`~coral_app.primitives.read_literal` raises them.
+        """
+        literals = {}
+        for node_id, node in self.nodes.items():
+            if self.ports_of(node_id).kind != PRIMITIVE:
+                continue
+            node_type = node["type"]
+            label = self.describe(node_id)
+            if "value" not in node and node_type != "none":
+                raise ValueError(f"Node {label} of type {node_type!r} has no value")
+            literals[node_id] = read_literal(node_type, node.get("value"), label)
+        return literals
 
     def _build_order(self) -> List[str]:
         """Execution order, predecessors first.

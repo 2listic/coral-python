@@ -31,7 +31,7 @@
   },
   "bool": {
     "arguments": [],
-    "value": "",
+    "value": "false",
     "inputs": [],
     "outputs": [
       -1
@@ -58,6 +58,36 @@
     ],
     "node_type": "primitive",
     "type": "none"
+  },
+  "list": {
+    "arguments": [],
+    "value": "[]",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "list"
+  },
+  "set": {
+    "arguments": [],
+    "value": "[]",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "set"
+  },
+  "dict": {
+    "arguments": [],
+    "value": "{}",
+    "inputs": [],
+    "outputs": [
+      -1
+    ],
+    "node_type": "primitive",
+    "type": "dict"
   },
   "phiflow_iterate": {
     "arguments": [
@@ -94,17 +124,17 @@
       {
         "connection_type": "output",
         "type": "any",
-        "name": ""
+        "name": "velocity"
       },
       {
         "connection_type": "output",
         "type": "any",
-        "name": ""
+        "name": "smoke"
       },
       {
         "connection_type": "output",
         "type": "any",
-        "name": ""
+        "name": "pressure"
       }
     ],
     "inputs": [
@@ -739,7 +769,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PhiFlowBox",
         "name": "self"
       },
       {
@@ -761,7 +791,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PhiFlowSphere",
         "name": "self"
       },
       {
@@ -783,7 +813,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PhiFlowStaggeredGrid",
         "name": "self"
       },
       {
@@ -805,7 +835,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PhiFlowCenteredGrid",
         "name": "self"
       },
       {
@@ -827,7 +857,7 @@
     "arguments": [
       {
         "connection_type": "input",
-        "type": "any",
+        "type": "PhiFlowCuboid",
         "name": "self"
       },
       {
