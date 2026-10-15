@@ -4,6 +4,9 @@ One entry per node type, keyed exactly as a graph's ``type`` field (primitives b
 functions by name, constructors by class name, methods by ``Class.method``). Each entry lists the
 node's input ports and output ports, each a :class:`Port`: a name and an annotation.
 
+An abstract class has an entry too, of kind ``abstract`` and with no ports. It is not a node type
+a graph may use, but its key names a socket type, so it must meet the same duplicate checks.
+
 Its input is the declarations the plugins hand over (``coral_core.Declaration`` /
 ``ClassDeclaration``): a callable plus the labels its decorator gave. The ports come from the
 callable's signature, with the declared ``annotations`` filling the types it leaves out, ``inputs``
@@ -26,6 +29,7 @@ from coral_core import ClassDeclaration, Declaration, MethodDeclaration
 from coral_app.errors import DuplicateNodeTypeError
 
 __all__ = [
+    "ABSTRACT",
     "CONSTRUCTOR",
     "FUNCTION",
     "METHOD",
@@ -43,6 +47,7 @@ PRIMITIVE = "primitive"
 FUNCTION = "function"
 CONSTRUCTOR = "constructor"
 METHOD = "method"
+ABSTRACT = "abstract"
 
 
 @dataclass(frozen=True)
@@ -68,7 +73,9 @@ class NodePorts:
     """The connections of one node type.
 
     Attributes:
-        kind: One of ``primitive`` / ``function`` / ``constructor`` / ``method``.
+        kind: One of ``primitive`` / ``function`` / ``constructor`` / ``method`` / ``abstract``.
+            An ``abstract`` entry is a class that only types sockets: it has no ports, and a
+            graph cannot use it as a node.
         inputs: One :class:`Port` per input port, in port order. For a method, port 0 is the
             instance, named ``self``, annotated with the class itself and marked ``instance``.
         outputs: One :class:`Port` per output port, in port order — 0-based within outputs, which
@@ -331,13 +338,14 @@ def build_port_table(
     Args:
         function_map: Mapping of function name -> declaration.
         class_map: Mapping of class name -> class declaration; each contributes a constructor entry
-            plus one entry per declared method, keyed by its method node type.
+            (an ``abstract`` one, with no ports, for an abstract class) plus one entry per
+            declared method, keyed by its method node type.
         primitives: Mapping of primitive type name -> Python type (i.e. ``PRIMITIVES_MAP``). A
             primitive takes no input and yields one output, its own type.
 
     Returns:
-        Node type -> :class:`NodePorts`, inserted primitives first, then functions, constructors and
-        methods.
+        Node type -> :class:`NodePorts`, inserted primitives first, then functions, classes
+        (constructor or abstract) and methods.
 
     Raises:
         DuplicateNodeTypeError: if one name is claimed by two declared node types — a primitive, a
@@ -362,8 +370,8 @@ def build_port_table(
         # surfaces into separate maps.
         if node_type in table:
             raise DuplicateNodeTypeError(
-                f"node type {node_type!r} is declared as both a {table[node_type].kind} and a "
-                f"{ports.kind}"
+                f"node type {node_type!r} is declared twice, as kinds {table[node_type].kind!r} "
+                f"and {ports.kind!r}"
             )
         table[node_type] = ports
 
@@ -383,7 +391,11 @@ def build_port_table(
                 f"{class_name!r}"
             )
         registered_as[cls] = class_name
-        put(class_name, _constructor_ports(declaration, class_name))
+        # An abstract class has no constructor, so its signature is never read.
+        if declaration.abstract:
+            put(class_name, NodePorts(kind=ABSTRACT))
+        else:
+            put(class_name, _constructor_ports(declaration, class_name))
 
     for declaration in (class_map or {}).values():
         for node_type, method in declaration.methods.items():

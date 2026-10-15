@@ -22,10 +22,10 @@ Step references to "decision N" mean `decisions.md`'s numbering.
 - [x] 1.4 Module docstring: one line on abstract classes.
 
 ### 2. `coral-app/src/coral_app/nodeports.py`
-- [ ] 2.1 `ABSTRACT = "abstract"`, in `__all__`; `NodePorts.kind` docstring lists five kinds.
-- [ ] 2.2 `build_port_table`: an abstract declaration gets `NodePorts(kind=ABSTRACT)`;
+- [x] 2.1 `ABSTRACT = "abstract"`, in `__all__`; `NodePorts.kind` docstring lists five kinds.
+- [x] 2.2 `build_port_table`: an abstract declaration gets `NodePorts(kind=ABSTRACT)`;
       `_constructor_ports` (and so `_signature`) is not called for it. Docstring.
-- [ ] 2.3 `put()`: the duplicate message's `a {kind}` reads "a abstract"; rephrase so the
+- [x] 2.3 `put()`: the duplicate message's `a {kind}` reads "a abstract"; rephrase so the
       article fits every kind.
 
 ### 3. `coral-app/src/coral_app/registry.py`
