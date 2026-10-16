@@ -148,7 +148,7 @@ class TestPluginAddsNodes:
         """GIVEN an installed plugin selected on its own
         WHEN the registry is generated for it
         THEN every function it declares appears as a function node and every class as a
-             constructor node."""
+             constructor node, or as an abstract one when it is declared abstract."""
         from coral_app.registry import save_registry_to_file
 
         plugin = load(name)
@@ -157,5 +157,6 @@ class TestPluginAddsNodes:
 
         for func_name in plugin.functions():
             assert registry[func_name]["node_type"] == "function"
-        for class_name in plugin.classes():
-            assert registry[class_name]["node_type"] == "constructor"
+        for class_name, declaration in plugin.classes().items():
+            expected = "abstract" if declaration.abstract else "constructor"
+            assert registry[class_name]["node_type"] == expected

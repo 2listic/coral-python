@@ -15,6 +15,10 @@ being declared on it with one of three decorators, which also carry every option
         @plugin.method(outputs="value")
         def get_value(self) -> float: ...
 
+A class other classes derive from, but which is never built itself, is declared abstract:
+``plugin.cls(Base, abstract=True)``, or implicitly when Python cannot instantiate it
+(``inspect.isabstract``). Its key still types sockets; it has no constructor node.
+
 A callable that cannot be decorated where it is defined — a builtin, a class from another library —
 is declared with the same decorators used as a plain call: ``plugin.function(math.atan2, ...)``.
 
@@ -91,7 +95,8 @@ class MethodDeclaration:
 
 @dataclass(frozen=True)
 class ClassDeclaration:
-    """A registered class: its constructor node type and its method node types.
+    """A registered class: its constructor node type, unless it is abstract, and its method node
+    types.
 
     The constructor is the class's own node type, so the class carries the constructor's options
     itself. It has no ``outputs``: a constructor's single output is the instance, which carries no
@@ -103,12 +108,16 @@ class ClassDeclaration:
         annotations: Types for the constructor's parameters that its signature leaves unannotated.
         methods: ``{method node name: MethodDeclaration}``, keyed by the full node name
             (``"Calculator.get_value"``), sorted by attribute name.
+        abstract: Whether the class only types sockets. An abstract class has no constructor
+            node, so ``inputs`` and ``annotations`` are empty; its declared methods are still node
+            types.
     """
 
     target: type
     inputs: Mapping[str, str] = field(default_factory=dict)
     annotations: Mapping[str, Any] = field(default_factory=dict)
     methods: Mapping[str, MethodDeclaration] = field(default_factory=dict)
+    abstract: bool = False
 
     def __post_init__(self) -> None:
         _freeze(self, "inputs", "annotations", "methods")
@@ -197,10 +206,12 @@ class Plugin:
         name: str | None = None,
         inputs: dict[str, str] | None = None,
         annotations: dict[str, Any] | None = None,
+        abstract: bool | None = None,
     ):
-        """Declare a class: its constructor becomes a node type, keyed by the class's name.
+        """Declare a class: its key becomes a socket type and, unless the class is abstract, its
+        constructor a node type, keyed by the class's name.
 
-        Only the methods declared with :meth:`method` become node types too.
+        Only the methods declared with :meth:`method` become node types too, abstract class or not.
 
         Args:
             target: The class. Omitted when used as ``@plugin.cls(...)``.
@@ -208,11 +219,16 @@ class Plugin:
                 it from a method's name in a method node type.
             inputs: ``{parameter: label}`` relabelling some of the constructor's input ports.
             annotations: Types for constructor parameters the signature leaves unannotated.
+            abstract: Whether the class only types sockets, with no constructor node. Omitted, it
+                is ``inspect.isabstract(target)``: a class Python cannot instantiate offers no
+                constructor.
 
         Raises:
             TypeError: if the target is not a class, or an option has the wrong type.
             ValueError: if an option's value is refused, the class is already registered here, or
-                the name is already declared here.
+                the name is already declared here; if ``abstract=False`` is given for a class with
+                unimplemented abstract methods, or ``inputs=`` / ``annotations=`` for an abstract
+                class.
         """
 
         def declare(klass: type) -> type:
@@ -226,8 +242,16 @@ class Plugin:
                     f"{self._class_keys[klass]!r}"
                 )
             self._claim(key, where)
+            class_inputs = _inputs(inputs, where)
+            class_annotations = _annotations(annotations, where)
+            is_abstract = _abstract(abstract, klass, where)
+            if is_abstract and (class_inputs or class_annotations):
+                raise ValueError(
+                    f"{where}: the class is abstract, so it has no constructor node whose "
+                    f"parameters inputs= or annotations= could describe"
+                )
             self._classes[key] = ClassDeclaration(
-                klass, _inputs(inputs, where), _annotations(annotations, where)
+                klass, class_inputs, class_annotations, abstract=is_abstract
             )
             self._class_keys[klass] = key
             return klass
@@ -322,7 +346,11 @@ class Plugin:
                     )
                 methods[node_type] = method_declaration
             resolved[key] = ClassDeclaration(
-                declaration.target, declaration.inputs, declaration.annotations, methods
+                declaration.target,
+                declaration.inputs,
+                declaration.annotations,
+                methods,
+                abstract=declaration.abstract,
             )
 
         found = {
@@ -497,3 +525,21 @@ def _annotations(annotations: dict[str, Any] | None, where: str) -> dict[str, An
             f"exists: plugin.method(Cls.m, annotations={{'x': Cls}})"
         )
     return dict(annotations)
+
+
+def _abstract(abstract: bool | None, klass: type, where: str) -> bool:
+    """Whether a class is abstract: ``abstract=`` when given, else ``inspect.isabstract``.
+
+    ``abstract=False`` cannot make a class with unimplemented abstract methods concrete: Python
+    refuses to instantiate it, so its constructor node would fail every time it ran."""
+    if abstract is None:
+        return inspect.isabstract(klass)
+    if not isinstance(abstract, bool):
+        raise TypeError(f"{where}: abstract= takes a bool, got {abstract!r}")
+    if not abstract and inspect.isabstract(klass):
+        raise ValueError(
+            f"{where}: abstract=False, but the class has unimplemented abstract methods "
+            f"{sorted(klass.__abstractmethods__)}; Python cannot instantiate it, so it has no "
+            f"constructor node. Omit abstract= or implement them"
+        )
+    return abstract
