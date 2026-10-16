@@ -74,14 +74,15 @@ def _add_function_node(
     }
 
 
-def _add_constructor(
+def _add_class(
     registry: Dict,
     class_name: str,
     cls: type,
     ports: NodePorts,
     class_names: Mapping[type, str],
 ) -> None:
-    """Add a constructor node to the registry, keyed by the class name.
+    """Add a class's entry to the registry, keyed by the class name: its constructor node, or
+    an abstract entry.
 
     The instance a constructor produces is written as ``outputs: [-1]`` with no output argument —
     the file format's convention for "one unnamed output".
@@ -150,9 +151,9 @@ def generate_registry(
 
     Describes the given function/class maps as a port table (stage 2) and renders it into a dict
     keyed by each node's ``type`` string (primitives by type name, functions by name, constructors
-    and abstract classes by class name, methods by ``Class.method``). Everything about the *file format* — argument
-    dicts, index numbering, the ``[-1]`` convention — is decided here; the arity and annotations
-    come from the port table, which the executor reads too.
+    and abstract classes by class name, methods by ``Class.method``). Everything about the *file
+    format* — argument dicts, index numbering, the ``[-1]`` convention — is decided here; the
+    arity and annotations come from the port table, which the executor reads too.
 
     A socket typed with a registered class carries the class's key in ``class_map``, the same
     string its constructor or abstract entry is keyed by. Any other class is ``"any"``. A class
@@ -211,7 +212,7 @@ def generate_registry(
     # Add classes (constructors or abstract) and methods
     if class_map:
         for class_name in class_map:
-            _add_constructor(
+            _add_class(
                 registry,
                 class_name,
                 class_map[class_name].target,

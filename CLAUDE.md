@@ -328,9 +328,9 @@ it finds them at runtime via entry-point discovery.
 
    What the host receives are frozen dataclasses: `functions()` -> `{node type: Declaration(target,
    inputs, outputs, annotations)}`, `classes()` -> `{class key: ClassDeclaration(target, inputs,
-   annotations, methods, abstract)}`, `methods` being `{method node type: MethodDeclaration(attribute,
-   declaration)}` keyed by the full `<class key>.<name>`. `coral_core` reads no signature and builds
-   no port; that is the host's job.
+   annotations, methods, abstract)}`, `methods` being `{method node type:
+   MethodDeclaration(attribute, declaration)}` keyed by the full `<class key>.<name>`. `coral_core`
+   reads no signature and builds no port; that is the host's job.
 
 2. **Plugins (`coral-plugin-*`)** — each module creates `plugin = Plugin()` and declares its node
    types on it. Each declares itself under the `coral.plugins` entry-point group with that
@@ -452,7 +452,8 @@ Edge format:
 **Registry Files** (e.g., `node_types.json`):
 - Auto-generated schema describing all available node types, in the DealiiX platform format
 - **Keyed by each node's `type`** (primitives by type name, functions by name, constructors and
-  abstract classes by class name, methods by `Class.method`) — the editor looks entries up as `registry[type]`
+  abstract classes by class name, methods by `Class.method`) — the editor looks entries up as
+  `registry[type]`
 - Each entry has:
   - `type`: the node type string (equals the entry's key)
   - `arguments`: Array with `connection_type` ("input"/"output"), `type`, and `name` (empty `[]` for primitives)
@@ -466,16 +467,16 @@ Edge format:
     `inputs` / `outputs`; the editor hides it from its palette
   - `value` (primitives only): the initial value the editor copies into a dropped node: `"[]"` for
     `list` / `set`, `"{}"` for `dict`, `"false"` for `bool`, `""` for every other primitive
-  - `bases` (constructor and abstract entries, optional): the keys of every registered ancestor, in MRO order
-    (so under multiple inheritance a parent may follow a grandparent). An unregistered class in
-    between is skipped (its ancestors are still found); a type-name ancestor (`float`) is never
-    listed. Absent when empty.
-  - `derived` (constructor and abstract entries, optional): the keys of every registered descendant, in class-map
-    order. Absent when empty. Both lists depend on the `-p` selection.
+  - `bases` (constructor and abstract entries, optional): the keys of every registered ancestor,
+    in MRO order (so under multiple inheritance a parent may follow a grandparent). An
+    unregistered class in between is skipped (its ancestors are still found); a type-name
+    ancestor (`float`) is never listed. Absent when empty.
+  - `derived` (constructor and abstract entries, optional): the keys of every registered
+    descendant, in class-map order. Absent when empty. Both lists depend on the `-p` selection.
 - **A socket's `type`** is one of the nine names in `PRIMITIVES_MAP`, or — for a class the class map
-  holds — that class's **key**, the same string its constructor or abstract entry is keyed by. Anything else
-  is `"any"`: a class no selected plugin registers, and every parameterised generic (`List[int]`,
-  `Optional[X]`), even around a registered class.
+  holds — that class's **key**, the same string its constructor or abstract entry is keyed by.
+  Anything else is `"any"`: a class no selected plugin registers, and every parameterised generic
+  (`List[int]`, `Optional[X]`), even around a registered class.
 - **Subclasses depend on the front end.** It types a constructor's output as `base ?? type` and
   matches types by exact string. `base` is no longer written, so until the front end adopts the
   planned rule `{type} ∪ bases ∪ {base}`, a subclass instance is refused where its base is
@@ -529,9 +530,10 @@ Each node's kind is read from the port table — `graph.ports_of(node_id).kind`,
 `function` / `constructor` / `method`; the fifth, `abstract`, never reaches the executor, since
 check 4 refuses a node of that kind. The kind is decided in `nodeports.build_port_table()` by where
 the entry comes from — `PRIMITIVES_MAP`, `function_map`, `class_map` (the constructor, or
-`abstract`) or a class's declared methods, already keyed `Class.method`; no type name is split. One name declared as two of
-them raises `DuplicateNodeTypeError`. Only a function can meet a method key, since class keys and
-primitives contain no `.`: a function `math.sqrt` and a class `math` declaring `sqrt` are refused.
+`abstract`) or a class's declared methods, already keyed `Class.method`; no type name is split.
+One name declared as two of them raises `DuplicateNodeTypeError`. Only a function can meet a
+method key, since class keys and primitives contain no `.`: a function `math.sqrt` and a class
+`math` declaring `sqrt` are refused.
 
 **Primitive nodes** are the one special case, and they return early with the value `Graph` already
 read (`graph.literals`): `primitives.read_literal` reads the node's `value` the way its declared
