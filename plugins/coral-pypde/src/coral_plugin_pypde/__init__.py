@@ -43,7 +43,7 @@ __all__ = [
 #: This plugin: the entry point's target, on which every node type below is declared.
 plugin = Plugin()
 
-plugin.cls(PyPDEGridBase)
+plugin.cls(PyPDEGridBase, abstract=True)
 plugin.cls(PyPDEUnitGrid)
 plugin.cls(PyPDECartesianGrid)
 
@@ -58,7 +58,7 @@ plugin.cls(PyPDEPlotTracker)
 plugin.cls(PyPDEDiffusionPDE)
 plugin.method(PyPDEDiffusionPDE.solve)
 
-plugin.cls(PyPDEShape)
+plugin.cls(PyPDEShape, abstract=True)
 plugin.cls(PyPDECircle)
 plugin.cls(PyPDERectangle)
 

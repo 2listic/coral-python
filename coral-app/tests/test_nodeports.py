@@ -16,10 +16,12 @@ import pytest
 from coral_app import PRIMITIVES_MAP
 from coral_app.errors import DuplicateNodeTypeError
 from coral_app.nodeports import (
+    ABSTRACT,
     CONSTRUCTOR,
     FUNCTION,
     METHOD,
     PRIMITIVE,
+    NodePorts,
     Port,
     build_port_table,
     methods_of,
@@ -137,6 +139,24 @@ class TestTableCoverage:
         assert table["annotated"].kind == FUNCTION
         assert table["Widget"].kind == CONSTRUCTOR
         assert table["Widget.resize"].kind == METHOD
+
+    def test_an_abstract_class_has_an_entry_with_no_ports(self):
+        """GIVEN an abstract class declaring a method
+        WHEN the table is built
+        THEN the class's entry is of kind abstract with no ports, and its method is a method node
+             whose port 0 is the abstract class."""
+        plugin = Plugin()
+
+        @plugin.cls(abstract=True)
+        class Part:
+            @plugin.method
+            def weigh(self) -> float: ...
+
+        table = build_port_table(class_map=plugin.classes())
+
+        assert table["Part"] == NodePorts(kind=ABSTRACT)
+        assert table["Part.weigh"].kind == METHOD
+        assert table["Part.weigh"].inputs == [Port("self", Part, instance=True)]
 
     def test_empty_maps_give_an_empty_table(self):
         """GIVEN no maps at all
@@ -390,6 +410,22 @@ class TestDeclaredNameClashIsRefused:
         message = str(raised.value)
         assert "Widget" in message
         assert FUNCTION in message and CONSTRUCTOR in message
+
+    def test_a_function_named_after_an_abstract_class_raises(self):
+        """GIVEN a function and an abstract class both named ``Part``
+        WHEN the table is built
+        THEN DuplicateNodeTypeError names both kinds: an abstract class's key is claimed like any
+             other name."""
+        plugin = Plugin()
+        plugin.cls(Widget, name="Part", abstract=True)
+
+        with pytest.raises(DuplicateNodeTypeError) as raised:
+            build_port_table(
+                function_map=declared_functions({"Part": annotated}), class_map=plugin.classes()
+            )
+
+        message = str(raised.value)
+        assert "'function'" in message and "'abstract'" in message
 
 
 class TestCollectionNamesCollideWithPrimitives:
@@ -667,6 +703,18 @@ class TestSignatures:
 
         with pytest.raises(ValueError, match=r"'Strict'.*\['size'\]"):
             build_port_table(class_map=declared_classes({"Strict": Strict}))
+
+    def test_an_abstract_class_s_signature_is_not_read(self):
+        """GIVEN an abstract class whose constructor has a keyword-only parameter
+        WHEN the table is built
+        THEN it is accepted: it has no constructor node, so no port is read from it."""
+        plugin = Plugin()
+
+        @plugin.cls(abstract=True)
+        class Strict:
+            def __init__(self, *, size: float): ...
+
+        assert build_port_table(class_map=plugin.classes())["Strict"].kind == ABSTRACT
 
     def test_a_callable_without_a_signature_is_refused(self):
         """GIVEN a builtin from which no signature can be read

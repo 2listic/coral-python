@@ -47,12 +47,22 @@ class TestGolden:
 class TestTheGoldenDescribesThisPlugin:
     """The golden is only a guard if it really covers what this plugin declares."""
 
-    def test_every_declared_class_is_a_constructor_node(self, registry):
+    def test_every_declared_class_is_a_constructor_or_abstract_node(self, registry):
         """GIVEN this plugin's declared classes
         WHEN the golden is read
-        THEN each appears as a constructor node under the class name."""
-        for name in plugin.classes():
-            assert registry[name]["node_type"] == "constructor", name
+        THEN each appears under the class name, as an abstract entry if declared abstract and as
+             a constructor node otherwise."""
+        for name, declaration in plugin.classes().items():
+            expected = "abstract" if declaration.abstract else "constructor"
+            assert registry[name]["node_type"] == expected, name
+
+    def test_the_two_base_classes_are_abstract(self, registry):
+        """GIVEN the two base classes, which only type sockets
+        WHEN the golden is read
+        THEN both are abstract entries: neither is a constructor node, which would build an object
+             with no `.grid` or `_build_mask`."""
+        assert registry["PyPDEGridBase"]["node_type"] == "abstract"
+        assert registry["PyPDEShape"]["node_type"] == "abstract"
 
     def test_a_class_s_method_nodes_are_exactly_its_declared_methods(self, registry):
         """GIVEN this plugin's classes
@@ -110,8 +120,8 @@ class TestTheGoldenDescribesThisPlugin:
         ``derived``.
 
         The front end matches socket types by string, so these two lists are the only place the
-        hierarchy reaches it: they are what lets it accept a grid or a shape where its base is
-        expected."""
+        hierarchy reaches it. It does not read them yet: until it does, it refuses a grid or a
+        shape where its base is expected, though validation and execution accept one."""
         assert registry["PyPDEUnitGrid"]["bases"] == ["PyPDEGridBase"]
         assert registry["PyPDECartesianGrid"]["bases"] == ["PyPDEGridBase"]
         assert registry["PyPDEGridBase"]["derived"] == ["PyPDEUnitGrid", "PyPDECartesianGrid"]

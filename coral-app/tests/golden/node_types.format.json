@@ -853,6 +853,36 @@
       "Resettable"
     ]
   },
+  "Meter": {
+    "arguments": [],
+    "inputs": [],
+    "outputs": [],
+    "node_type": "abstract",
+    "type": "Meter",
+    "derived": [
+      "Thermometer"
+    ]
+  },
+  "Thermometer": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "celsius"
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "Thermometer",
+    "bases": [
+      "Meter"
+    ]
+  },
   "Tally": {
     "arguments": [
       {
@@ -1129,6 +1159,50 @@
     ],
     "node_type": "method",
     "type": "Ledger.total"
+  },
+  "Meter.read": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Meter",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Meter.read"
+  },
+  "Thermometer.read": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Thermometer",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Thermometer.read"
   },
   "Tally.bump": {
     "arguments": [

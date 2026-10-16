@@ -1,9 +1,9 @@
 """Stage 3: read a workflow graph, validate it, and put it in execution order.
 
 Construction is where a graph is judged. Every defect raises ``ValueError`` here — a node that
-cannot be identified, a wiring error, an incompatible edge, a cycle, a literal that cannot be read —
-before the first node runs: a long PhiFlow simulation must never be spent on a graph that was
-already known to be broken.
+cannot be identified, a node of an abstract type, a wiring error, an incompatible edge, a cycle, a
+literal that cannot be read — before the first node runs: a long PhiFlow simulation must never be
+spent on a graph that was already known to be broken.
 
 The port table (stage 2) arrives as plain data, so this module introspects nothing and knows nothing
 about plugins: give it a node/edge dict and a table and it will tell you whether the two agree.
@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from graphlib import CycleError, TopologicalSorter
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
-from coral_app.nodeports import PRIMITIVE, NodePorts
+from coral_app.nodeports import ABSTRACT, PRIMITIVE, NodePorts
 from coral_app.nodestatus import qualified_ids
 from coral_app.primitives import read_literal
 
@@ -264,7 +264,13 @@ class Graph:
                 )
 
     def _check_node_types_are_known(self) -> None:
-        """Every node's ``type`` must have a port-table entry."""
+        """Every node's ``type`` must have a port-table entry, and not an abstract one.
+
+        An abstract class has an entry because its key types sockets, but it has no constructor,
+        so a node of its type has nothing to run. The reference backend lets one through and
+        hands its consumers a null pointer at run time; here it fails with the other defects,
+        before the first node runs.
+        """
         for node_id, node in self.nodes.items():
             if "type" not in node:
                 raise ValueError(f"Node {self.describe(node_id)} declares no 'type'")
@@ -273,6 +279,11 @@ class Graph:
                 raise ValueError(
                     f"Node {self.describe(node_id)} has unknown type {node_type!r}: not a "
                     f"loaded primitive, function, class, or method"
+                )
+            if self.port_table[node_type].kind == ABSTRACT:
+                raise ValueError(
+                    f"Node {self.describe(node_id)} has abstract type {node_type!r}: it types "
+                    f"sockets but cannot be a node; use one of its registered subclasses"
                 )
 
     def _check_input_ports_are_contiguous(self) -> None:

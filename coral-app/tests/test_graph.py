@@ -22,6 +22,9 @@ node type             inputs                            outputs
 ``Cog``               ``size: float``                   ``Cog``
 ``Cog.spin``          ``self: Cog``                     ``float``
 ``Gear``              ``size: float``                   ``Gear``
+``Part``              abstract: no ports, never a node  —
+``Part.weigh``        ``self: Part``                    ``float``
+``Bolt``              ``size: float``                   ``Bolt``
 ``list_new``          none                              ``list``
 ``set_new``           none                              ``set``
 ``dict_new``          none                              ``dict``
@@ -38,6 +41,7 @@ import pytest
 from coral_app import PRIMITIVES_MAP
 from coral_app.graph import Graph
 from coral_app.nodeports import (
+    ABSTRACT,
     CONSTRUCTOR,
     FUNCTION,
     METHOD,
@@ -82,6 +86,20 @@ class Gear(Sprocket, Cog):
     """A Widget through a chain, and a Cog through a second parent."""
 
 
+class Part:
+    """An abstract class: its key types sockets, but it is not a node."""
+
+    def weigh(self) -> float:
+        """A stub: ``Graph`` only reads the ``Part.weigh`` port-table entry, never this."""
+        ...
+
+
+class Bolt(Part):
+    """A concrete Part."""
+
+    def __init__(self, size: float): ...
+
+
 def ports(kind, inputs=(), outputs=()) -> NodePorts:
     """A port-table entry from ``(name, annotation)`` inputs and bare output annotations.
 
@@ -118,6 +136,9 @@ PORT_TABLE = {
     "Cog": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Cog]),
     "Cog.spin": ports(kind=METHOD, inputs=[("self", Cog)], outputs=[float]),
     "Gear": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Gear]),
+    "Part": NodePorts(kind=ABSTRACT),
+    "Part.weigh": ports(kind=METHOD, inputs=[("self", Part)], outputs=[float]),
+    "Bolt": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Bolt]),
     # Collection-shaped entries, mirroring `coral_app.builtin_nodes`: a creator taking nothing and
     # returning a bare collection, and a consumer taking one. Hand-written like everything else here
     # — the point is the annotations `Graph` compares, not which module they came from.
@@ -346,7 +367,7 @@ class TestEdgeEndpoints:
 
 
 class TestNodeTypes:
-    """Check 4: every node type has a port-table entry."""
+    """Check 4: every node type has a port-table entry, and not an abstract one."""
 
     def test_unknown_node_type_is_rejected(self):
         """GIVEN a node whose type is in no plugin's surface
@@ -354,6 +375,13 @@ class TestNodeTypes:
         THEN it raises, naming the node and its type."""
         with pytest.raises(ValueError, match=r"Node '0' has unknown type 'nope'"):
             build({"0": {"type": "nope"}}, {})
+
+    def test_an_abstract_type_is_rejected(self):
+        """GIVEN a node whose type is an abstract class
+        WHEN the graph is built
+        THEN it raises, naming the node and the type: the class types sockets but builds nothing."""
+        with pytest.raises(ValueError, match=r"Node '0' has abstract type 'Part'"):
+            build({"0": {"type": "Part"}}, {})
 
     def test_node_without_a_type_is_rejected(self):
         """GIVEN a node declaring no ``type`` at all
@@ -1053,6 +1081,21 @@ class TestEdgeTypes:
         WHEN the graph is built
         THEN it is accepted unchecked: `Any` on either side is never judged."""
         assert build(*self._wire("any", "list_size")).order == ["0", "1"]
+
+    def test_a_subclass_feeds_a_method_of_an_abstract_class(self):
+        """GIVEN a Bolt wired into port 0 of Part.weigh, Part being abstract
+        WHEN the graph is built
+        THEN it is accepted: an abstract class's method runs on its concrete subclasses."""
+        graph = build(
+            {
+                "0": {"type": "float", "value": 1.0},
+                "1": {"type": "Bolt"},
+                "2": {"type": "Part.weigh"},
+            },
+            {"0": edge("0", "1"), "1": edge("1", "2")},
+        )
+
+        assert graph.order == ["0", "1", "2"]
 
 
 class TestLookups:

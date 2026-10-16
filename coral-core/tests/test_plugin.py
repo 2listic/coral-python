@@ -7,6 +7,7 @@ match the return annotation — is the host's check, not this package's.
 """
 
 import math
+from abc import ABC, abstractmethod
 from fractions import Fraction
 
 import pytest
@@ -16,6 +17,20 @@ from coral_core import ClassDeclaration, Declaration, MethodDeclaration, Plugin
 def add(a: float, b: float) -> float:
     """A function declared in several tests."""
     return a + b
+
+
+class Shape(ABC):
+    """A class Python refuses to instantiate: ``area`` is abstract."""
+
+    @abstractmethod
+    def area(self) -> float: ...
+
+
+class Square(Shape):
+    """A concrete subclass of :class:`Shape`: an ABC's subclass is not abstract by inheritance."""
+
+    def area(self) -> float:
+        return 1.0
 
 
 class TestTheThreeForms:
@@ -482,6 +497,102 @@ class TestInheritance:
             ValueError, match=r"'Leaf': its base '.*Mid' overrides the method 'value'"
         ):
             plugin.classes()
+
+
+class TestAbstractClasses:
+    """A class that only types sockets: declared with ``abstract=``, or detected with
+    ``inspect.isabstract``."""
+
+    @pytest.mark.parametrize("target", [Fraction, Square])
+    def test_a_class_python_can_instantiate_is_not_abstract(self, target):
+        """GIVEN a concrete class declared without abstract=
+        WHEN the plugin's classes are read
+        THEN it is not abstract: its constructor is a node type."""
+        plugin = Plugin()
+        plugin.cls(target)
+        assert plugin.classes()[target.__name__].abstract is False
+
+    def test_a_class_python_cannot_instantiate_is_abstract(self):
+        """GIVEN a class with an unimplemented abstract method, declared without abstract=
+        WHEN the plugin's classes are read
+        THEN it is abstract: Python refuses to build it, so it offers no constructor."""
+        plugin = Plugin()
+        plugin.cls(Shape)
+        assert plugin.classes()["Shape"].abstract is True
+
+    @pytest.mark.parametrize("target", [Fraction, Shape])
+    def test_abstract_true_wins(self, target):
+        """GIVEN abstract=True, on a concrete class and on one Python cannot instantiate
+        WHEN the plugin's classes are read
+        THEN both are abstract."""
+        plugin = Plugin()
+        plugin.cls(target, abstract=True)
+        assert plugin.classes()[target.__name__].abstract is True
+
+    def test_abstract_false_keeps_a_concrete_class_a_constructor(self):
+        """GIVEN abstract=False on a concrete class
+        WHEN the plugin's classes are read
+        THEN it is not abstract, as if the option were omitted."""
+        plugin = Plugin()
+        plugin.cls(Square, abstract=False)
+        assert plugin.classes()["Square"].abstract is False
+
+    def test_abstract_false_is_refused_on_a_class_python_cannot_instantiate(self):
+        """GIVEN abstract=False on a class with an unimplemented abstract method
+        WHEN it is declared
+        THEN ValueError naming the method: its constructor node would fail every time it ran."""
+        with pytest.raises(ValueError, match=r"abstract=False.*\['area'\]"):
+            Plugin().cls(Shape, abstract=False)
+
+    @pytest.mark.parametrize(
+        "option",
+        [{"inputs": {"x": "label"}}, {"annotations": {"x": int}}],
+        ids=["inputs", "annotations"],
+    )
+    @pytest.mark.parametrize(
+        "target, abstract", [(Fraction, True), (Shape, None)], ids=["declared", "detected"]
+    )
+    def test_constructor_options_are_refused_on_an_abstract_class(self, target, abstract, option):
+        """GIVEN an abstract class, declared so or detected, with inputs= or annotations=
+        WHEN it is declared
+        THEN ValueError: both describe constructor parameters, and it has no constructor."""
+        with pytest.raises(ValueError, match="the class is abstract"):
+            Plugin().cls(target, abstract=abstract, **option)
+
+    def test_an_abstract_class_may_be_renamed(self):
+        """GIVEN an abstract class declared with name=
+        WHEN the plugin's classes are read
+        THEN it is keyed by that name: the key is the socket type it gives."""
+        plugin = Plugin()
+        plugin.cls(Shape, name="Figure")
+        assert plugin.classes()["Figure"].abstract is True
+
+    def test_a_method_declared_on_an_abstract_class_is_a_node_of_it_and_of_its_subclass(self):
+        """GIVEN an abstract base declaring a method, and a registered concrete subclass
+        WHEN the plugin's classes are read
+        THEN both have the method node: it runs on whichever concrete instance reaches it."""
+        plugin = Plugin()
+
+        @plugin.cls(abstract=True)
+        class Base:
+            @plugin.method
+            def value(self) -> int: ...
+
+        @plugin.cls
+        class Child(Base):
+            pass
+
+        classes = plugin.classes()
+        assert list(classes["Base"].methods) == ["Base.value"]
+        assert list(classes["Child"].methods) == ["Child.value"]
+        assert classes["Base"].abstract and not classes["Child"].abstract
+
+    def test_abstract_must_be_a_bool(self):
+        """GIVEN abstract= that is not a bool
+        WHEN a class is declared
+        THEN TypeError: a truthy value is not a decision."""
+        with pytest.raises(TypeError, match="abstract= takes a bool"):
+            Plugin().cls(Fraction, abstract="yes")
 
 
 class TestAcrossPlugins:

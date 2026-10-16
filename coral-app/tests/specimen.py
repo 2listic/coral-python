@@ -30,6 +30,9 @@ entry                         the shape it exists for
 ``PreciseAccumulator``        a *subclass*, which must be accepted where its base is expected
 ``Resettable``                a second parent for ``Ledger``, unrelated to ``Accumulator``
 ``Ledger``                    a subclass of both: a chain and a second parent at once
+``Meter``                     an *abstract* class, detected by ``inspect.isabstract``: a socket type
+                              with no constructor node; ``read`` is declared on it
+``Thermometer``               a concrete ``Meter``, overriding ``read`` without redeclaring it
 ============================  =================================================================
 
 Six plugins expose it, and the split is driven entirely by what the host's merge rules need:
@@ -51,6 +54,7 @@ host by patching the one lookup that maps a plugin *name* to a plugin instance â
 port table, the registry, graph validation, execution) is production code.
 """
 
+from abc import ABC, abstractmethod
 from typing import Any, Tuple
 
 from coral_core import Plugin
@@ -74,6 +78,8 @@ __all__ = [
     "PreciseAccumulator",
     "Resettable",
     "Ledger",
+    "Meter",
+    "Thermometer",
     "Tally",
 ]
 
@@ -251,6 +257,28 @@ class Resettable:
 class Ledger(PreciseAccumulator, Resettable):
     """A chain and a second parent at once, MRO ``Ledger, PreciseAccumulator, Accumulator,
     Resettable``: it must be accepted wherever any of them is expected."""
+
+
+@specimen_plugin.cls
+class Meter(ABC):
+    """An abstract class, detected rather than declared: ``read`` is abstract, so Python cannot
+    instantiate it. Its key types sockets; it has no constructor node."""
+
+    @specimen_plugin.method
+    @abstractmethod
+    def read(self) -> float:
+        """Declared here, implemented by every concrete subclass."""
+
+
+@specimen_plugin.cls
+class Thermometer(Meter):
+    """A concrete :class:`Meter`, overriding ``read`` without declaring it again."""
+
+    def __init__(self, celsius: float):
+        self.celsius = celsius
+
+    def read(self) -> float:
+        return self.celsius
 
 
 @rival_plugin.cls

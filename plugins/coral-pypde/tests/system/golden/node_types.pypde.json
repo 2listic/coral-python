@@ -483,10 +483,8 @@
   "PyPDEGridBase": {
     "arguments": [],
     "inputs": [],
-    "outputs": [
-      -1
-    ],
-    "node_type": "constructor",
+    "outputs": [],
+    "node_type": "abstract",
     "type": "PyPDEGridBase",
     "derived": [
       "PyPDEUnitGrid",
@@ -681,10 +679,8 @@
   "PyPDEShape": {
     "arguments": [],
     "inputs": [],
-    "outputs": [
-      -1
-    ],
-    "node_type": "constructor",
+    "outputs": [],
+    "node_type": "abstract",
     "type": "PyPDEShape",
     "derived": [
       "PyPDECircle",
