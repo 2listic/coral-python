@@ -13,19 +13,19 @@ Step references to "decision N" mean `decisions.md`'s numbering.
 ## Steps
 
 ### 1. `plugins/coral-math/src/coral_plugin_math/__init__.py`
-- [ ] 1.1 `Shape(ABC)` with `@plugin.cls`; `area(self) -> float` under `@plugin.method` over
+- [x] 1.1 `Shape(ABC)` with `@plugin.cls`; `area(self) -> float` under `@plugin.method` over
       `@abstractmethod` (decision 4).
-- [ ] 1.2 `Rectangle(Shape)` with `@plugin.cls`: `__init__(self, width: float, height: float)`;
+- [x] 1.2 `Rectangle(Shape)` with `@plugin.cls`: `__init__(self, width: float, height: float)`;
       undeclared `area`; `@plugin.method diagonal(self) -> float` via `math.hypot`; both print
       (decision 6).
-- [ ] 1.3 `Regular` with an empty body, declared `plugin.cls(Regular, abstract=True)`
+- [x] 1.3 `Regular` with an empty body, declared `plugin.cls(Regular, abstract=True)`
       (decision 5).
-- [ ] 1.4 `Square(Regular, Rectangle)` with `@plugin.cls`: `__init__(self, side: float)` →
+- [x] 1.4 `Square(Regular, Rectangle)` with `@plugin.cls`: `__init__(self, side: float)` →
       `super().__init__(side, side)`.
-- [ ] 1.5 `@plugin.function(name="area") shape_area(s: Shape) -> float` and
+- [x] 1.5 `@plugin.function(name="area") shape_area(s: Shape) -> float` and
       `@plugin.function(name="diagonal") rectangle_diagonal(r: Rectangle) -> float`, delegating
       to the methods, printing.
-- [ ] 1.6 `__all__` gains the four classes; module docstring: first line, and a paragraph on why
+- [x] 1.6 `__all__` gains the four classes; module docstring: first line, and a paragraph on why
       the shapes exist (decision 9).
 
 ### 2. `plugins/coral-math/tests/graphs/network-multiple-inheritance.json`
