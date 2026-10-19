@@ -34,8 +34,8 @@ requires_this_plugin = pytest.mark.skipif(
     not INSTALLED, reason=f"plugin {PLUGIN_NAME!r} not installed"
 )
 
-#: The graphs this plugin owns — real editor exports, the collection/math interop graph and the
-#: call-form graph.
+#: The graphs this plugin owns — real editor exports, the collection/math interop graph, the
+#: call-form graph and the multiple-inheritance graph.
 GRAPHS = Path(__file__).parent / "graphs"
 
 #: This plugin's recorded ``node_types.json`` slice.
