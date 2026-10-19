@@ -162,7 +162,7 @@ coral run workflow.json --touch-dir /tmp/coral-status
 
 **Available plugins** (each an installed `coral-plugin-*` package):
 - `phiflow` - PhiFlow physics simulation wrappers
-- `math` - Mathematical operations (`add`, `multiply`, `math.sqrt`, etc.) and `Calculator` class
+- `math` - Mathematical operations (`add`, `multiply`, `math.sqrt`, etc.), `Calculator` class and a `Shape` hierarchy with multiple inheritance
 - `string` - String processing utilities (`StringProcessor` class)
 - `pypde` - py-pde PDE-solver wrappers (diffusion, diffusion around obstacles, and Poisson, with their grids, fields, shapes, storage and movie)
 

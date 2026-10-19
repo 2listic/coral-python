@@ -1,19 +1,27 @@
-"""coral-plugin-math — mathematical operations and the Calculator class.
+"""coral-plugin-math — mathematical operations, the Calculator class and a shape hierarchy.
 
 Every node type is declared on :data:`plugin`, the ``coral_core.Plugin`` instance registered
 under the ``coral.plugins`` entry-point group as ``math`` (see pyproject.toml).
 
 Three of them are callables defined elsewhere — ``math.atan2``, ``fractions.Fraction`` and its
 ``limit_denominator`` — declared as they are, with no wrapper: the living example of the call form.
+
+The shapes — ``Shape``, ``Rectangle``, ``Regular``, ``Square`` — are the multiple-inheritance case
+an installable plugin ships, so that a front end loading ``-p math`` can check it accepts a subclass
+wherever any registered ancestor is expected. ``Square`` derives from ``Regular`` first and
+``Rectangle`` second, and only ``Rectangle`` is a ``Shape``: a ``Square`` reaches a socket typed
+``Rectangle`` or ``Shape`` only through its registry entry's ``bases``, never through its first
+parent. ``Shape`` is abstract by detection, ``Regular`` by declaration; neither is a constructor node.
 """
 
 import math
+from abc import ABC, abstractmethod
 from fractions import Fraction
 from typing import Tuple
 
 from coral_core import Plugin
 
-__all__ = ["Calculator", "plugin"]
+__all__ = ["Calculator", "Rectangle", "Regular", "Shape", "Square", "plugin"]
 
 #: This plugin: the entry point's target, on which every node type below is declared.
 plugin = Plugin()
@@ -134,6 +142,73 @@ class Calculator:
         """Get current value"""
         print(f"Calculator.get_value() = {self.value}")
         return self.value
+
+
+# Shapes
+
+
+@plugin.cls
+class Shape(ABC):
+    """A plane figure: abstract, so a socket type but not a constructor node."""
+
+    @plugin.method
+    @abstractmethod
+    def area(self) -> float:
+        """The figure's area; implemented by every concrete subclass."""
+
+
+@plugin.cls
+class Rectangle(Shape):
+    """A rectangle, given its two sides."""
+
+    def __init__(self, width: float, height: float):
+        self.width = width
+        self.height = height
+
+    def area(self) -> float:
+        """Width times height. Not declared again: the override keeps ``Shape.area``'s node."""
+        result = self.width * self.height
+        print(f"{type(self).__name__}.area() = {result}")
+        return result
+
+    @plugin.method
+    def diagonal(self) -> float:
+        """The length of the diagonal."""
+        result = math.hypot(self.width, self.height)
+        print(f"{type(self).__name__}.diagonal() = {result}")
+        return result
+
+
+class Regular:
+    """A figure whose sides are all equal: a property, not a shape, so not a ``Shape``."""
+
+
+# Nothing about the class makes it abstract, so the flag says so: no constructor node.
+plugin.cls(Regular, abstract=True)
+
+
+@plugin.cls
+class Square(Regular, Rectangle):
+    """A rectangle with equal sides."""
+
+    def __init__(self, side: float):
+        super().__init__(side, side)
+
+
+@plugin.function(name="area")
+def shape_area(s: Shape) -> float:
+    """The area of any shape, as a function rather than a method."""
+    result = s.area()
+    print(f"area({type(s).__name__}) = {result}")
+    return result
+
+
+@plugin.function(name="diagonal")
+def rectangle_diagonal(r: Rectangle) -> float:
+    """The diagonal of any rectangle, as a function rather than a method."""
+    result = r.diagonal()
+    print(f"diagonal({type(r).__name__}) = {result}")
+    return result
 
 
 # Callables defined elsewhere, declared as they are. Neither the builtin nor the standard-library

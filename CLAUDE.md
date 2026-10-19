@@ -145,7 +145,7 @@ status 2, every offending name at once plus the installed ones — so `run` has 
 
 **Available plugins** (each an installed `coral-plugin-*` distribution, registered under the `coral.plugins`
 entry-point group):
-- `math` - Mathematical operations and Calculator class
+- `math` - Mathematical operations, Calculator class and a Shape hierarchy with multiple inheritance
 - `string` - StringProcessor class
 - `phiflow` - PhiFlow physics simulation wrappers
 - `pypde` - py-pde PDE-solver wrappers
@@ -489,7 +489,10 @@ Edge format:
   planned rule `{type} ∪ bases ∪ {base}`, a subclass instance is refused where its base is
   expected — a known regression, shared with the C++ backend. Validation and execution are
   unaffected: check 8 uses `issubclass` and the executor `isinstance`, so every registered
-  ancestor is accepted there.
+  ancestor is accepted there. `coral-math` ships the case to check the rule end to end:
+  `plugins/coral-math/tests/graphs/network-multiple-inheritance.json` wires a
+  `Square(Regular, Rectangle)` into sockets typed `Rectangle` and `Shape`, which only `bases`
+  exposes.
 
 ### Data Flow
 
@@ -760,12 +763,12 @@ standard library's own `numbers` tower rather than a hand-written table.
 The check only sees what a node's author declares, so **annotation quality is the author's
 responsibility**. A *slot* below is one annotation the check can look at — every input and output of
 every node type, except a method's `self` (which the port table synthesises from the class). Across
-the four plugins and the host's builtins, 149 of 181 slots are checkable and 32 are `Any` — and every
+the four plugins and the host's builtins, 163 of 195 slots are checkable and 32 are `Any` — and every
 one of the 32 is in phiflow or in the builtins, where 9 are deliberate (see below):
 
 | source | slots | `Any` | checkable |
 | --- | --- | --- | --- |
-| math | 36 | 0 | 36 |
+| math | 50 | 0 | 50 |
 | string | 8 | 0 | 8 |
 | phiflow | 48 | 23 | 25 |
 | pypde | 53 | 0 | 53 |

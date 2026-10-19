@@ -58,12 +58,24 @@ class TestTheGoldenDescribesThisPlugin:
         for name in plugin.functions():
             assert registry[name]["node_type"] == "function", name
 
-    def test_every_declared_class_is_a_constructor_node(self, registry):
+    def test_every_declared_class_is_a_constructor_or_abstract_node(self, registry):
         """GIVEN this plugin's declared classes
         WHEN the golden is read
-        THEN each appears as a constructor node under the class name."""
-        for name in plugin.classes():
-            assert registry[name]["node_type"] == "constructor", name
+        THEN each appears under the class name, as an abstract entry if declared abstract and as
+             a constructor node otherwise."""
+        for name, declaration in plugin.classes().items():
+            expected = "abstract" if declaration.abstract else "constructor"
+            assert registry[name]["node_type"] == expected, name
+
+    def test_the_square_reaches_every_ancestor_through_bases(self, registry):
+        """GIVEN Square(Regular, Rectangle), Rectangle being a Shape
+        WHEN the golden is read
+        THEN Square's bases list all three in MRO order, and each ancestor lists Square among its
+             derived: a Square reaches Rectangle and Shape only through these lists, not through
+             its first parent."""
+        assert registry["Square"]["bases"] == ["Regular", "Rectangle", "Shape"]
+        assert registry["Shape"]["derived"] == ["Rectangle", "Square"]
+        assert registry["Regular"]["derived"] == ["Square"]
 
     def test_a_class_s_method_nodes_are_exactly_its_declared_methods(self, registry):
         """GIVEN this plugin's classes

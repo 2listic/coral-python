@@ -610,7 +610,7 @@ class TestMethodNodes:
     def test_an_unrelated_class_never_reaches_execution(self, write_graph, specimen_plugins):
         """GIVEN an unrelated class's instance wired into port 0 of a method
         WHEN the executor is merely constructed
-        THEN it is already refused: both annotations are classes, so graph check 6 can judge the
+        THEN it is already refused: both annotations are classes, so graph check 8 can judge the
              edge, and it does — before anything runs."""
         path = write_graph(
             graph(
@@ -661,7 +661,7 @@ class TestMethodNodes:
         THEN ValueError names the node, the expected class and what actually arrived.
 
         This is the one check left inside the executor, and the only reason it must stay there: the
-        edge is `Any -> Accumulator`, which check 6 deliberately skips rather than guess, so nothing
+        edge is `Any -> Accumulator`, which check 8 deliberately skips rather than guess, so nothing
         before execution can know the value is not an instance."""
         with pytest.raises(ValueError, match="expected instance of Accumulator"):
             run(

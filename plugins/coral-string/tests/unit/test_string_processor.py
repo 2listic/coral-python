@@ -27,7 +27,7 @@ class TestConstruction:
         WHEN a StringProcessor is constructed
         THEN the prefix is the empty string.
 
-        Reachable only from Python: graph check 4 requires every input port to be wired, so the
+        Reachable only from Python: graph check 6 requires every input port to be wired, so the
         default is dead from the graph side. Asserted here because this is the only place it can be."""
         assert StringProcessor().prefix == ""
 
@@ -102,7 +102,7 @@ class TestRepeat:
         Worth knowing, and slightly uncomfortable: a graph with `target_input` 1 and 2 swapped on this
         node produces a plausible result instead of an error. Nothing *inside* this plugin can catch
         that — which is precisely what makes the annotations load-bearing. `repeat(text: str,
-        times: int)` is fully annotated, so the swapped wiring is rejected by graph check 6 before
+        times: int)` is fully annotated, so the swapped wiring is rejected by graph check 8 before
         execution: `str` into an `int` port is refused. This test records that the run-time behaviour
         is no defence, and `test_the_annotations_are_what_reject_a_swap` in the conformance module
         records that the annotations are."""

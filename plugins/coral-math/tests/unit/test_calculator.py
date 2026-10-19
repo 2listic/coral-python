@@ -25,7 +25,7 @@ class TestConstruction:
         WHEN a Calculator is constructed
         THEN the value is 0.0.
 
-        Reachable only from Python: graph check 4 requires every input port to be wired, so the
+        Reachable only from Python: graph check 6 requires every input port to be wired, so the
         default is dead from the graph side. It is asserted here because this is the only place it can
         be — and because deleting it would change this class's Python API."""
         assert Calculator().value == 0.0
