@@ -4,7 +4,7 @@ Two things make this function worth unit-testing on its own:
 
 * its four-way ``hasattr`` chain (cuboid / sphere / box / already-raw) is the plugin's only general
   unwrapper, and a graph exercises **one** branch per run — at simulation cost;
-* its ``len(geometries) < 2`` ``ValueError`` is **unreachable from any graph at all**. Graph check 4
+* its ``len(geometries) < 2`` ``ValueError`` is **unreachable from any graph at all**. Graph check 6
   requires every input port to be wired, so the ``geom2..geom6=None`` defaults are dead from the graph
   side; only a direct call can pass fewer than two geometries.
 
