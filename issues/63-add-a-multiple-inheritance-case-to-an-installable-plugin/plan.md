@@ -58,9 +58,9 @@ Step references to "decision N" mean `decisions.md`'s numbering.
       sentence naming `network-multiple-inheritance.json` as the end-to-end case.
 
 ### 7. Verification
-- [ ] 7.1 `uv run pytest` green (slow and network included); `ruff format --check` and
+- [x] 7.1 `uv run pytest` green (slow and network included); `ruff format --check` and
       `ruff check` clean over `coral-core coral-app plugins tests`.
-- [ ] 7.2 The golden diff exactly as 5.3 says.
-- [ ] 7.3 `uv run coral -p "math" run plugins/coral-math/tests/graphs/network-multiple-inheritance.json`
+- [x] 7.2 The golden diff exactly as 5.3 says.
+- [x] 7.3 `uv run coral -p "math" run plugins/coral-math/tests/graphs/network-multiple-inheritance.json`
       runs and prints the four values.
-- [ ] 7.4 No issue numbers in code comments/docstrings (invariant suite).
+- [x] 7.4 No issue numbers in code comments/docstrings (invariant suite).
