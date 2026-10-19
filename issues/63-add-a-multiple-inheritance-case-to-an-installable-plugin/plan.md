@@ -29,32 +29,32 @@ Step references to "decision N" mean `decisions.md`'s numbering.
       the shapes exist (decision 9).
 
 ### 2. `plugins/coral-math/tests/graphs/network-multiple-inheritance.json`
-- [ ] 2.1 Six nodes as decision 7, with `name` and progressive `qualified_id`; five edges, all
+- [x] 2.1 Six nodes as decision 7, with `name` and progressive `qualified_id`; five edges, all
       `source_output: 0`, `target_input: 0`. Same layout as `network-call-form.json`.
 
 ### 3. `plugins/coral-math/tests/unit/test_shapes.py` (new)
-- [ ] 3.1 `Rectangle(3, 4)`: `area() == 12.0`, `diagonal() == 5.0`.
-- [ ] 3.2 `Square(3)`: `area() == 9.0`, `diagonal() == math.hypot(3, 3)`.
-- [ ] 3.3 A `Square` is an instance of `Regular`, `Rectangle` and `Shape`.
-- [ ] 3.4 `Shape()` raises `TypeError`.
-- [ ] 3.5 `shape_area` / `rectangle_diagonal` return what the methods return, on a `Square`.
+- [x] 3.1 `Rectangle(3, 4)`: `area() == 12.0`, `diagonal() == 5.0`.
+- [x] 3.2 `Square(3)`: `area() == 9.0`, `diagonal() == math.hypot(3, 3)`.
+- [x] 3.3 A `Square` is an instance of `Regular`, `Rectangle` and `Shape`.
+- [x] 3.4 `Shape()` raises `TypeError`.
+- [x] 3.5 `shape_area` / `rectangle_diagonal` return what the methods return, on a `Square`.
 
 ### 4. `plugins/coral-math/tests/system/test_graphs_run.py`
-- [ ] 4.1 New `TestTheMultipleInheritanceGraph`: the four values by `node_named` (decision 7).
+- [x] 4.1 New `TestTheMultipleInheritanceGraph`: the four values by `node_named` (decision 7).
 
 ### 5. `plugins/coral-math/tests/system/test_registry.py`
-- [ ] 5.1 `test_every_declared_class_is_a_constructor_node`: `"abstract"` when the declaration
+- [x] 5.1 `test_every_declared_class_is_a_constructor_node`: `"abstract"` when the declaration
       is abstract, `"constructor"` otherwise; rename to fit.
-- [ ] 5.2 New test: `Square.bases`, `Shape.derived`, `Regular.derived` as decision 8.
-- [ ] 5.3 Regenerate the golden (command in the module docstring). The diff must show only the
+- [x] 5.2 New test: `Square.bases`, `Shape.derived`, `Regular.derived` as decision 8.
+- [x] 5.3 Regenerate the golden (command in the module docstring). The diff must show only the
       new entries: `Shape`, `Rectangle`, `Regular`, `Square`, their five method nodes, `area`,
       `diagonal`.
 
 ### 6. Docs
-- [ ] 6.1 `CLAUDE.md:148`, `README.md:165`: math's description.
-- [ ] 6.2 `CLAUDE.md` slot table: recount with a script; expected math 36 → 48, totals
-      181 → 193 and 149 → 161 checkable.
-- [ ] 6.3 `CLAUDE.md` "Subclasses depend on the front end" and `docs/ONBOARDING.md:681`: one
+- [x] 6.1 `CLAUDE.md:148`, `README.md:165`: math's description.
+- [x] 6.2 `CLAUDE.md` slot table: recount with a script; expected math 36 → 50, totals
+      181 → 195 and 149 → 163 checkable.
+- [x] 6.3 `CLAUDE.md` "Subclasses depend on the front end" and `docs/ONBOARDING.md:681`: one
       sentence naming `network-multiple-inheritance.json` as the end-to-end case.
 
 ### 7. Verification

@@ -679,7 +679,8 @@ operations can. Parity is of the *model*, not of the JSON: the type string is `s
   registry; unregistered classes and every parameterised generic (`List[int]`) become `"any"`, which
   weakens connection validation on the canvas. Subclass instances are refused on the canvas where
   a base is expected until the front end reads `bases` (rule `{type} ∪ bases ∪ {base}`); graph
-  validation and execution already accept them.
+  validation and execution already accept them. The graph to check it with is
+  `plugins/coral-math/tests/graphs/network-multiple-inheritance.json`.
 - **Annotation asymmetry** — a missing parameter annotation becomes `"any"` (still usable), but a
   missing return annotation produces *no output socket* (the node becomes a dead end). Easy to trip
   over when writing a new wrapper.

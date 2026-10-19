@@ -4,9 +4,10 @@ The graphs are the same files ``test_graphs_validate.py`` constructs; here they 
 asserts **values**, not that execution "did not raise": three of these were previously executed by
 tests that asserted nothing at all, which is a wall-clock cost with no failure mode.
 
-Three files are real editor exports, one is the collections/math interop graph and one runs the
-nodes declared on callables defined elsewhere. Their arithmetic is this plugin's business, which is
-why the expected numbers live here rather than in the host's suite.
+Three files are real editor exports, one is the collections/math interop graph, one runs the
+nodes declared on callables defined elsewhere and one wires a multiply inherited class into its
+ancestors' sockets. Their arithmetic is this plugin's business, which is why the expected numbers
+live here rather than in the host's suite.
 """
 
 import math
@@ -204,3 +205,33 @@ class TestTheCallFormGraph:
         THEN the constructor holds the exact ratio, and ``limit_denominator`` returns 355/113."""
         assert result("ratio") == Fraction(3141592, 1000000)
         assert result("limited") == Fraction(355, 113)
+
+
+class TestTheMultipleInheritanceGraph:
+    """``network-multiple-inheritance.json`` — one ``Square`` wired into four sockets, each typed by
+    an ancestor its first parent ``Regular`` does not lead to: ``Rectangle`` or ``Shape``."""
+
+    @pytest.fixture(scope="class")
+    def result(self):
+        """Execute the graph once, returning a lookup from a node's ``name`` to its result."""
+        executor = WorkflowExecutor(
+            str(GRAPHS / "network-multiple-inheritance.json"), plugins=[PLUGIN_NAME]
+        )
+        executor.execute()
+        return lambda name: executor.results[node_named(executor.graph, name)]
+
+    def test_the_second_parent_s_sockets_accept_the_square(self, result):
+        """GIVEN a square of side 3 wired into ``diagonal`` and ``Rectangle.diagonal``, both typed
+             ``Rectangle``, its second parent
+        WHEN the graph is executed
+        THEN both return the diagonal of a 3 by 3 rectangle."""
+        assert result("diagonal_fn") == math.hypot(3.0, 3.0)
+        assert result("diagonal_method") == math.hypot(3.0, 3.0)
+
+    def test_the_grandparent_s_sockets_accept_the_square(self, result):
+        """GIVEN the same square wired into ``area`` and ``Shape.area``, both typed ``Shape``, which
+             it reaches only through ``Rectangle``
+        WHEN the graph is executed
+        THEN both return 9, computed by the override ``Rectangle`` declares."""
+        assert result("area_fn") == 9.0
+        assert result("area_method") == 9.0

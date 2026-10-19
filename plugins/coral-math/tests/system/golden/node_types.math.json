@@ -294,6 +294,50 @@
     "node_type": "function",
     "type": "test_tuple_return"
   },
+  "area": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Shape",
+        "name": "s"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "function",
+    "type": "area"
+  },
+  "diagonal": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Rectangle",
+        "name": "r"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "function",
+    "type": "diagonal"
+  },
   "math.atan2": {
     "arguments": [
       {
@@ -702,6 +746,78 @@
     "node_type": "constructor",
     "type": "Calculator"
   },
+  "Shape": {
+    "arguments": [],
+    "inputs": [],
+    "outputs": [],
+    "node_type": "abstract",
+    "type": "Shape",
+    "derived": [
+      "Rectangle",
+      "Square"
+    ]
+  },
+  "Rectangle": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "width"
+      },
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "height"
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "Rectangle",
+    "bases": [
+      "Shape"
+    ],
+    "derived": [
+      "Square"
+    ]
+  },
+  "Regular": {
+    "arguments": [],
+    "inputs": [],
+    "outputs": [],
+    "node_type": "abstract",
+    "type": "Regular",
+    "derived": [
+      "Square"
+    ]
+  },
+  "Square": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "side"
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      -1
+    ],
+    "node_type": "constructor",
+    "type": "Square",
+    "bases": [
+      "Regular",
+      "Rectangle",
+      "Shape"
+    ]
+  },
   "Fraction": {
     "arguments": [
       {
@@ -802,6 +918,116 @@
     ],
     "node_type": "method",
     "type": "Calculator.multiply_value"
+  },
+  "Shape.area": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Shape",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Shape.area"
+  },
+  "Rectangle.area": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Rectangle",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Rectangle.area"
+  },
+  "Rectangle.diagonal": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Rectangle",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Rectangle.diagonal"
+  },
+  "Square.area": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Square",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Square.area"
+  },
+  "Square.diagonal": {
+    "arguments": [
+      {
+        "connection_type": "input",
+        "type": "Square",
+        "name": "self"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0
+    ],
+    "outputs": [
+      1
+    ],
+    "node_type": "method",
+    "type": "Square.diagonal"
   },
   "Fraction.limit_denominator": {
     "arguments": [
