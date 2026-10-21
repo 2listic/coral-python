@@ -62,6 +62,10 @@ change needed with or without concurrency. #61 depends on this issue.
    and its other outputs shift by one, so the shipped graphs reading them are migrated.
    This includes methods declared with the call form on classes the plugin does not write
    (`Fraction.limit_denominator`, phiflow's `get_*`).
+   A return value named with `outputs=` may share its name with a pass-through: not refused,
+   since a pass-through's name is its input's label and `inputs=` can always tell them apart.
+   The port table stores no count of return values: `NodePorts.returns` derives them from the
+   outputs that pass no input on, so the two cannot disagree.
 5. **Overrides may promise more than their base, never less;** `classes()` raises otherwise:
    - an override of a `const` method must itself be declared `const=True` (an undeclared one
      raises, like `annotations=`);

@@ -40,19 +40,18 @@
 - [x] 1.10 Module docstring: `const=` and `writes=` in the options list.
 
 ### 2. `coral-app/src/coral_app/nodeports.py`: pass-through ports
-- [ ] 2.1 `Port`: add `passthrough: Optional[int] = None` — on an **output**, the index of
+- [x] 2.1 `Port`: add `passthrough: Optional[int] = None` — on an **output**, the index of
       the input port it passes on; `None` for an ordinary output. And `written: bool = False`
       on an **input**. Docstrings.
-- [ ] 2.2 `NodePorts`: add `returns: Optional[int] = None` — how many outputs are return
-      values (what `outputs=` names and the arity check counts); `None` means all of them,
-      for the kinds without pass-throughs. Docstring.
-- [ ] 2.3 `_parameters`: validate `writes=` keys against the signature, like `inputs=` keys
+- [x] 2.2 `NodePorts`: a `returns` property — the outputs that are return values (what
+      `outputs=` names and the arity check counts), derived from `Port.passthrough`.
+- [x] 2.3 `_parameters`: validate `writes=` keys against the signature, like `inputs=` keys
       (a key naming no parameter raises; naming a method's instance raises — use `const`).
-- [ ] 2.4 `_function_ports` / `_method_ports`: mark written inputs (a non-`const` method's
+- [x] 2.4 `_function_ports` / `_method_ports`: mark written inputs (a non-`const` method's
       port 0 included); build outputs in decision 4's order — the instance (non-`const`
       method), the return ports, then one pass-through port per written parameter in
       parameter order, each annotated and named as its input.
-- [ ] 2.5 `_constructor_ports`: unchanged (`returns` stays `None`).
+- [x] 2.5 `_constructor_ports`: unchanged (no pass-through, so `returns` is its one output).
 
 ### 3. `coral-app/src/coral_app/registry.py`
 - [ ] 3.1 `_create_input_argument`: `"connection_type": "pass_through"` for a written input.
