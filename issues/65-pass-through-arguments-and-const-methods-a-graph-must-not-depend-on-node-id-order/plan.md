@@ -13,17 +13,17 @@
 ## Steps
 
 ### 1. `coral-core/src/coral_core/__init__.py`: the declarations
-- [ ] 1.1 `Declaration`: add `writes: tuple[str, ...] = ()`, last; docstring.
-- [ ] 1.2 `MethodDeclaration`: add `const: bool = False`, last; docstring.
-- [ ] 1.3 `_Mark`: add `const: bool` and `writes: tuple[str, ...]`.
-- [ ] 1.4 `_writes(writes, where)` validator, beside `_inputs` / `_outputs`: `None` → `()`;
+- [x] 1.1 `Declaration`: add `writes: tuple[str, ...] = ()`, last; docstring.
+- [x] 1.2 `MethodDeclaration`: add `const: bool = False`, last; docstring.
+- [x] 1.3 `_Mark`: add `const: bool` and `writes: tuple[str, ...]`.
+- [x] 1.4 `_writes(writes, where)` validator, beside `_inputs` / `_outputs`: `None` → `()`;
       a `str` → one name; a tuple/list of distinct non-empty `str`; else `TypeError` /
       `ValueError`. Names are checked against the signature by the host (step 2), as `inputs=`.
-- [ ] 1.5 `Plugin.function`: keyword `writes=`; stored on the `Declaration`. Docstring.
-- [ ] 1.6 `Plugin.method`: keywords `const: bool = False` (`TypeError` if not a `bool`) and
+- [x] 1.5 `Plugin.function`: keyword `writes=`; stored on the `Declaration`. Docstring.
+- [x] 1.6 `Plugin.method`: keywords `const: bool = False` (`TypeError` if not a `bool`) and
       `writes=`; stored on the `_Mark`. Docstring.
-- [ ] 1.7 `Plugin.cls`: no `writes=` (decision 3) — nothing to add; docstring says so.
-- [ ] 1.8 `_method` (decision 5): with `declared` and `func`, and the nearest declaration's
+- [x] 1.7 `Plugin.cls`: no `writes=` (decision 3) — nothing to add; docstring says so.
+- [x] 1.8 `_method` (decision 5): with `declared` and `func`, and the nearest declaration's
       mark:
       - `func is not declared` and `mark.const` → `ValueError` (undeclared override of a
         `const` method), message in the style of the `annotations=` one;
@@ -35,9 +35,9 @@
       The positional comparison needs both functions' parameter lists: read with
       `inspect.signature` here, the one place core reads a signature — or deferred to the host.
       Settle it at review of this sub-step.
-- [ ] 1.9 `_method` returns `MethodDeclaration(attribute, Declaration(func, …, writes),
+- [x] 1.9 `_method` returns `MethodDeclaration(attribute, Declaration(func, …, writes),
       const)`.
-- [ ] 1.10 Module docstring: `const=` and `writes=` in the options list.
+- [x] 1.10 Module docstring: `const=` and `writes=` in the options list.
 
 ### 2. `coral-app/src/coral_app/nodeports.py`: pass-through ports
 - [ ] 2.1 `Port`: add `passthrough: Optional[int] = None` — on an **output**, the index of

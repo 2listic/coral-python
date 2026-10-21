@@ -68,6 +68,13 @@ change needed with or without concurrency. #61 depends on this issue.
    - a declared override may not write a parameter its base declares as read, compared by
      position;
    - an undeclared override inherits `writes=`.
+   Every declared function under that attribute in the MRO is a base, not only the nearest: a
+   method node of any of those classes, given an instance of this one, runs the override behind
+   that class's ports. The nearest alone misses multiple inheritance (`D(B, C)`, `C.f` `const`,
+   `B.f` not) and a declared function in an unregistered class in between.
+   Positions are read in `coral-core` (`inspect.signature`), the one signature it reads: both
+   functions are plain functions, and all of this stays in `classes()` rather than split with the
+   host.
 6. **Readers before the writer.** An output feeding a pass-through input feeds no other
    pass-through input: two writers of one value are refused, nothing would order them. It may
    also feed any number of read inputs; `Graph` then orders every such reader before the
