@@ -4,9 +4,9 @@ Written entirely against the designed specimen (``specimen.py``), because the ex
 not a fact about any plugin: it collects a node's inputs in port order, resolves its callable, binds
 positionally, and stores the result. Which callable that is, is the plugin's business.
 
-By the time ``execute()`` runs there is nothing left to verify — ``Graph`` ran all ten checks while
-the executor was being constructed. So the failure cases here are about *construction*, and the
-success cases are about values.
+By the time ``execute()`` runs there is nothing left to verify — ``Graph`` ran all eleven checks
+while the executor was being constructed. So the failure cases here are about *construction*, and
+the success cases are about values.
 """
 
 import json

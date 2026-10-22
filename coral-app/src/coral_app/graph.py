@@ -1,9 +1,9 @@
 """Stage 3: read a workflow graph, validate it, and put it in execution order.
 
 Construction is where a graph is judged. Every defect raises ``ValueError`` here — a node that
-cannot be identified, a node of an abstract type, a wiring error, an incompatible edge, a cycle, a
-literal that cannot be read — before the first node runs: a long PhiFlow simulation must never be
-spent on a graph that was already known to be broken.
+cannot be identified, a node of an abstract type, a wiring error, an incompatible edge, two nodes
+modifying one value, a cycle, a literal that cannot be read — before the first node runs: a long
+PhiFlow simulation must never be spent on a graph that was already known to be broken.
 
 The port table (stage 2) arrives as plain data, so this module introspects nothing and knows nothing
 about plugins: give it a node/edge dict and a table and it will tell you whether the two agree.
@@ -16,7 +16,7 @@ import json
 import numbers
 from dataclasses import dataclass
 from graphlib import CycleError, TopologicalSorter
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 from coral_app.nodeports import ABSTRACT, PRIMITIVE, NodePorts
 from coral_app.nodestatus import qualified_ids
@@ -120,7 +120,7 @@ class Graph:
             executable. The rules themselves stay in :mod:`coral_app.nodestatus`, which owns the
             filename convention they come from.
         literals: Node id -> value, for every primitive node, read by
-            :func:`~coral_app.primitives.read_literal` during construction (check 10). A literal
+            :func:`~coral_app.primitives.read_literal` during construction (check 11). A literal
             is static data in the JSON, so a bad one is a defect of the graph like any other; the
             executor takes each value from here and parses nothing itself.
     """
@@ -172,10 +172,13 @@ class Graph:
         self._check_every_input_is_connected()
         self._check_output_ports_exist()
         self._check_edge_types()
+        # Check 9. Kept, because the order is built from it too.
+        self._writers: Dict[Tuple[str, int], Edge] = self._check_one_writer_per_output()
 
+        # Check 10.
         self.order: List[str] = self._build_order()
 
-        # Check 10: a literal is static data, so it is read here like any other defect and kept —
+        # Check 11: a literal is static data, so it is read here like any other defect and kept —
         # the executor takes each value from this mapping and parses nothing itself.
         self.literals: Dict[str, Any] = self._read_literals()
 
@@ -374,6 +377,59 @@ class Graph:
                     f"{self.describe(edge.target)}, which expects {_name(target.annotation)}"
                 )
 
+    def _check_one_writer_per_output(self) -> Dict[Tuple[str, int], Edge]:
+        """An output may feed at most one input that modifies it.
+
+        A written input is modified in place, so two of them on one value would each modify what
+        the other receives, in an order nothing in the graph decides. Read inputs may share the
+        value freely: :meth:`_build_order` runs them before its writer. ``source_output`` is
+        normalised first, so ``0``, ``-1`` and an omitted key are one output of a single-output
+        node.
+
+        Nor may the writer receive the same output on a read input: it would read the value while
+        modifying it, inside one call, where no order can help.
+
+        Returns:
+            (source node, output index) -> the edge into its writer, for every output that has one.
+        """
+        writers: Dict[Tuple[str, int], Edge] = {}
+        for edge in self.edges:
+            target = self.ports_of(edge.target).inputs[edge.target_input]
+            if not target.written:
+                continue
+            output = (edge.source, self._output_index(edge))
+            if output in writers:
+                first = writers[output]
+                first_target = self.ports_of(first.target).inputs[first.target_input]
+                raise ValueError(
+                    f"Output {output[1]} of node {self.describe(edge.source)} feeds two inputs "
+                    f"that modify it: {first_target.name!r} of node {self.describe(first.target)} "
+                    f"(edge {first.id!r}) and {target.name!r} of node "
+                    f"{self.describe(edge.target)} (edge {edge.id!r}); nothing orders the two. "
+                    f"Feed the second from the first's pass-through output instead"
+                )
+            writers[output] = edge
+
+        for edge in self.edges:
+            writer = writers.get((edge.source, self._output_index(edge)))
+            if writer is not None and writer is not edge and writer.target == edge.target:
+                ports = self.ports_of(edge.target).inputs
+                raise ValueError(
+                    f"Output {self._output_index(edge)} of node {self.describe(edge.source)} "
+                    f"feeds both {ports[writer.target_input].name!r} and "
+                    f"{ports[edge.target_input].name!r} of node {self.describe(edge.target)}, "
+                    f"which modifies the first while reading the second; a node cannot read a "
+                    f"value it is modifying"
+                )
+        return writers
+
+    def _output_index(self, edge: Edge) -> int:
+        """The output an edge reads, 0-based. On a single-output node ``0``, ``-1`` and an omitted
+        key are all output 0."""
+        if len(self.ports_of(edge.source).outputs) == 1:
+            return 0
+        return edge.source_output
+
     def _output_annotation(self, edge: Edge):
         """The annotation of the source output an edge reads."""
         outputs = self.ports_of(edge.source).outputs
@@ -408,17 +464,42 @@ class Graph:
         ``TopologicalSorter`` takes ``{node: predecessors}`` — the inverse of an adjacency list.
         Each ready batch is sorted, so the order is a function of the graph rather than of JSON key
         order; that batch is also where concurrent execution of independent branches would hook in.
+
+        Besides the edges, every node reading an output that another node modifies (check 9) runs
+        before that writer, as if an edge joined them, so it sees the value unmodified. A reader
+        that also depends on the writer's result closes a cycle, and the message names the implicit
+        edge.
         """
         predecessors = {node_id: set() for node_id in self.nodes}
         for edge in self.edges:
             predecessors[edge.target].add(edge.source)
 
+        # (reader, writer) -> the edge the reader reads the written value by
+        implicit: Dict[Tuple[str, str], Edge] = {}
+        for edge in self.edges:
+            writer = self._writers.get((edge.source, self._output_index(edge)))
+            if writer is not None and writer is not edge:
+                predecessors[writer.target].add(edge.target)
+                implicit.setdefault((edge.target, writer.target), edge)
+
         sorter = TopologicalSorter(predecessors)
         try:
             sorter.prepare()
         except CycleError as exc:
-            cycle = " -> ".join(str(node_id) for node_id in exc.args[1])
-            raise ValueError(f"Cycle detected in workflow: {cycle}") from exc
+            path = exc.args[1]
+            cycle = " -> ".join(str(node_id) for node_id in path)
+            # Each node in the path is a predecessor of the next.
+            reasons = [
+                f"node {self.describe(reader)} reads output {self._output_index(edge)} of node "
+                f"{self.describe(edge.source)}, which node {self.describe(writer)} modifies, so "
+                f"it runs first"
+                for reader, writer in zip(path, path[1:])
+                if (edge := implicit.get((reader, writer))) is not None
+            ]
+            message = f"Cycle detected in workflow: {cycle}"
+            if reasons:
+                message += "; " + "; ".join(reasons)
+            raise ValueError(message) from exc
 
         order: List[str] = []
         while sorter.is_active():

@@ -62,15 +62,15 @@
       `generate_registry`.
 
 ### 4. `coral-app/src/coral_app/graph.py`
-- [ ] 4.1 New check, after 8: **one writer per output** — per (source, normalised
+- [x] 4.1 New check, after 8: **one writer per output** — per (source, normalised
       `source_output`), at most one edge into a written input. Message names the output and
       both writers.
-- [ ] 4.2 `_build_order` (check 10, was 9): add implicit edges reader → writer for every output
+- [x] 4.2 `_build_order` (check 10, was 9): add implicit edges reader → writer for every output
       with a writer. A cycle through an implicit edge says so in the message: which reader,
       which writer, which value.
-- [ ] 4.3 Renumber the checks after the new one in docstrings/comments (cycles become 10,
+- [x] 4.3 Renumber the checks after the new one in docstrings/comments (cycles become 10,
       literals 11).
-- [ ] 4.4 `_output_annotation`: unchanged (a pass-through port carries its annotation).
+- [x] 4.4 `_output_annotation`: unchanged (a pass-through port carries its annotation).
 
 ### 5. `coral-app/src/coral_app/__init__.py`: `build_class_map`
 - [ ] 5.1 Decision 8: after merging, a class whose `__mro__[1:]` contains a class registered

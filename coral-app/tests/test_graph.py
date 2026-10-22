@@ -406,7 +406,7 @@ class TestNodeTypes:
 
 
 class TestLiterals:
-    """Check 10: every primitive's ``value`` is read while the graph is built, and kept."""
+    """Check 11: every primitive's ``value`` is read while the graph is built, and kept."""
 
     def test_the_parsed_values_are_exposed_on_the_graph(self):
         """GIVEN an int primitive carrying a string, wired into a function
