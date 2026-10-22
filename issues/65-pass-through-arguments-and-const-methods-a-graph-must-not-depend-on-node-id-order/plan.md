@@ -73,10 +73,10 @@
 - [x] 4.4 `_output_annotation`: unchanged (a pass-through port carries its annotation).
 
 ### 5. `coral-app/src/coral_app/__init__.py`: `build_class_map`
-- [ ] 5.1 Decision 8: after merging, a class whose `__mro__[1:]` contains a class registered
-      by a *different* plugin raises (`ValueError` subclass? reuse `DuplicateNodeTypeError`
-      or a new one — settle at review), naming both classes and both plugins.
-- [ ] 5.2 Docstring.
+- [x] 5.1 Decision 8: after merging, a class whose `__mro__[1:]` contains a class registered
+      by a *different* plugin raises a plain `ValueError`, naming both classes and both
+      plugins.
+- [x] 5.2 Docstring.
 
 ### 6. `coral-app/src/coral_app/executor.py`
 - [ ] 6.1 Dispatch (decision 7): build `{class: ClassDeclaration}` once from `class_map`;

@@ -142,6 +142,11 @@ def build_class_map(
     plugins declaring one is unresolvable from the graph. There are no builtin classes, so
     plugins are the only contributors.
 
+    **Plugins do not share a class hierarchy.** A class registered by one plugin may not derive from
+    a class registered by another: overrides are checked within one plugin's declarations, so across
+    plugins nothing would check them. One plugin registers the whole hierarchy; values still cross
+    plugins.
+
     Args:
         include: Plugin names to load. If ``None``, loads every discovered plugin.
         exclude: Plugin names to drop, applied after ``include``.
@@ -152,6 +157,7 @@ def build_class_map(
     Raises:
         LookupError: if a selected name is not a discoverable plugin.
         DuplicateNodeTypeError: if two plugins declare the same class name.
+        ValueError: if a class registered by one plugin derives from a class registered by another.
     """
     class_map: Dict[str, ClassDeclaration] = {}
     owner: Dict[str, str] = {}  # class name -> the plugin that declared it
@@ -165,5 +171,17 @@ def build_class_map(
                 )
             owner[class_name] = name
             class_map[class_name] = declaration
+
+    # Plugins do not share a class hierarchy. Overrides are checked against the declarations of one
+    # plugin (`Plugin.classes`), so a class deriving from another plugin's would escape the check.
+    registered = {declaration.target: class_name for class_name, declaration in class_map.items()}
+    for class_name, declaration in class_map.items():
+        for base in declaration.target.__mro__[1:]:
+            if base in registered and owner[registered[base]] != owner[class_name]:
+                raise ValueError(
+                    f"class {class_name!r} of plugin {owner[class_name]!r} derives from class "
+                    f"{registered[base]!r} of plugin {owner[registered[base]]!r}; plugins do not "
+                    f"share a class hierarchy, so one plugin must register both"
+                )
 
     return class_map

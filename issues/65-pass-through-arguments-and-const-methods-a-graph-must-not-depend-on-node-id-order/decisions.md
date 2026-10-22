@@ -105,6 +105,9 @@ change needed with or without concurrency. #61 depends on this issue.
    Either way, one plugin registers the whole hierarchy. Values still cross plugins, code does
    not: with 7, a node runs only code its own plugin declared, and an abstract body is reached
    only through an unregistered class, which 7's check refuses.
+   The error is a plain `ValueError`: `DuplicateNodeTypeError` means one name with two owners,
+   which this is not, and nothing catches either by type, so a class of its own would have no
+   consumer.
 
 ## Rejected
 - **Host-enforced copies** (deepcopy of a fanned-out written value): costly for large fields,
