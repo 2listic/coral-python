@@ -57,7 +57,7 @@
         "target_input": 0
       },
       "2": {
-        "source": 1,
+        "source": 5,
         "target": 4,
         "source_output": 0,
         "target_input": 0
@@ -71,13 +71,13 @@
       "4": {
         "source": 5,
         "target": 4,
-        "source_output": 0,
+        "source_output": 1,
         "target_input": 1
       },
       "5": {
         "source": 4,
         "target": 3,
-        "source_output": 0,
+        "source_output": 1,
         "target_input": 0
       }
     }

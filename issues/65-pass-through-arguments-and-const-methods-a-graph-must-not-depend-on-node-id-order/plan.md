@@ -122,12 +122,12 @@
         `plot.movie is movie.movie`; `test_graphs_run.py`: `pde.source.mask`) follow in 9.8.
 
 ### 8. Graphs
-- [ ] 8.1 `plugins/coral-math/tests/graphs/network-from-fe-classes.json`: rewire — chain
+- [x] 8.1 `plugins/coral-math/tests/graphs/network-from-fe-classes.json`: rewire — chain
       `add_to_value` → (its pass-through) → `multiply_value`; renumber the `source_output`
       of every edge reading their results (now output 1). Its value assertions follow.
-- [ ] 8.2 Every other shipped graph: re-run the scan from the discussion; migrate any edge
+- [x] 8.2 Every other shipped graph: re-run the scan from the discussion; migrate any edge
       reading a non-`const` method's output (expected: none after step 7).
-- [ ] 8.3 `pytest plugins/*/tests/system/test_graphs_validate.py`: all construct.
+- [x] 8.3 `pytest plugins/*/tests/system/test_graphs_validate.py`: all construct.
 
 ### 9. Tests
 - [ ] 9.1 `coral-core/tests/test_plugin.py`: `const=` (default, explicit, bad type);

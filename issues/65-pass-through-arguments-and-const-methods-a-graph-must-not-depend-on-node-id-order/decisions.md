@@ -8,8 +8,9 @@ change needed with or without concurrency. #61 depends on this issue.
 - The ambiguity exists with the sequential executor. One value fanned out to several nodes, one
   of which mutates it in place, gives a result decided by `graph.order`'s tie-break, i.e. by node
   ids: arbitrary but reproducible. A thread pool would make it non-reproducible.
-  `plugins/coral-math/tests/graphs/network-from-fe-classes.json` is such a graph: one `Calculator`
-  into `add_to_value` and `multiply_value`, both mutating `self.value`, so it computes
+  `plugins/coral-math/tests/graphs/network-from-fe-classes.json` fans one `Calculator` into
+  `add_to_value` and `multiply_value`, both mutating `self.value`. It is ordered only because
+  `multiply_value`'s factor is `add_to_value`'s result; without that edge it would compute
   `(v + a) * f` or `v * f + a` depending on node ids.
 - Nothing in a Python signature says an output is a mutated input, and it cannot be detected:
   the AST misses mutation inside called code (`a.sort()`, `np.add(a, b, out=a)`, C extensions),
@@ -29,10 +30,10 @@ change needed with or without concurrency. #61 depends on this issue.
   override dispatch use registered subclasses (`test_executor.py`, abstract `Meter` /
   `Thermometer`, and `Child`).
 - Shipped graphs fanning an instance into a method alongside other consumers:
-  `network-from-fe-classes.json` (ambiguous), `network-multiple-inheritance.json`
-  (`Rectangle.diagonal`, `Shape.area`: readers), `pypde/obstacles.json`
-  (`get_initial_condition`, `solve`) and `pypde/poisson.json` (`to_file`, `plot`), the pypde
-  methods presumably readers, to be checked.
+  `network-from-fe-classes.json` (two writers, ordered by an edge),
+  `network-multiple-inheritance.json` (`Rectangle.diagonal`, `Shape.area`: readers),
+  `pypde/obstacles.json` (`get_initial_condition`, `solve`) and `pypde/poisson.json`
+  (`to_file`, `plot`), the pypde methods presumably readers, to be checked.
 
 ## Decisions
 1. **Methods are non-`const` by default.** `@plugin.method(const=True)` declares that a method
