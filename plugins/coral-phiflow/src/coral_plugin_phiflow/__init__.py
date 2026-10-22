@@ -22,19 +22,19 @@ __all__ = ["plugin"]
 plugin = Plugin()
 
 plugin.cls(PhiFlowBox)
-plugin.method(PhiFlowBox.get_box)
+plugin.method(PhiFlowBox.get_box, const=True)
 
 plugin.cls(PhiFlowSphere)
-plugin.method(PhiFlowSphere.get_sphere)
+plugin.method(PhiFlowSphere.get_sphere, const=True)
 
 plugin.cls(PhiFlowStaggeredGrid)
-plugin.method(PhiFlowStaggeredGrid.get_grid)
+plugin.method(PhiFlowStaggeredGrid.get_grid, const=True)
 
 plugin.cls(PhiFlowCenteredGrid)
-plugin.method(PhiFlowCenteredGrid.get_grid)
+plugin.method(PhiFlowCenteredGrid.get_grid, const=True)
 
 plugin.cls(PhiFlowCuboid)
-plugin.method(PhiFlowCuboid.get_cuboid)
+plugin.method(PhiFlowCuboid.get_cuboid, const=True)
 
 plugin.function(phiflow_iterate, outputs=("velocity", "smoke", "pressure"))
 plugin.function(phiflow_plot_and_save)

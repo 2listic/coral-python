@@ -48,22 +48,23 @@ plugin.cls(PyPDEUnitGrid)
 plugin.cls(PyPDECartesianGrid)
 
 plugin.cls(PyPDEScalarField)
-plugin.method(PyPDEScalarField.plot)
-plugin.method(PyPDEScalarField.to_file)
+plugin.method(PyPDEScalarField.plot, const=True)
+plugin.method(PyPDEScalarField.to_file, const=True)
 
 plugin.cls(PyPDEFileStorage)
 plugin.cls(PyPDEMovie)
 plugin.cls(PyPDEPlotTracker)
 
+# A `solve` modifies its equation, where py-pde records its diagnostics, and fills both trackers.
 plugin.cls(PyPDEDiffusionPDE)
-plugin.method(PyPDEDiffusionPDE.solve)
+plugin.method(PyPDEDiffusionPDE.solve, writes=("storage", "plot"))
 
 plugin.cls(PyPDEShape, abstract=True)
 plugin.cls(PyPDECircle)
 plugin.cls(PyPDERectangle)
 
 plugin.cls(PyPDEObstacleDiffusionPDE)
-plugin.method(PyPDEObstacleDiffusionPDE.get_initial_condition)
-plugin.method(PyPDEObstacleDiffusionPDE.solve)
+plugin.method(PyPDEObstacleDiffusionPDE.get_initial_condition, const=True)
+plugin.method(PyPDEObstacleDiffusionPDE.solve, writes=("storage", "plot"))
 
 plugin.function(pypde_solve_poisson_equation)

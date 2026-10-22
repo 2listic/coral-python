@@ -33,14 +33,14 @@ class StringProcessor:
         """Initialize with optional prefix"""
         self.prefix = prefix
 
-    @plugin.method
+    @plugin.method(const=True)
     def concatenate(self, text: str) -> str:
         """Concatenate prefix with text"""
         result = self.prefix + text
         print(f"StringProcessor.concatenate('{text}') = '{result}'")
         return result
 
-    @plugin.method
+    @plugin.method(const=True)
     def repeat(self, text: str, times: int) -> str:
         """Repeat text n times"""
         result = text * times

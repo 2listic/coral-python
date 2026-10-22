@@ -137,7 +137,7 @@ class Calculator:
         print(f"Calculator.multiply_value({factor}) = {self.value}")
         return self.value
 
-    @plugin.method
+    @plugin.method(const=True)
     def get_value(self) -> float:
         """Get current value"""
         print(f"Calculator.get_value() = {self.value}")
@@ -151,7 +151,7 @@ class Calculator:
 class Shape(ABC):
     """A plane figure: abstract, so a socket type but not a constructor node."""
 
-    @plugin.method
+    @plugin.method(const=True)
     @abstractmethod
     def area(self) -> float:
         """The figure's area; implemented by every concrete subclass."""
@@ -165,13 +165,15 @@ class Rectangle(Shape):
         self.width = width
         self.height = height
 
+    @plugin.method(const=True)
     def area(self) -> float:
-        """Width times height. Not declared again: the override keeps ``Shape.area``'s node."""
+        """Width times height. Declared again, as an override of a ``const`` method must be: it
+        keeps ``Shape.area``'s node, and promises itself not to modify the rectangle."""
         result = self.width * self.height
         print(f"{type(self).__name__}.area() = {result}")
         return result
 
-    @plugin.method
+    @plugin.method(const=True)
     def diagonal(self) -> float:
         """The length of the diagonal."""
         result = math.hypot(self.width, self.height)
@@ -219,4 +221,8 @@ plugin.function(
     math.atan2, name="math.atan2", annotations={"y": float, "x": float, "return": float}
 )
 plugin.cls(Fraction, annotations={"numerator": int, "denominator": int})
-plugin.method(Fraction.limit_denominator, annotations={"max_denominator": int, "return": Fraction})
+plugin.method(
+    Fraction.limit_denominator,
+    annotations={"max_denominator": int, "return": Fraction},
+    const=True,
+)

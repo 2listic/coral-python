@@ -13,15 +13,15 @@ class ObstacleDiffusionPDE(PDEBase):
     """
 
     def __init__(self, diffusivity, dx, source, absorber, obstacle):
+        """``source``, ``absorber`` and ``obstacle`` are boolean masks over the grid's cells."""
         super().__init__()
 
         self.D = diffusivity
         self.dx = dx
 
-        # Store masks as instance attributes
-        self.source = source.mask
-        self.absorber = absorber.mask
-        self.obstacle = obstacle.mask
+        self.source = source
+        self.absorber = absorber
+        self.obstacle = obstacle
 
         # Only the obstacle blocks flux
         self.conducting = ~self.obstacle

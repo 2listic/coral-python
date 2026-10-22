@@ -96,21 +96,30 @@
       counts pass-throughs); re-read its docstring.
 
 ### 7. Plugins: declare `const` / `writes=`
-- [ ] 7.1 Audit every declared method for writes to `self` (read only `__init__` assigns,
+- [x] 7.1 Audit every declared method for writes to `self` (read only `__init__` assigns,
       seen during discussion; confirm per method).
-- [ ] 7.2 math: `Calculator.get_value`, `Shape.area`, `Rectangle.diagonal`,
+- [x] 7.2 math: `Calculator.get_value`, `Shape.area`, `Rectangle.diagonal`,
       `Fraction.limit_denominator` → `const=True` (`Square.area` / `.diagonal` resolve to
       `Rectangle`'s functions and follow them).
       `Rectangle.area` is an undeclared override of `Shape.area`: declare it
       `@plugin.method(const=True)` and fix its "Not declared again" docstring (decision 5).
       `Calculator.add_to_value`, `multiply_value` stay non-`const`.
-- [ ] 7.3 string: `StringProcessor.concatenate`, `.repeat` → `const=True` if 7.1 confirms.
-- [ ] 7.4 phiflow: `get_box`, `get_sphere`, `get_cuboid`, both `get_grid` → `const=True`.
-- [ ] 7.5 pypde: `PyPDEScalarField.plot` / `.to_file`,
+- [x] 7.3 string: `StringProcessor.concatenate`, `.repeat` → `const=True` if 7.1 confirms.
+- [x] 7.4 phiflow: `get_box`, `get_sphere`, `get_cuboid`, both `get_grid` → `const=True`.
+- [x] 7.5 pypde: `PyPDEScalarField.plot` / `.to_file`,
       `PyPDEObstacleDiffusionPDE.get_initial_condition` → `const=True` if 7.1 confirms;
       `PyPDEDiffusionPDE.solve` / `PyPDEObstacleDiffusionPDE.solve` — decide from 7.1 (they
       call into py-pde's `solve`).
-- [ ] 7.6 Builtins: none has `writes=` (pure by contract); check nothing changes.
+- [x] 7.6 Builtins: none has `writes=` (pure by contract); check nothing changes.
+- [x] 7.7 pypde: the constructors that breach decision 3's unchecked contracts.
+      - `PyPDECircle` / `PyPDERectangle`: `_build_mask(grid)`, which sets `self.mask`, becomes
+        `_mask(grid)`, which returns it and sets nothing.
+      - `PyPDEObstacleDiffusionPDE.__init__`: keeps the py-pde grid (`grid.grid`) and the three
+        masks, never the shapes; `ObstacleDiffusionPDE` takes the masks themselves.
+      - `PyPDEPlotTracker.__init__`: keeps a `copy.copy` of `movie.movie`. A py-pde `Movie`
+        opens its writer only at the first frame, so the copy is a fresh, unstarted movie.
+      - Tests that assert the old shape (`test_wrappers.py`: `_build_mask`, `.mask`,
+        `plot.movie is movie.movie`; `test_graphs_run.py`: `pde.source.mask`) follow in 9.8.
 
 ### 8. Graphs
 - [ ] 8.1 `plugins/coral-math/tests/graphs/network-from-fe-classes.json`: rewire — chain

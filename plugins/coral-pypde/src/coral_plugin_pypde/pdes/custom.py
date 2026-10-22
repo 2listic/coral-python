@@ -25,11 +25,12 @@ class PyPDECircle(PyPDEShape):
         self.radius = radius
         self.center = center
 
-    def _build_mask(self, grid):
+    def _mask(self, grid):
+        """The circle as a mask over the cells of ``grid``, a py-pde grid. The shape is left
+        unchanged: it is a read input of the equation built from it."""
         xC, yC = literal_eval(self.center)
-        x, y = grid.grid.cell_coords[..., 0], grid.grid.cell_coords[..., 1]
-        circle = (x - xC) ** 2 + (y - yC) ** 2 < self.radius**2
-        self.mask = circle
+        x, y = grid.cell_coords[..., 0], grid.cell_coords[..., 1]
+        return (x - xC) ** 2 + (y - yC) ** 2 < self.radius**2
 
 
 class PyPDERectangle(PyPDEShape):
@@ -46,16 +47,21 @@ class PyPDERectangle(PyPDEShape):
         self.center = center
         self.sides = sides
 
-    def _build_mask(self, grid):
+    def _mask(self, grid):
+        """The rectangle as a mask over the cells of ``grid``, a py-pde grid. The shape is left
+        unchanged: it is a read input of the equation built from it."""
         xC, yC = literal_eval(self.center)
         L1, L2 = literal_eval(self.sides)
-        x, y = grid.grid.cell_coords[..., 0], grid.grid.cell_coords[..., 1]
-        rectangle = (abs(x - xC) < L1) & (abs(y - yC) < L2)
-        self.mask = rectangle
+        x, y = grid.cell_coords[..., 0], grid.cell_coords[..., 1]
+        return (abs(x - xC) < L1) & (abs(y - yC) < L2)
 
 
 class PyPDEObstacleDiffusionPDE:
-    """Wrapper for the custom obstacle diffusion equation."""
+    """Wrapper for the custom obstacle diffusion equation.
+
+    It keeps the py-pde grid, which py-pde treats as immutable, and the masks built from the
+    shapes, never the shapes themselves.
+    """
 
     def __init__(
         self,
@@ -66,19 +72,17 @@ class PyPDEObstacleDiffusionPDE:
         absorber: PyPDEShape,
         obstacle: PyPDEShape,
     ):
-        self.grid = grid
-        source._build_mask(self.grid)
-        absorber._build_mask(self.grid)
-        obstacle._build_mask(self.grid)
-        self.source = source
-        self.absorber = absorber
-        self.obstacle = obstacle
+        self.grid = grid.grid
         self.equation = ObstacleDiffusionPDE(
-            diffusivity, dx, self.source, self.absorber, self.obstacle
+            diffusivity,
+            dx,
+            source._mask(self.grid),
+            absorber._mask(self.grid),
+            obstacle._mask(self.grid),
         )
 
     def get_initial_condition(self) -> PyPDEScalarField:
-        state = self.equation.get_initial_state(self.grid.grid)
+        state = self.equation.get_initial_state(self.grid)
         return PyPDEScalarField._holding(state)
 
     def solve(
