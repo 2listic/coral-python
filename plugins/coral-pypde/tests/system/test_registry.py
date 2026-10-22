@@ -81,18 +81,28 @@ class TestTheGoldenDescribesThisPlugin:
             assert in_golden == set(declaration.methods), class_name
         assert "PyPDEScalarField._holding" not in registry
 
-    def test_solve_declares_five_inputs_and_one_output(self, registry):
+    def test_solve_declares_five_inputs_three_of_them_passed_through(self, registry):
         """GIVEN the solver's method node
         WHEN its golden entry is read
-        THEN it has five input ports in order and a single output.
+        THEN it has five input ports in order, three of them pass-throughs, and four outputs: the
+        equation, the returned field, then the storage and the plot tracker.
 
         Port 0 is the instance; the two tracker ports are 3 and 4, which is the shape the decision
-        to give each tracker its own port produces — a single `list` port would show four inputs."""
+        to give each tracker its own port produces — a single `list` port would show four inputs.
+        A solve modifies its equation and fills both trackers, so it passes those three on."""
         entry = registry["PyPDEDiffusionPDE.solve"]
-        names = [arg["name"] for arg in entry["arguments"] if arg["connection_type"] == "input"]
+        arguments = [(arg["name"], arg["connection_type"]) for arg in entry["arguments"]]
 
-        assert names == ["self", "state", "t_range", "storage", "plot"]
-        assert entry["outputs"] == [5]
+        assert arguments == [
+            ("self", "pass_through"),
+            ("state", "input"),
+            ("t_range", "input"),
+            ("storage", "pass_through"),
+            ("plot", "pass_through"),
+            ("", "output"),
+        ]
+        assert entry["inputs"] == [0, 1, 2, 3, 4]
+        assert entry["outputs"] == [0, 5, 3, 4]
 
     def test_a_wrapper_typed_socket_carries_the_wrapper_key(self, registry):
         """GIVEN the solver's ports, annotated with this plugin's own wrapper classes

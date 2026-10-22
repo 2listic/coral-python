@@ -12,21 +12,27 @@ being declared on it with one of three decorators, which also carry every option
     class Calculator:
         def __init__(self, initial_value: float): ...
 
-        @plugin.method(outputs="value")
+        @plugin.method(const=True, outputs="value")
         def get_value(self) -> float: ...
 
 A class other classes derive from, but which is never built itself, is declared abstract:
 ``plugin.cls(Base, abstract=True)``, or implicitly when Python cannot instantiate it
 (``inspect.isabstract``). Its key still types sockets; it has no constructor node.
 
+A method is taken to modify its instance unless declared ``const=True``; a function or method
+modifies none of its other parameters unless it names them with ``writes=``. A modified input is a
+pass-through: an output too, so the host can order every node reading the value before the one
+modifying it. An override may promise more than what it overrides, never less.
+
 A callable that cannot be decorated where it is defined — a builtin, a class from another library —
 is declared with the same decorators used as a plain call: ``plugin.function(math.atan2, ...)``.
 
-The options are labels only, and they are kept in the plugin, never on the decorated object: a
-builtin has no ``__dict__`` to write to, and a label stored on a function two plugins both declare
-would let one overwrite the other. What the host receives are declarations — :class:`Declaration`,
-:class:`ClassDeclaration` — each a callable together with what its decorator said. Reading a
-signature and building ports from it is the host's job, not this package's.
+The options are kept in the plugin, never on the decorated object: a builtin has no ``__dict__`` to
+write to, and an option stored on a function two plugins both declare would let one overwrite the
+other. What the host receives are declarations — :class:`Declaration`, :class:`ClassDeclaration` —
+each a callable together with what its decorator said. Reading a signature and building ports from
+it is the host's job, not this package's; this package reads one only to compare an override's
+written parameters with its base's, by position.
 
 The entry-point name under which a plugin registers (see the host's ``coral.plugins`` group) is the
 plugin's identity — the contract carries no ``name``.
@@ -68,12 +74,16 @@ class Declaration:
         outputs: The output names in port order, or ``None`` when none were given.
         annotations: Types for the parameters (key ``"return"`` for the return value) that the
             signature leaves unannotated.
+        writes: The parameters the callable modifies in place, in the order given. Each is a
+            pass-through: its input port is an output too. The others are read. A method's
+            instance is never among them: see :attr:`MethodDeclaration.const`.
     """
 
     target: Callable
     inputs: Mapping[str, str] = field(default_factory=dict)
     outputs: tuple[str, ...] | None = None
     annotations: Mapping[str, Any] = field(default_factory=dict)
+    writes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _freeze(self, "inputs", "annotations")
@@ -84,13 +94,17 @@ class MethodDeclaration:
     """One method node type of a class.
 
     Attributes:
-        attribute: The attribute the method is reached by on an instance. The host looks it up on
-            the instance at run time, so an override in the instance's own class is what runs.
+        attribute: The attribute the method is defined under. A method node runs the function the
+            declaration of its instance's class resolves under it, so an override in a registered
+            subclass is what runs.
         declaration: The function the class holds under that attribute, with its labels.
+        const: Whether the method leaves its instance unmodified. A method that is not ``const``
+            passes its instance through, as its first output.
     """
 
     attribute: str
     declaration: Declaration
+    const: bool = False
 
 
 @dataclass(frozen=True)
@@ -131,6 +145,8 @@ class _Mark:
     inputs: dict[str, str]
     outputs: tuple[str, ...] | None
     annotations: dict[str, Any]
+    writes: tuple[str, ...]
+    const: bool
 
 
 class Plugin:
@@ -163,6 +179,7 @@ class Plugin:
         inputs: dict[str, str] | None = None,
         outputs: str | tuple[str, ...] | list[str] | None = None,
         annotations: dict[str, Any] | None = None,
+        writes: str | tuple[str, ...] | list[str] | None = None,
     ):
         """Declare a function node type.
 
@@ -173,6 +190,8 @@ class Plugin:
             inputs: ``{parameter: label}`` relabelling some input ports.
             outputs: The output names in port order; a plain ``str`` is one name.
             annotations: Types for parameters (and ``"return"``) the signature leaves unannotated.
+            writes: The parameters the function modifies in place; a plain ``str`` is one name.
+                Each is a pass-through, an output after the return values.
 
         Raises:
             TypeError: if the target is a class or not callable, or an option has the wrong type.
@@ -193,6 +212,7 @@ class Plugin:
                 _inputs(inputs, where),
                 _outputs(outputs, where),
                 _annotations(annotations, where),
+                _writes(writes, where),
             )
             return func
 
@@ -212,6 +232,7 @@ class Plugin:
         constructor a node type, keyed by the class's name.
 
         Only the methods declared with :meth:`method` become node types too, abstract class or not.
+        There is no ``writes=``: a constructor modifies none of its inputs.
 
         Args:
             target: The class. Omitted when used as ``@plugin.cls(...)``.
@@ -267,12 +288,17 @@ class Plugin:
         inputs: dict[str, str] | None = None,
         outputs: str | tuple[str, ...] | list[str] | None = None,
         annotations: dict[str, Any] | None = None,
+        writes: str | tuple[str, ...] | list[str] | None = None,
+        const: bool = False,
     ):
         """Declare a method node type, of every registered class that has this function.
 
         The node type is ``<class key>.<name>``. A registered subclass has the method too, and so
-        does an override of it in a subclass, which keeps ``name``, ``inputs`` and ``outputs`` —
-        but not ``annotations``, which describe this one function's signature.
+        does an override of it in a subclass, which keeps ``name``, ``inputs``, ``outputs``,
+        ``writes`` and ``const`` — but not ``annotations``, which describe this one function's
+        signature. An override may promise more than what it overrides, never less: it may be
+        ``const`` where its base is not, and modify fewer parameters, compared by position. An
+        override of a ``const`` method must therefore be declared itself, with ``const=True``.
 
         Args:
             target: A plain function. Omitted when used as ``@plugin.method(...)``.
@@ -281,6 +307,11 @@ class Plugin:
             inputs: ``{parameter: label}`` relabelling some input ports.
             outputs: The output names in port order; a plain ``str`` is one name.
             annotations: Types for parameters (and ``"return"``) the signature leaves unannotated.
+            writes: The parameters other than the instance that the method modifies in place; a
+                plain ``str`` is one name. Each is a pass-through, an output after the return
+                values.
+            const: Whether the method leaves its instance unmodified. If not, the default, the
+                instance is a pass-through, the method's first output.
 
         Raises:
             TypeError: if the target is not a plain function — a staticmethod, classmethod,
@@ -303,11 +334,15 @@ class Plugin:
                 )
             if func in self._marks:
                 raise ValueError(f"{where}: the method is already declared in this plugin")
+            if not isinstance(const, bool):
+                raise TypeError(f"{where}: const= takes a bool, got {const!r}")
             self._marks[func] = _Mark(
                 _name(name, func, where, dotted=False),
                 _inputs(inputs, where),
                 _outputs(outputs, where),
                 _annotations(annotations, where),
+                _writes(writes, where),
+                const,
             )
             return func
 
@@ -328,8 +363,8 @@ class Plugin:
                 not a function.
             ValueError: if two of one class's methods resolve to one node type, or a declared method
                 belongs to no registered class, or an undeclared override replaces a method
-                declared with ``annotations=``, or a class holds a declared method as its
-                constructor.
+                declared with ``annotations=``, or an override promises less than a method it
+                overrides, or a class holds a declared method as its constructor.
         """
         resolved = {}
         for key, declaration in self._classes.items():
@@ -382,12 +417,14 @@ class Plugin:
         is whatever the nearest class holding the attribute holds. When those differ, the function
         is an undeclared override: it keeps the node and the labels. It cannot keep
         ``annotations=``, which describe the declared function's signature, so a declaration with
-        ``annotations=`` refuses an undeclared override.
+        ``annotations=`` refuses an undeclared override. Nor may it promise less than what it
+        overrides: see :meth:`_check_override`.
 
         Raises:
             TypeError: if that nearest attribute is not a function.
             ValueError: if it is an undeclared override of a declaration with ``annotations=``, or
-                the attribute is the constructor.
+                the attribute is the constructor, or it promises less than a declared function it
+                overrides.
         """
         holders = [owner for owner in klass.__mro__ if attribute in vars(owner)]
         declared = next(
@@ -429,10 +466,75 @@ class Plugin:
                 f"declaration types {list(mark.annotations)} with annotations=; annotations "
                 f"describe one function, so declare the override itself with plugin.method"
             )
+        self._check_override(overrider, attribute, func, declared, holders)
         node_type = f"{key}.{mark.name}"
         return node_type, MethodDeclaration(
-            attribute, Declaration(func, mark.inputs, mark.outputs, mark.annotations)
+            attribute,
+            Declaration(func, mark.inputs, mark.outputs, mark.annotations, mark.writes),
+            mark.const,
         )
+
+    def _check_override(
+        self, overrider: str, attribute: str, func: Callable, declared: Callable, holders: list
+    ) -> None:
+        """Refuse ``func`` if it promises less than a declared function it overrides.
+
+        ``func`` is what runs, and it keeps the ``const=`` and ``writes=`` of ``declared``, the
+        nearest declared function: its own when it is declared. That promise is compared with every
+        other declared function under ``attribute`` in the MRO, not only the nearest: a method node
+        of any of those classes, given an instance of this one, runs ``func`` behind that class's
+        ports. Written parameters are compared by position, since an override may rename them; an
+        undeclared override's inherited names are resolved on its own signature, as the host
+        resolves them, and must all be there.
+
+        Raises:
+            ValueError: if one of them is ``const`` and ``func`` is not declared ``const=True``, or
+                ``func`` modifies a parameter one of them reads, or lacks a parameter its
+                ``writes=`` names.
+        """
+        mark = self._marks[declared]
+        # Resolved on the function that runs, as the host resolves them: an undeclared override
+        # inherits the names, not the positions. A declared function's own writes= naming no
+        # parameter is the host's to report, as it reports inputs=.
+        parameters = list(inspect.signature(func).parameters) if mark.writes else []
+        missing = [name for name in mark.writes if name not in parameters]
+        if missing and func is not declared:
+            raise ValueError(
+                f"{overrider} overrides the method {attribute!r}, whose declaration writes "
+                f"{missing} with writes=, with a function that has no such parameter; declare the "
+                f"override itself with plugin.method"
+            )
+        written = {parameters.index(name) for name in mark.writes if name in parameters}
+        bases = [
+            vars(owner)[attribute]
+            for owner in holders
+            if inspect.isfunction(vars(owner)[attribute])
+            and vars(owner)[attribute] in self._marks
+            and vars(owner)[attribute] is not func
+        ]
+        for base in bases:
+            base_mark = self._marks[base]
+            if base_mark.const and func is not declared:
+                raise ValueError(
+                    f"{overrider} overrides the method {attribute!r}, which {base.__qualname__!r} "
+                    f"declares const=True; an undeclared override is not const, so declare the "
+                    f"override itself with plugin.method(const=True)"
+                )
+            if base_mark.const and not mark.const:
+                raise ValueError(
+                    f"{overrider} overrides the method {attribute!r}, which {base.__qualname__!r} "
+                    f"declares const=True, with {func.__qualname__!r}, declared without "
+                    f"const=True; an override may promise more than its base, never less"
+                )
+            if not written:
+                continue
+            read = [parameters[i] for i in sorted(written - _positions(base, base_mark.writes))]
+            if read:
+                raise ValueError(
+                    f"{overrider} overrides the method {attribute!r} with one that modifies "
+                    f"{read}, which {base.__qualname__!r} reads, compared by position; an "
+                    f"override may promise more than its base, never less"
+                )
 
 
 def _attributes(klass: type) -> list[str]:
@@ -442,6 +544,13 @@ def _attributes(klass: type) -> list[str]:
     redefine ``dir()``, and would hide a declared method from it.
     """
     return sorted({name for owner in klass.__mro__ for name in vars(owner)})
+
+
+def _positions(func: Callable, names: tuple[str, ...]) -> set[int]:
+    """The positions of ``names`` among a plain function's parameters. A name that is not a
+    parameter is skipped: the host checks ``writes=`` against the signature."""
+    parameters = list(inspect.signature(func).parameters)
+    return {parameters.index(name) for name in names if name in parameters}
 
 
 def _freeze(declaration: Any, *fields: str) -> None:
@@ -505,6 +614,25 @@ def _outputs(outputs: Any, where: str) -> tuple[str, ...] | None:
     repeated = sorted({n for n in names if names.count(n) > 1})
     if repeated:
         raise ValueError(f"{where}: output names must be distinct, repeated: {repeated}")
+    return names
+
+
+def _writes(writes: Any, where: str) -> tuple[str, ...]:
+    """``writes=`` as a tuple of parameter names, checked as far as it can be without the
+    signature."""
+    if writes is None:
+        return ()
+    names = (writes,) if isinstance(writes, str) else writes
+    if not isinstance(names, (tuple, list)) or not all(isinstance(n, str) for n in names):
+        raise TypeError(
+            f"{where}: writes= takes a parameter name or a sequence of them, got {writes!r}"
+        )
+    names = tuple(names)
+    if "" in names:
+        raise ValueError(f"{where}: a parameter name in writes= cannot be empty, got {names!r}")
+    repeated = sorted({n for n in names if names.count(n) > 1})
+    if repeated:
+        raise ValueError(f"{where}: writes= names each parameter once, repeated: {repeated}")
     return names
 
 

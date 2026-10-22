@@ -499,6 +499,308 @@ class TestInheritance:
             plugin.classes()
 
 
+class TestConstAndWrites:
+    """``const=`` and ``writes=``: what a node modifies, carried to the host on its declaration."""
+
+    def test_a_method_is_not_const_and_writes_nothing_by_default(self):
+        """GIVEN a method declared with no option
+        WHEN the class's methods are read
+        THEN it is not const, and it writes no parameter: its instance is all it modifies."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Counter:
+            @plugin.method
+            def bump(self, by: int) -> int: ...
+
+        method = plugin.classes()["Counter"].methods["Counter.bump"]
+        assert method.const is False
+        assert method.declaration.writes == ()
+
+    def test_const_and_writes_reach_the_method_declaration(self):
+        """GIVEN a method declared with const=True and writes=
+        WHEN the class's methods are read
+        THEN its declaration carries both."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Sorter:
+            @plugin.method(const=True, writes="items")
+            def sort_into(self, items: list) -> None: ...
+
+        assert plugin.classes()["Sorter"].methods["Sorter.sort_into"] == MethodDeclaration(
+            "sort_into", Declaration(Sorter.sort_into, writes=("items",)), const=True
+        )
+
+    def test_writes_reach_the_function_declaration(self):
+        """GIVEN a function declared with writes= naming two parameters
+        WHEN the plugin's functions are read
+        THEN its declaration carries them, in the order given."""
+        plugin = Plugin()
+        plugin.function(add, writes=["b", "a"])
+        assert plugin.functions()["add"].writes == ("b", "a")
+
+    @pytest.mark.parametrize("writes", [None, (), []], ids=["omitted", "empty-tuple", "empty-list"])
+    def test_no_written_parameter_is_an_empty_tuple(self, writes):
+        """GIVEN writes= omitted, or an empty sequence
+        WHEN the function is declared
+        THEN it writes nothing: writing no parameter is a valid statement."""
+        plugin = Plugin()
+        plugin.function(add, writes=writes)
+        assert plugin.functions()["add"].writes == ()
+
+
+class TestOverridesPromiseNoLess:
+    """An override may promise more than what it overrides, never less: ``const`` where its base
+    is, and no parameter written that a base reads."""
+
+    def test_an_undeclared_override_of_a_const_method_is_refused(self):
+        """GIVEN a method declared const=True, overridden without a declaration
+        WHEN the subclass's methods are read
+        THEN ValueError naming the class, the attribute and the const declaration: an undeclared
+             override is not const."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method(const=True)
+            def value(self) -> int: ...
+
+        @plugin.cls
+        class Child(Base):
+            def value(self) -> int: ...
+
+        with pytest.raises(
+            ValueError, match=r"'Child'.*'value'.*Base\.value.*plugin\.method\(const=True\)"
+        ):
+            plugin.classes()
+
+    def test_a_declared_override_of_a_const_method_must_be_const(self):
+        """GIVEN a method declared const=True, overridden with a declaration without const=True
+        WHEN the subclass's methods are read
+        THEN ValueError naming both functions."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method(const=True)
+            def value(self) -> int: ...
+
+        @plugin.cls
+        class Child(Base):
+            @plugin.method
+            def value(self) -> int: ...
+
+        with pytest.raises(ValueError, match=r"Base\.value.*Child\.value.*never less"):
+            plugin.classes()
+
+    def test_a_const_override_of_a_const_method_is_accepted(self):
+        """GIVEN a method declared const=True, overridden with a declaration const=True too
+        WHEN the subclass's methods are read
+        THEN the override is const."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method(const=True)
+            def value(self) -> int: ...
+
+        @plugin.cls
+        class Child(Base):
+            @plugin.method(const=True)
+            def value(self) -> int: ...
+
+        assert plugin.classes()["Child"].methods["Child.value"].const is True
+
+    def test_a_const_override_of_a_writer_is_accepted(self):
+        """GIVEN a method that is not const, overridden with a declaration const=True
+        WHEN the subclass's methods are read
+        THEN the override is const: it promises more than its base."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method
+            def value(self) -> int: ...
+
+        @plugin.cls
+        class Child(Base):
+            @plugin.method(const=True)
+            def value(self) -> int: ...
+
+        classes = plugin.classes()
+        assert classes["Base"].methods["Base.value"].const is False
+        assert classes["Child"].methods["Child.value"].const is True
+
+    def test_a_declared_override_may_not_write_what_its_base_reads(self):
+        """GIVEN a method that reads its parameter, overridden with a declaration writing it under
+             another name
+        WHEN the subclass's methods are read
+        THEN ValueError naming the parameter and the base: positions are compared, not names."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method
+            def fill(self, x: list) -> None: ...
+
+        @plugin.cls
+        class Child(Base):
+            @plugin.method(writes="y")
+            def fill(self, y: list) -> None: ...
+
+        with pytest.raises(ValueError, match=r"'Child'.*'fill'.*\['y'\].*Base\.fill"):
+            plugin.classes()
+
+    def test_a_declared_override_may_write_less_than_its_base(self):
+        """GIVEN a method writing its parameter, overridden with a declaration writing it under
+             another name, and one writing nothing
+        WHEN the subclasses' methods are read
+        THEN both are accepted, each with its own writes=."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method(writes="x")
+            def fill(self, x: list) -> None: ...
+
+        @plugin.cls
+        class Renamed(Base):
+            @plugin.method(writes="y")
+            def fill(self, y: list) -> None: ...
+
+        @plugin.cls
+        class Reader(Base):
+            @plugin.method
+            def fill(self, x: list) -> None: ...
+
+        classes = plugin.classes()
+        assert classes["Renamed"].methods["Renamed.fill"].declaration.writes == ("y",)
+        assert classes["Reader"].methods["Reader.fill"].declaration.writes == ()
+
+    def test_an_undeclared_override_inherits_writes_and_const(self):
+        """GIVEN a method that is not const and writes a parameter, overridden without a
+             declaration
+        WHEN the subclass's methods are read
+        THEN the override keeps both: it runs behind the base's ports."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method(writes="x")
+            def fill(self, x: list) -> None: ...
+
+        @plugin.cls
+        class Child(Base):
+            def fill(self, x: list) -> None: ...
+
+        assert plugin.classes()["Child"].methods["Child.fill"] == MethodDeclaration(
+            "fill", Declaration(Child.fill, writes=("x",)), const=False
+        )
+
+    def test_every_declared_ancestor_is_compared_not_only_the_nearest(self):
+        """GIVEN a class deriving from two registered bases, one declaring a method that is not
+             const and the other declaring it const=True, and overriding it without a declaration
+        WHEN the class's methods are read
+        THEN ValueError naming the const base, though the nearest declaration is not const: a
+             node of the const base's type, given this class's instance, would run the override."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Writer:
+            @plugin.method
+            def value(self) -> int: ...
+
+        @plugin.cls
+        class Reader:
+            @plugin.method(const=True)
+            def value(self) -> int: ...
+
+        @plugin.cls
+        class Both(Writer, Reader):
+            def value(self) -> int: ...
+
+        with pytest.raises(ValueError, match=r"'Both'.*'value'.*Reader\.value"):
+            plugin.classes()
+
+    def test_an_unregistered_class_in_between_is_compared_too(self):
+        """GIVEN a const method, overridden without const=True in an unregistered intermediate
+             class whose registered subclass inherits it
+        WHEN the subclass's methods are read
+        THEN ValueError naming the class holding the override and the const declaration."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method(const=True)
+            def value(self) -> int: ...
+
+        class Mid(Base):
+            @plugin.method
+            def value(self) -> int: ...
+
+        @plugin.cls
+        class Leaf(Mid):
+            pass
+
+        with pytest.raises(ValueError, match=r"'Leaf': its base '.*Mid'.*Base\.value"):
+            plugin.classes()
+
+    def test_an_undeclared_override_reordering_a_written_parameter_is_refused(self):
+        """GIVEN a method writing its first parameter, overridden without a declaration by a
+             function taking the same parameters in the other order
+        WHEN the subclass's methods are read
+        THEN ValueError naming the parameter and the base: the override inherits the name, so it
+             writes its second port, which the base reads."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method(writes="a")
+            def fill(self, a: list, b: list) -> None: ...
+
+        @plugin.cls
+        class Child(Base):
+            def fill(self, b: list, a: list) -> None: ...
+
+        with pytest.raises(ValueError, match=r"'Child'.*'fill'.*\['a'\].*Base\.fill"):
+            plugin.classes()
+
+    def test_an_undeclared_override_missing_an_inherited_written_parameter_is_refused(self):
+        """GIVEN a method writing a parameter, overridden without a declaration by a function
+             that has no parameter of that name
+        WHEN the subclass's methods are read
+        THEN ValueError naming the parameter: the inherited writes= cannot apply, so the override
+             must be declared itself."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method(writes="a")
+            def fill(self, a: list) -> None: ...
+
+        @plugin.cls
+        class Child(Base):
+            def fill(self, x: list) -> None: ...
+
+        with pytest.raises(ValueError, match=r"'Child'.*'fill'.*\['a'\].*plugin\.method"):
+            plugin.classes()
+
+    def test_a_declared_method_s_writes_is_left_to_the_host(self):
+        """GIVEN a method, overriding nothing, whose writes= names no parameter of it
+        WHEN the plugin's classes are read
+        THEN no error here: there is no override to blame, and the host checks writes= against
+             the signature, as it checks inputs=."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Counter:
+            @plugin.method(writes="nope")
+            def bump(self, by: int) -> int: ...
+
+        assert plugin.classes()["Counter"].methods["Counter.bump"].declaration.writes == ("nope",)
+
+
 class TestAbstractClasses:
     """A class that only types sockets: declared with ``abstract=``, or detected with
     ``inspect.isabstract``."""
@@ -887,6 +1189,64 @@ class TestOptionsAreRefused:
         target = Fraction if decorator == "cls" else add
         with pytest.raises(TypeError, match=r"not their names: \['a'\]"):
             getattr(Plugin(), decorator)(target, annotations={"a": "float"})
+
+    @pytest.mark.parametrize("decorator", ["function", "method"])
+    @pytest.mark.parametrize(
+        "writes",
+        [3, ("a", 3), {"a": "b"}],
+        ids=["not-a-sequence", "non-string-name", "a-dict"],
+    )
+    def test_writes_must_be_strings(self, writes, decorator):
+        """GIVEN writes= that is not a parameter name or a sequence of them
+        WHEN plugin.function or plugin.method is applied
+        THEN TypeError."""
+        with pytest.raises(TypeError, match="writes= takes"):
+            getattr(Plugin(), decorator)(add, writes=writes)
+
+    @pytest.mark.parametrize("decorator", ["function", "method"])
+    @pytest.mark.parametrize(
+        "writes, message",
+        [(("a", ""), "cannot be empty"), (("a", "a"), "once")],
+        ids=["empty", "repeated"],
+    )
+    def test_writes_must_be_distinct_non_empty_names(self, writes, message, decorator):
+        """GIVEN writes= with an empty name, or a name given twice
+        WHEN plugin.function or plugin.method is applied
+        THEN ValueError."""
+        with pytest.raises(ValueError, match=message):
+            getattr(Plugin(), decorator)(add, writes=writes)
+
+    def test_a_plain_string_is_one_written_parameter(self):
+        """GIVEN writes= as a plain string
+        WHEN the function is declared
+        THEN it is one name, not one name per character."""
+        plugin = Plugin()
+        plugin.function(add, writes="ab")
+        assert plugin.functions()["add"].writes == ("ab",)
+
+    def test_a_class_takes_no_writes(self):
+        """GIVEN writes= on plugin.cls
+        WHEN it is applied
+        THEN TypeError: a constructor modifies none of its inputs."""
+        with pytest.raises(TypeError):
+            Plugin().cls(Fraction, writes="numerator")
+
+    @pytest.mark.parametrize("const", [1, "yes", None], ids=["int", "str", "none"])
+    def test_const_must_be_a_bool(self, const):
+        """GIVEN const= that is not a bool
+        WHEN plugin.method is applied
+        THEN TypeError."""
+        with pytest.raises(TypeError, match="const= takes a bool"):
+            Plugin().method(add, const=const)
+
+    @pytest.mark.parametrize("decorator", ["function", "cls"])
+    def test_only_a_method_takes_const(self, decorator):
+        """GIVEN const= on plugin.function or plugin.cls
+        WHEN it is applied
+        THEN TypeError: const= concerns a method's instance, which they do not have."""
+        target = Fraction if decorator == "cls" else add
+        with pytest.raises(TypeError):
+            getattr(Plugin(), decorator)(target, const=True)
 
 
 class TestDuplicatesInOnePlugin:

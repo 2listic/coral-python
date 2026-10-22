@@ -4,12 +4,14 @@ Written entirely against the designed specimen (``specimen.py``), because the ex
 not a fact about any plugin: it collects a node's inputs in port order, resolves its callable, binds
 positionally, and stores the result. Which callable that is, is the plugin's business.
 
-By the time ``execute()`` runs there is nothing left to verify — ``Graph`` ran all ten checks while
-the executor was being constructed. So the failure cases here are about *construction*, and the
-success cases are about values.
+By the time ``execute()`` runs there is nothing left to verify — ``Graph`` ran all eleven checks
+while the executor was being constructed. So the failure cases here are about *construction*, and
+the success cases are about values.
 """
 
 import json
+from abc import ABC, abstractmethod
+from typing import Any, Tuple
 
 import pytest
 from coral_app.errors import DuplicateNodeTypeError
@@ -414,7 +416,7 @@ class TestOutputArity:
             run({"0": {"qualified_id": "short", "type": "short_triple"}})
 
         assert (
-            "Node '0' of type 'short_triple' declares 3 outputs but returned a tuple of 2"
+            "Node '0' of type 'short_triple' declares 3 return values but returned a tuple of 2"
             in str(error.value)
         )
 
@@ -443,7 +445,7 @@ class TestOutputArity:
         with pytest.raises(ValueError) as error:
             run({"0": {"qualified_id": "scalar", "type": "not_a_tuple"}})
 
-        assert "Node '0' of type 'not_a_tuple' declares 2 outputs but returned int" in str(
+        assert "Node '0' of type 'not_a_tuple' declares 2 return values but returned int" in str(
             error.value
         )
 
@@ -595,7 +597,7 @@ class TestMethodNodes:
     def test_a_method_of_an_abstract_class_runs_the_override(self, run):
         """GIVEN a Thermometer wired into port 0 of Meter.read, Meter being abstract
         WHEN the workflow is executed
-        THEN the Thermometer's own read runs: the method is looked up on the instance."""
+        THEN the Thermometer's own read runs: the function declared for the instance's class."""
         results = run(
             {
                 "0": {"qualified_id": "celsius", "type": "float", "value": 21.5},
@@ -660,7 +662,7 @@ class TestMethodNodes:
         WHEN the workflow is executed
         THEN ValueError names the node, the expected class and what actually arrived.
 
-        This is the one check left inside the executor, and the only reason it must stay there: the
+        This check stays inside the executor for the same reason as the others there: the
         edge is `Any -> Accumulator`, which check 8 deliberately skips rather than guess, so nothing
         before execution can know the value is not an instance."""
         with pytest.raises(ValueError, match="expected instance of Accumulator"):
@@ -866,7 +868,7 @@ def run_declared(write_graph, monkeypatch):
 
 
 class TestDeclaredMethods:
-    """A method node runs the attribute it was declared on, looked up on the instance."""
+    """A method node runs the function declared under its attribute for its instance's class."""
 
     def test_a_renamed_method_runs_its_attribute(self, run_declared):
         """GIVEN a method declared under a name other than its attribute
@@ -879,7 +881,7 @@ class TestDeclaredMethods:
             def __init__(self, start: int):
                 self.start = start
 
-            @plugin.method(name="current")
+            @plugin.method(name="current", const=True)
             def get(self) -> int:
                 return self.start
 
@@ -896,7 +898,8 @@ class TestDeclaredMethods:
         assert results["2"] == 7
 
     def test_an_undeclared_override_runs_the_override(self, run_declared):
-        """GIVEN a declared method, overridden without a declaration in a registered subclass
+        """GIVEN a declared method that is not const, overridden without a declaration in a
+             registered subclass
         WHEN a graph calls the subclass's method node
         THEN the override runs, not the base's function."""
         plugin = Plugin()
@@ -925,7 +928,7 @@ class TestDeclaredMethods:
             {"0": edge("0", "1", 0), "1": edge("1", "2", 0)},
         )
 
-        assert results["2"] == -7
+        assert results["2"] == (results["1"], -7)
 
     def test_a_method_whose_instance_is_not_called_self_runs(self, run_declared):
         """GIVEN a declared method whose first parameter is called ``this``, wired with its
@@ -939,7 +942,7 @@ class TestDeclaredMethods:
             def __init__(self, start: int):
                 self.start = start
 
-            @plugin.method
+            @plugin.method(const=True)
             def scaled(this, factor: int) -> int:
                 return this.start * factor
 
@@ -967,7 +970,7 @@ class TestDeclaredMethods:
             def __init__(self, start: int):
                 self.start = start
 
-            @plugin.method
+            @plugin.method(const=True)
             def get(self) -> int:
                 return self.start
 
@@ -982,3 +985,305 @@ class TestDeclaredMethods:
         )
 
         assert results["2"] == 7
+
+
+class TestPassThroughs:
+    """A written input is passed on as an output: the very object the node received, modified."""
+
+    def test_a_method_that_is_not_const_passes_its_instance_on_first(self, run):
+        """GIVEN an Accumulator wired into a method that modifies it
+        WHEN the workflow is executed
+        THEN the node stores the instance itself, modified, then the return value."""
+        results = run(
+            {
+                "0": {"type": "float", "value": 1.0},
+                "1": {"type": "Accumulator"},
+                "2": {"type": "float", "value": 10.0},
+                "3": {"type": "Accumulator.deposit"},
+            },
+            {"0": edge("0", "1", 0), "1": edge("1", "3", 0), "2": edge("2", "3", 1)},
+        )
+
+        instance, total = results["3"]
+        assert instance is results["1"]
+        assert (instance.start, total) == (11.0, 11.0)
+
+    def test_a_written_parameter_is_passed_on_after_the_return(self, run):
+        """GIVEN a list literal wired into a function that appends to it
+        WHEN the workflow is executed
+        THEN the node stores the new length, then the same list, appended to."""
+        results = run(
+            {
+                "0": {"type": "list", "value": "[1]"},
+                "1": {"type": "int", "value": 5},
+                "2": {"type": "push"},
+            },
+            {"0": edge("0", "2", 0), "1": edge("1", "2", 1)},
+        )
+
+        length, items = results["2"]
+        assert items is results["0"]
+        assert (length, items) == (2, [1, 5])
+
+    def test_a_reader_sees_the_value_before_its_writer_modifies_it(self, run):
+        """GIVEN one Accumulator fanned out to a writer and a reader, the writer's id sorting first
+        WHEN the workflow is executed
+        THEN the reader returns the value as it was built: it ran before the writer."""
+        results = run(
+            {
+                "0": {"type": "float", "value": 1.0},
+                "1": {"type": "Accumulator"},
+                "2": {"type": "Accumulator.deposit"},  # the writer
+                "3": {"type": "float", "value": 10.0},
+                "4": {"type": "Accumulator.total"},  # the reader
+            },
+            {
+                "0": edge("0", "1", 0),
+                "1": edge("1", "2", 0),
+                "2": edge("3", "2", 1),
+                "3": edge("1", "4", 0),
+            },
+        )
+
+        assert results["4"] == 1.0
+        assert results["2"][1] == 11.0
+
+    def test_a_writer_returning_nothing_stores_its_instance_alone(self, run_declared):
+        """GIVEN a method that is not const and returns None
+        WHEN the workflow is executed
+        THEN its one output is the instance, stored as is rather than in a tuple."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Box:
+            def __init__(self, size: int):
+                self.size = size
+
+            @plugin.method
+            def empty(self) -> None:
+                self.size = 0
+
+        results = run_declared(
+            plugin,
+            {"0": {"type": "int", "value": 3}, "1": {"type": "Box"}, "2": {"type": "Box.empty"}},
+            {"0": edge("0", "1", 0), "1": edge("1", "2", 0)},
+        )
+
+        assert results["2"] is results["1"]
+        assert results["2"].size == 0
+
+    def test_the_arity_check_counts_only_the_return_values(self, run_declared):
+        """GIVEN a method that is not const and returns a tuple of its two declared values
+        WHEN the workflow is executed
+        THEN it runs: three outputs, but two returned values, which is what is compared."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Box:
+            def __init__(self, size: int):
+                self.size = size
+
+            @plugin.method
+            def halves(self) -> Tuple[int, int]:
+                self.size //= 2
+                return self.size, self.size
+
+        results = run_declared(
+            plugin,
+            {"0": {"type": "int", "value": 6}, "1": {"type": "Box"}, "2": {"type": "Box.halves"}},
+            {"0": edge("0", "1", 0), "1": edge("1", "2", 0)},
+        )
+
+        assert results["2"] == (results["1"], 3, 3)
+
+    def test_a_written_literal_leaves_the_graph_s_literal_unchanged(
+        self, write_graph, specimen_plugins
+    ):
+        """GIVEN a list literal wired into a function that appends to it
+        WHEN one executor executes the workflow twice
+        THEN both runs give the same result, and the graph's parsed literal is unchanged: each run
+             starts from a copy of it."""
+        path = write_graph(
+            graph(
+                {
+                    "0": {"type": "list", "value": "[1]"},
+                    "1": {"type": "int", "value": 5},
+                    "2": {"type": "push"},
+                },
+                {"0": edge("0", "2", 0), "1": edge("1", "2", 1)},
+            )
+        )
+        executor = WorkflowExecutor(str(path), plugins=[SPECIMEN])
+
+        assert executor.execute()["2"] == (2, [1, 5])
+        assert executor.execute()["2"] == (2, [1, 5])
+        assert executor.graph.literals["0"] == [1]
+
+
+class TestOnlyRegisteredCodeRuns:
+    """A method node runs the function declared for its instance's class, so every value of a
+    registered class must be of a registered class itself: checked where the value is produced."""
+
+    @pytest.mark.parametrize("typed", [True, False], ids=["typed-port", "any-port"])
+    def test_an_unregistered_subclass_is_refused_where_it_is_produced(self, run_declared, typed):
+        """GIVEN a function returning an instance of an unregistered subclass of a registered
+             class, through a port typed with the base or typed Any, and a method node fed by it
+        WHEN the workflow is executed
+        THEN ValueError at the producing node, naming the output, the unregistered class and its
+             registered base, before the method node runs its undeclared override."""
+        plugin = Plugin()
+        ran = []
+
+        @plugin.cls
+        class Base:
+            @plugin.method(const=True)
+            def value(self) -> int:
+                return 1
+
+        class Hidden(Base):
+            def value(self) -> int:
+                ran.append("override")
+                return 2
+
+        def make():
+            return Hidden()
+
+        plugin.function(make, annotations={"return": Base if typed else Any})
+
+        with pytest.raises(
+            ValueError,
+            match=r"Node '0' of type 'make' produced on output 0 an instance of .*Hidden, a "
+            r"subclass of 'Base' that no selected plugin registers",
+        ):
+            run_declared(
+                plugin,
+                {"0": {"type": "make"}, "1": {"type": "Base.value"}},
+                {"0": edge("0", "1", 0)},
+            )
+
+        assert ran == []
+
+    def test_a_registered_subclass_runs_its_own_override(self, run_declared):
+        """GIVEN a function returning an instance of a registered subclass, through a port typed
+             with the base, and the base's method node fed by it
+        WHEN the workflow is executed
+        THEN the subclass's declared override runs."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method(const=True)
+            def value(self) -> int:
+                return 1
+
+        @plugin.cls
+        class Child(Base):
+            @plugin.method(const=True)
+            def value(self) -> int:
+                return 2
+
+        @plugin.function
+        def make() -> Base:
+            return Child()
+
+        results = run_declared(
+            plugin,
+            {"0": {"type": "make"}, "1": {"type": "Base.value"}},
+            {"0": edge("0", "1", 0)},
+        )
+
+        assert results["1"] == 2
+
+    def test_a_virtual_subclass_is_refused_where_it_is_produced(self, run_declared):
+        """GIVEN a function returning an instance of a class registered as a virtual subclass of a
+             registered abstract class, and that class's method node fed by it
+        WHEN the workflow is executed
+        THEN ValueError at the producing node, naming the class and its registered base: it is
+             an instance of the base without having the base in its MRO."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Shape(ABC):
+            @plugin.method(const=True)
+            @abstractmethod
+            def area(self) -> float: ...
+
+        class Blob:
+            def area(self) -> float:
+                return 1.0
+
+        Shape.register(Blob)
+
+        @plugin.function
+        def make() -> Shape:
+            return Blob()
+
+        with pytest.raises(ValueError, match=r"an instance of .*Blob, a subclass of 'Shape'"):
+            run_declared(
+                plugin,
+                {"0": {"type": "make"}, "1": {"type": "Shape.area"}},
+                {"0": edge("0", "1", 0)},
+            )
+
+
+class TestReturnValuesAreNotWrittenInputs:
+    """A node's return value must not be an object it modifies: that object is already passed on,
+    and two outputs holding it could each feed a writer, with nothing to order the two."""
+
+    def test_a_method_returning_its_own_instance_is_refused(self, run_declared):
+        """GIVEN a method that is not const and returns ``self``
+        WHEN the workflow is executed
+        THEN ValueError naming the return output, the instance and its pass-through output."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Box:
+            def __init__(self, size: int):
+                self.size = size
+
+            @plugin.method
+            def grow(self, by: int) -> Any:
+                self.size += by
+                return self
+
+        with pytest.raises(
+            ValueError,
+            match=r"Node '3' of type 'Box.grow' returned on output 1 the object it received on "
+            r"input 0 \('self'\), which it modifies and passes on as output 0",
+        ):
+            run_declared(
+                plugin,
+                {
+                    "0": {"type": "int", "value": 3},
+                    "1": {"type": "Box"},
+                    "2": {"type": "int", "value": 1},
+                    "3": {"type": "Box.grow"},
+                },
+                {"0": edge("0", "1", 0), "1": edge("1", "3", 0), "2": edge("2", "3", 1)},
+            )
+
+    def test_a_function_returning_its_written_parameter_is_refused(self, run_declared):
+        """GIVEN a function declared writes= that returns the parameter it modifies
+        WHEN the workflow is executed
+        THEN ValueError naming the return output, the parameter and its pass-through output."""
+        plugin = Plugin()
+
+        @plugin.function(writes="items")
+        def push(items: list, item: Any) -> list:
+            items.append(item)
+            return items
+
+        with pytest.raises(
+            ValueError,
+            match=r"Node '2' of type 'push' returned on output 0 the object it received on input "
+            r"0 \('items'\), which it modifies and passes on as output 1",
+        ):
+            run_declared(
+                plugin,
+                {
+                    "0": {"type": "list", "value": "[1]"},
+                    "1": {"type": "int", "value": 5},
+                    "2": {"type": "push"},
+                },
+                {"0": edge("0", "2", 0), "1": edge("1", "2", 1)},
+            )

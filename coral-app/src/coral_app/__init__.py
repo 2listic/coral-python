@@ -142,6 +142,11 @@ def build_class_map(
     plugins declaring one is unresolvable from the graph. There are no builtin classes, so
     plugins are the only contributors.
 
+    **Plugins do not share a class hierarchy.** A class registered by one plugin may not derive from
+    a class registered by another: overrides are checked within one plugin's declarations, so across
+    plugins nothing would check them. One plugin registers the whole hierarchy; values still cross
+    plugins.
+
     Args:
         include: Plugin names to load. If ``None``, loads every discovered plugin.
         exclude: Plugin names to drop, applied after ``include``.
@@ -152,6 +157,8 @@ def build_class_map(
     Raises:
         LookupError: if a selected name is not a discoverable plugin.
         DuplicateNodeTypeError: if two plugins declare the same class name.
+        ValueError: if a class registered by one plugin derives from a class registered by another.
+            Also if a registered class is a virtual subclass of another registered class.
     """
     class_map: Dict[str, ClassDeclaration] = {}
     owner: Dict[str, str] = {}  # class name -> the plugin that declared it
@@ -165,5 +172,32 @@ def build_class_map(
                 )
             owner[class_name] = name
             class_map[class_name] = declaration
+
+    # Plugins do not share a class hierarchy. Overrides are checked against the declarations of one
+    # plugin (`Plugin.classes`), so a class deriving from another plugin's would escape the check.
+    registered = {declaration.target: class_name for class_name, declaration in class_map.items()}
+    for class_name, declaration in class_map.items():
+        for base in declaration.target.__mro__[1:]:
+            if base in registered and owner[registered[base]] != owner[class_name]:
+                raise ValueError(
+                    f"class {class_name!r} of plugin {owner[class_name]!r} derives from class "
+                    f"{registered[base]!r} of plugin {owner[registered[base]]!r}; plugins do not "
+                    f"share a class hierarchy, so one plugin must register both"
+                )
+
+    # A registered class must inherit every registered class it is accepted as. ABC registration
+    # (`register`, `__subclasshook__`) makes `issubclass` true without the base in the MRO, which is
+    # what method resolution walks: such a class would lack the base's declared methods, and would
+    # join another plugin's hierarchy unseen by the check above.
+    for class_name, declaration in class_map.items():
+        cls = declaration.target
+        for base, base_name in registered.items():
+            if base is not cls and base not in cls.__mro__ and issubclass(cls, base):
+                raise ValueError(
+                    f"class {class_name!r} of plugin {owner[class_name]!r} is a virtual subclass "
+                    f"of class {base_name!r} of plugin {owner[base_name]!r} (ABC registration or "
+                    f"__subclasshook__); a registered class must inherit the registered classes "
+                    f"it is accepted as, whose declared methods it otherwise lacks"
+                )
 
     return class_map

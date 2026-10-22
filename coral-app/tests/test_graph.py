@@ -18,6 +18,7 @@ node type             inputs                            outputs
 ``anything``          ``value: Any``                    ``Any``
 ``Widget``            ``size: float``                   ``Widget``
 ``Widget.resize``     ``self: Widget``, ``f: float``    ``float``
+``Widget.grow``       ``self*: Widget``, ``f: float``   pass-through, ``float``
 ``Gadget``            ``size: float``                   ``Gadget``
 ``Cog``               ``size: float``                   ``Cog``
 ``Cog.spin``          ``self: Cog``                     ``float``
@@ -31,7 +32,12 @@ node type             inputs                            outputs
 ``list_size``         ``lst: list``                     ``int``
 ``set_size``          ``s: set``                        ``int``
 ``dict_size``         ``d: dict``                       ``int``
+``fill``              ``lst*: list``                    pass-through
+``merge``             ``into*: list``, ``other: list``  pass-through
 ===================== ================================= ==========================
+
+A ``*`` marks a written input: it is an output too, its pass-through, listed first among the
+outputs.
 """
 
 from fractions import Fraction
@@ -131,6 +137,11 @@ PORT_TABLE = {
     "anything": ports(kind=FUNCTION, inputs=[("value", Any)], outputs=[Any]),
     "Widget": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Widget]),
     "Widget.resize": ports(kind=METHOD, inputs=[("self", Widget), ("f", float)], outputs=[float]),
+    "Widget.grow": NodePorts(
+        kind=METHOD,
+        inputs=[Port("self", Widget, instance=True, written=True), Port("f", float)],
+        outputs=[Port("self", Widget, passthrough=0), Port("", float)],
+    ),
     "Gadget": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Gadget]),
     "Sprocket": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Sprocket]),
     "Cog": ports(kind=CONSTRUCTOR, inputs=[("size", float)], outputs=[Cog]),
@@ -148,6 +159,17 @@ PORT_TABLE = {
     "list_size": ports(kind=FUNCTION, inputs=[("lst", list)], outputs=[int]),
     "set_size": ports(kind=FUNCTION, inputs=[("s", set)], outputs=[int]),
     "dict_size": ports(kind=FUNCTION, inputs=[("d", dict)], outputs=[int]),
+    # Writers, shaped as `build_port_table` shapes them: a written input is an output too.
+    "fill": NodePorts(
+        kind=FUNCTION,
+        inputs=[Port("lst", list, written=True)],
+        outputs=[Port("lst", list, passthrough=0)],
+    ),
+    "merge": NodePorts(
+        kind=FUNCTION,
+        inputs=[Port("into", list, written=True), Port("other", list)],
+        outputs=[Port("into", list, passthrough=0)],
+    ),
 }
 
 
@@ -280,6 +302,141 @@ class TestOrdering:
         assert build(nodes, edges).order == ["1", "3", "0", "2"]
 
 
+class TestWriters:
+    """Check 9 and the order: one writer per output, and every reader of it before the writer."""
+
+    def test_two_writers_on_one_output_are_refused(self):
+        """GIVEN one Widget wired into the instance of two methods that modify it
+        WHEN the graph is built
+        THEN ValueError naming the output and both writers: nothing orders the two."""
+        nodes = {
+            "0": {"type": "float", "value": 1.0},
+            "1": {"type": "Widget"},
+            "2": {"type": "Widget.grow"},
+            "3": {"type": "Widget.grow"},
+        }
+        edges = {
+            "0": edge("0", "1", 0),
+            "1": edge("1", "2", 0),
+            "2": edge("0", "2", 1),
+            "3": edge("1", "3", 0),
+            "4": edge("0", "3", 1),
+        }
+
+        with pytest.raises(
+            ValueError,
+            match=r"Output 0 of node '1' feeds two inputs that modify it: 'self' of node '2' "
+            r"\(edge '1'\) and 'self' of node '3' \(edge '3'\)",
+        ):
+            build(nodes, edges)
+
+    @pytest.mark.parametrize(
+        "first, second",
+        [(0, -1), (0, None), (-1, None)],
+        ids=["0-and-minus-1", "0-and-omitted", "minus-1-and-omitted"],
+    )
+    def test_the_spellings_of_a_single_output_are_one_output(self, first, second):
+        """GIVEN a single-output node feeding two writers, through two spellings of its output
+        WHEN the graph is built
+        THEN they are refused as two writers of one output: 0, -1 and an omitted key are one."""
+        spelled = [edge("0", "1", 0), edge("0", "2", 0)]
+        for spelling, wire in zip((first, second), spelled):
+            if spelling is None:
+                del wire["source_output"]
+            else:
+                wire["source_output"] = spelling
+        nodes = {"0": {"type": "list_new"}, "1": {"type": "fill"}, "2": {"type": "fill"}}
+
+        with pytest.raises(ValueError, match="feeds two inputs that modify it"):
+            build(nodes, {"0": spelled[0], "1": spelled[1]})
+
+    def test_a_writer_may_not_read_the_value_it_modifies(self):
+        """GIVEN one list wired into both a node's written input and its read input
+        WHEN the graph is built
+        THEN ValueError naming both parameters: the node would read the value while modifying it,
+             inside one call."""
+        nodes = {"0": {"type": "list_new"}, "1": {"type": "merge"}}
+        edges = {"0": edge("0", "1", 0), "1": edge("0", "1", 1)}
+
+        with pytest.raises(
+            ValueError, match=r"feeds both 'into' and 'other' of node '1'.*cannot read a value"
+        ):
+            build(nodes, edges)
+
+    def test_readers_run_before_the_writer(self):
+        """GIVEN one Widget fanned out to a writer and two readers, the writer's id sorting first
+        WHEN the graph is ordered
+        THEN both readers come before the writer, which the ids alone would have put first."""
+        nodes = {
+            "0": {"type": "float", "value": 1.0},
+            "1": {"type": "Widget.grow"},  # the writer
+            "2": {"type": "Widget.resize"},  # a reader
+            "3": {"type": "Widget.resize"},  # another reader
+            "4": {"type": "Widget"},
+        }
+        edges = {
+            "0": edge("0", "4", 0),
+            "1": edge("4", "1", 0),
+            "2": edge("0", "1", 1),
+            "3": edge("4", "2", 0),
+            "4": edge("0", "2", 1),
+            "5": edge("4", "3", 0),
+            "6": edge("0", "3", 1),
+        }
+
+        order = build(nodes, edges).order
+
+        assert order.index("2") < order.index("1")
+        assert order.index("3") < order.index("1")
+
+    def test_a_chain_of_writers_through_pass_throughs_is_accepted(self):
+        """GIVEN a writer whose pass-through output feeds a second writer
+        WHEN the graph is ordered
+        THEN it constructs, one writer per output, and the second runs after the first."""
+        nodes = {
+            "0": {"type": "float", "value": 1.0},
+            "1": {"type": "Widget"},
+            "2": {"type": "Widget.grow"},
+            "3": {"type": "Widget.grow"},
+        }
+        edges = {
+            "0": edge("0", "1", 0),
+            "1": edge("1", "3", 0),
+            "2": edge("0", "3", 1),
+            "3": edge("3", "2", 0, source_output=0),
+            "4": edge("0", "2", 1),
+        }
+
+        order = build(nodes, edges).order
+
+        assert order.index("3") < order.index("2")
+
+    def test_a_reader_depending_on_the_writer_closes_a_cycle_named_by_the_implicit_edge(self):
+        """GIVEN a reader of a Widget whose other input is the result of the Widget's writer
+        WHEN the graph is built
+        THEN ValueError: the reader must run before the writer and after it. The message names
+             the cycle and the reader, the value and the writer that ordered them."""
+        nodes = {
+            "0": {"type": "float", "value": 1.0},
+            "1": {"type": "Widget"},
+            "2": {"type": "Widget.grow"},  # the writer
+            "3": {"type": "Widget.resize"},  # the reader, fed the writer's result
+        }
+        edges = {
+            "0": edge("0", "1", 0),
+            "1": edge("1", "2", 0),
+            "2": edge("0", "2", 1),
+            "3": edge("1", "3", 0),
+            "4": edge("2", "3", 1, source_output=1),
+        }
+
+        with pytest.raises(
+            ValueError,
+            match=r"Cycle detected.*node '3' reads output 0 of node '1', which node '2' modifies",
+        ):
+            build(nodes, edges)
+
+
 class TestCycles:
     """Cycle detection, and what the error says."""
 
@@ -406,7 +563,7 @@ class TestNodeTypes:
 
 
 class TestLiterals:
-    """Check 10: every primitive's ``value`` is read while the graph is built, and kept."""
+    """Check 11: every primitive's ``value`` is read while the graph is built, and kept."""
 
     def test_the_parsed_values_are_exposed_on_the_graph(self):
         """GIVEN an int primitive carrying a string, wired into a function

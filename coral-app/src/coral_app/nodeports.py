@@ -61,11 +61,18 @@ class Port:
         annotation: The declared type, with a missing annotation normalised to ``Any``.
         instance: Whether this is a method's instance, port 0, which the executor checks with
             ``isinstance`` before the call. ``False`` on every other port.
+        written: On an input, whether the node modifies the value it receives in place: a
+            parameter named in ``writes=``, or a non-``const`` method's instance. ``False`` on
+            every output.
+        passthrough: On an output, the index of the input port whose value it passes on, once
+            modified; ``None`` for a return value, and on every input.
     """
 
     name: str
     annotation: Any
     instance: bool = False
+    written: bool = False
+    passthrough: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -89,6 +96,12 @@ class NodePorts:
     inputs: List[Port] = field(default_factory=list)
     outputs: List[Port] = field(default_factory=list)
     attribute: Optional[str] = None
+
+    @property
+    def returns(self) -> List[Port]:
+        """The outputs that are return values, in port order: what ``outputs=`` names and the
+        executor's arity check counts. The others pass an input on."""
+        return [port for port in self.outputs if port.passthrough is None]
 
 
 def _annotation(param: inspect.Parameter):
@@ -136,10 +149,12 @@ def _parameters(
 
     ``annotations=`` only fills what the signature leaves out, so a declared type never contradicts
     the code. ``inputs=`` relabels the ports it names, and the labels must stay distinct, because
-    the editor tells ports apart by them.
+    the editor tells ports apart by them. ``writes=`` must name parameters too, as ``inputs=``
+    does; a constructor has none, since a class declares no ``writes=``.
 
     For a method, the first parameter is left out, whatever its name: it is port 0, the instance,
-    which the caller adds. It can be neither relabelled nor annotated.
+    which the caller adds. It can be neither relabelled nor annotated, nor named in ``writes=``:
+    whether it is written is ``const=``'s to say.
 
     Raises:
         ValueError: if a method has no parameter to receive its instance, a key names no parameter
@@ -159,9 +174,14 @@ def _parameters(
 
     def check_key(option: str, key: str) -> None:
         if key == instance:
+            hint = (
+                "a method modifies its instance unless declared const=True"
+                if option == "writes"
+                else "it cannot be relabelled or annotated"
+            )
             raise ValueError(
                 f"Node type {node_type!r}: {option}= names {key!r}, which is port 0, the "
-                f"instance; it cannot be relabelled or annotated."
+                f"instance; {hint}."
             )
         if key not in by_name:
             raise ValueError(
@@ -194,10 +214,15 @@ def _parameters(
     for key in declaration.inputs:
         check_key("inputs", key)
 
+    writes = () if constructor else declaration.writes
+    for key in writes:
+        check_key("writes", key)
+
     ports = [
         Port(
             declaration.inputs.get(param.name, param.name),
             declaration.annotations.get(param.name, _annotation(param)),
+            written=param.name in writes,
         )
         for param in params
     ]
@@ -279,8 +304,18 @@ def _output_ports(names, return_annotation, node_type: str) -> List[Port]:
     return [Port(name, annotation) for name, annotation in zip(names, annotations)]
 
 
+def _passthroughs(inputs: List[Port]) -> List[Port]:
+    """One output per written input, in input order, named and annotated as that input."""
+    return [
+        Port(port.name, port.annotation, passthrough=index)
+        for index, port in enumerate(inputs)
+        if port.written
+    ]
+
+
 def _function_ports(declaration: Declaration, node_type: str) -> NodePorts:
-    """Ports of a plain function: its parameters in, its return annotation out."""
+    """Ports of a plain function: its parameters in; its return annotation out, then one
+    pass-through per written parameter, in parameter order."""
     sig = _signature(declaration.target, node_type)
     inputs, return_annotation = _parameters(
         sig, declaration, node_type, method=False, constructor=False
@@ -288,7 +323,10 @@ def _function_ports(declaration: Declaration, node_type: str) -> NodePorts:
     return NodePorts(
         kind=FUNCTION,
         inputs=inputs,
-        outputs=_output_ports(declaration.outputs, return_annotation, node_type),
+        outputs=[
+            *_output_ports(declaration.outputs, return_annotation, node_type),
+            *_passthroughs(inputs),
+        ],
     )
 
 
@@ -314,16 +352,25 @@ def _method_ports(cls: type, method: MethodDeclaration, node_type: str) -> NodeP
     The signature of the plain function keeps its first parameter, the instance, whatever it is
     called: exactly the instance-at-port-0 convention. It is re-emitted here as ``self``, annotated
     with ``cls``, so an edge feeding it can be type-checked.
+
+    The outputs are the instance, unless the method is ``const``, then the return values, then
+    one pass-through per other written parameter, in parameter order.
     """
     declaration = method.declaration
     sig = _signature(declaration.target, node_type)
-    inputs, return_annotation = _parameters(
+    params, return_annotation = _parameters(
         sig, declaration, node_type, method=True, constructor=False
     )
+    inputs = [Port("self", cls, instance=True, written=not method.const), *params]
+    passed = _passthroughs(inputs)
     return NodePorts(
         kind=METHOD,
-        inputs=[Port("self", cls, instance=True), *inputs],
-        outputs=_output_ports(declaration.outputs, return_annotation, node_type),
+        inputs=inputs,
+        outputs=[
+            *[port for port in passed if port.passthrough == 0],
+            *_output_ports(declaration.outputs, return_annotation, node_type),
+            *[port for port in passed if port.passthrough != 0],
+        ],
         attribute=method.attribute,
     )
 

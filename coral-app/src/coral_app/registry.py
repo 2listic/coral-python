@@ -14,9 +14,10 @@ _TYPE_NAME_OF = {v: k for k, v in PRIMITIVES_MAP.items()}
 
 
 def _create_input_argument(port: Port, class_names: Mapping[type, str]) -> Dict:
-    """Create an input argument dictionary"""
+    """Create an input argument dictionary. A written input is a ``"pass_through"``: one
+    argument whose index is in the entry's ``outputs`` too, as the C++ backend writes it."""
     return {
-        "connection_type": "input",
+        "connection_type": "pass_through" if port.written else "input",
         "type": python_type_to_string(port.annotation, class_names),
         "name": port.name,
     }
@@ -48,17 +49,30 @@ def _number_outputs(ports: NodePorts, first_idx: int, class_names: Mapping[type,
     the caller passes the first free index. (The editor and the executor number outputs 0-based
     within outputs; that difference is deliberate and confined to this file.)
 
+    Only a return value gets an output argument of its own. A pass-through is its input's argument,
+    so its entry in the list is that input's index — the input ports are numbered first, so a
+    port's index is its argument's. The list follows port order, not argument order, and need not
+    be ascending: a non-``const`` method's instance, argument 0, is its first output.
+
     Returns:
         tuple: (output_arguments, output_indices)
     """
-    arguments = [_create_output_argument(port, class_names) for port in ports.outputs]
-    return arguments, list(range(first_idx, first_idx + len(ports.outputs)))
+    arguments = [_create_output_argument(port, class_names) for port in ports.returns]
+    returned = iter(range(first_idx, first_idx + len(arguments)))
+    indices = [
+        next(returned) if port.passthrough is None else port.passthrough for port in ports.outputs
+    ]
+    return arguments, indices
 
 
 def _add_function_node(
     registry: Dict, func_name: str, ports: NodePorts, class_names: Mapping[type, str]
 ) -> None:
-    """Add a function node to the registry, keyed by its name."""
+    """Add a function node to the registry, keyed by its name.
+
+    A parameter in ``writes=`` is a ``"pass_through"`` argument, its index in both ``inputs`` and
+    ``outputs``, after the return values.
+    """
     arguments, inputs = _number_inputs(ports, class_names)
     output_arguments, outputs = _number_outputs(ports, len(inputs), class_names)
     arguments.extend(output_arguments)
@@ -124,7 +138,8 @@ def _add_methods(
     """Add all declared methods of a class to the registry, keyed by their method node type.
 
     Which methods exist, and that the instance occupies input port 0, both come from the port
-    table.
+    table. So does whether the instance is a ``"pass_through"`` argument: it is unless the method
+    is ``const``, and it is then the method's first output.
     """
     for fully_qualified_name in methods_of(port_table, class_name):
         ports = port_table[fully_qualified_name]
@@ -152,8 +167,9 @@ def generate_registry(
     Describes the given function/class maps as a port table (stage 2) and renders it into a dict
     keyed by each node's ``type`` string (primitives by type name, functions by name, constructors
     and abstract classes by class name, methods by ``Class.method``). Everything about the *file
-    format* — argument dicts, index numbering, the ``[-1]`` convention — is decided here; the
-    arity and annotations come from the port table, which the executor reads too.
+    format* — argument dicts, index numbering, the ``[-1]`` convention, a pass-through written as
+    one argument listed in both ``inputs`` and ``outputs`` — is decided here; the arity and
+    annotations come from the port table, which the executor reads too.
 
     A socket typed with a registered class carries the class's key in ``class_map``, the same
     string its constructor or abstract entry is keyed by. Any other class is ``"any"``. A class

@@ -353,6 +353,35 @@
     "node_type": "function",
     "type": "not_a_tuple"
   },
+  "push": {
+    "arguments": [
+      {
+        "connection_type": "pass_through",
+        "type": "list",
+        "name": "items"
+      },
+      {
+        "connection_type": "input",
+        "type": "any",
+        "name": "item"
+      },
+      {
+        "connection_type": "output",
+        "type": "int",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      2,
+      0
+    ],
+    "node_type": "function",
+    "type": "push"
+  },
   "rival_only": {
     "arguments": [
       {
@@ -928,6 +957,35 @@
     "node_type": "method",
     "type": "Accumulator.add"
   },
+  "Accumulator.deposit": {
+    "arguments": [
+      {
+        "connection_type": "pass_through",
+        "type": "Accumulator",
+        "name": "self"
+      },
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "amount"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      0,
+      2
+    ],
+    "node_type": "method",
+    "type": "Accumulator.deposit"
+  },
   "Accumulator.total": {
     "arguments": [
       {
@@ -999,6 +1057,35 @@
     ],
     "node_type": "method",
     "type": "PreciseAccumulator.add"
+  },
+  "PreciseAccumulator.deposit": {
+    "arguments": [
+      {
+        "connection_type": "pass_through",
+        "type": "PreciseAccumulator",
+        "name": "self"
+      },
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "amount"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      0,
+      2
+    ],
+    "node_type": "method",
+    "type": "PreciseAccumulator.deposit"
   },
   "PreciseAccumulator.rounded": {
     "arguments": [
@@ -1093,6 +1180,35 @@
     ],
     "node_type": "method",
     "type": "Ledger.add"
+  },
+  "Ledger.deposit": {
+    "arguments": [
+      {
+        "connection_type": "pass_through",
+        "type": "Ledger",
+        "name": "self"
+      },
+      {
+        "connection_type": "input",
+        "type": "float",
+        "name": "amount"
+      },
+      {
+        "connection_type": "output",
+        "type": "float",
+        "name": ""
+      }
+    ],
+    "inputs": [
+      0,
+      1
+    ],
+    "outputs": [
+      0,
+      2
+    ],
+    "node_type": "method",
+    "type": "Ledger.deposit"
   },
   "Ledger.reset": {
     "arguments": [

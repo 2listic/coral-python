@@ -844,7 +844,7 @@
   "Calculator.add_to_value": {
     "arguments": [
       {
-        "connection_type": "input",
+        "connection_type": "pass_through",
         "type": "Calculator",
         "name": "self"
       },
@@ -864,6 +864,7 @@
       1
     ],
     "outputs": [
+      0,
       2
     ],
     "node_type": "method",
@@ -894,7 +895,7 @@
   "Calculator.multiply_value": {
     "arguments": [
       {
-        "connection_type": "input",
+        "connection_type": "pass_through",
         "type": "Calculator",
         "name": "self"
       },
@@ -914,6 +915,7 @@
       1
     ],
     "outputs": [
+      0,
       2
     ],
     "node_type": "method",
