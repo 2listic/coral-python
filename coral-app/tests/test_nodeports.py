@@ -812,6 +812,20 @@ class TestPassThroughs:
         with pytest.raises(ValueError, match=r"writes= names 'self'.*const=True"):
             build_port_table(class_map=plugin.classes())
 
+    def test_a_method_s_writes_naming_no_parameter_raises(self):
+        """GIVEN a method whose writes= names a parameter it does not have
+        WHEN the table is built
+        THEN ValueError naming the key and the parameters, as for a function."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Counter:
+            @plugin.method(writes="nope")
+            def bump(self, by: int) -> int: ...
+
+        with pytest.raises(ValueError, match=r"writes= names 'nope'.*\['by'\]"):
+            build_port_table(class_map=plugin.classes())
+
 
 class TestSignatures:
     """Every port is passed by position, so the signature must have one parameter per port."""

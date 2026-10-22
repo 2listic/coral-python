@@ -786,6 +786,20 @@ class TestOverridesPromiseNoLess:
         with pytest.raises(ValueError, match=r"'Child'.*'fill'.*\['a'\].*plugin\.method"):
             plugin.classes()
 
+    def test_a_declared_method_s_writes_is_left_to_the_host(self):
+        """GIVEN a method, overriding nothing, whose writes= names no parameter of it
+        WHEN the plugin's classes are read
+        THEN no error here: there is no override to blame, and the host checks writes= against
+             the signature, as it checks inputs=."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Counter:
+            @plugin.method(writes="nope")
+            def bump(self, by: int) -> int: ...
+
+        assert plugin.classes()["Counter"].methods["Counter.bump"].declaration.writes == ("nope",)
+
 
 class TestAbstractClasses:
     """A class that only types sockets: declared with ``abstract=``, or detected with

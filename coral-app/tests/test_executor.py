@@ -1224,3 +1224,66 @@ class TestOnlyRegisteredCodeRuns:
                 {"0": {"type": "make"}, "1": {"type": "Shape.area"}},
                 {"0": edge("0", "1", 0)},
             )
+
+
+class TestReturnValuesAreNotWrittenInputs:
+    """A node's return value must not be an object it modifies: that object is already passed on,
+    and two outputs holding it could each feed a writer, with nothing to order the two."""
+
+    def test_a_method_returning_its_own_instance_is_refused(self, run_declared):
+        """GIVEN a method that is not const and returns ``self``
+        WHEN the workflow is executed
+        THEN ValueError naming the return output, the instance and its pass-through output."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Box:
+            def __init__(self, size: int):
+                self.size = size
+
+            @plugin.method
+            def grow(self, by: int) -> Any:
+                self.size += by
+                return self
+
+        with pytest.raises(
+            ValueError,
+            match=r"Node '3' of type 'Box.grow' returned on output 1 the object it received on "
+            r"input 0 \('self'\), which it modifies and passes on as output 0",
+        ):
+            run_declared(
+                plugin,
+                {
+                    "0": {"type": "int", "value": 3},
+                    "1": {"type": "Box"},
+                    "2": {"type": "int", "value": 1},
+                    "3": {"type": "Box.grow"},
+                },
+                {"0": edge("0", "1", 0), "1": edge("1", "3", 0), "2": edge("2", "3", 1)},
+            )
+
+    def test_a_function_returning_its_written_parameter_is_refused(self, run_declared):
+        """GIVEN a function declared writes= that returns the parameter it modifies
+        WHEN the workflow is executed
+        THEN ValueError naming the return output, the parameter and its pass-through output."""
+        plugin = Plugin()
+
+        @plugin.function(writes="items")
+        def push(items: list, item: Any) -> list:
+            items.append(item)
+            return items
+
+        with pytest.raises(
+            ValueError,
+            match=r"Node '2' of type 'push' returned on output 0 the object it received on input "
+            r"0 \('items'\), which it modifies and passes on as output 1",
+        ):
+            run_declared(
+                plugin,
+                {
+                    "0": {"type": "list", "value": "[1]"},
+                    "1": {"type": "int", "value": 5},
+                    "2": {"type": "push"},
+                },
+                {"0": edge("0", "2", 0), "1": edge("1", "2", 1)},
+            )

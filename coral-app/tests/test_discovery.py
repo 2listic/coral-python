@@ -14,6 +14,8 @@ What lives elsewhere, on purpose:
   in its own suite.
 """
 
+from abc import ABC, abstractmethod
+
 import pytest
 from coral_app import (
     BUILTINS,
@@ -255,3 +257,55 @@ class TestPluginsDoNotShareAHierarchy:
         WHEN the class map is built
         THEN no error: an unregistered base is shared with no plugin."""
         assert list(build_class_map(include=[HIERARCHY_CLASH])) == ["Audited"]
+
+
+class TestAVirtualSubclassIsRefused:
+    """A registered class must inherit every registered class it is accepted as: ABC registration
+    makes it pass ``issubclass``, but its MRO, which method resolution walks, lacks the base."""
+
+    @staticmethod
+    def _declare(meters: Plugin, gauges: Plugin) -> None:
+        """Declare an abstract Meter with a const ``read`` on ``meters``, and on ``gauges`` a Gauge
+        registered as Meter's virtual subclass. One plugin may be passed as both."""
+
+        @meters.cls
+        class Meter(ABC):
+            @meters.method(const=True)
+            @abstractmethod
+            def read(self) -> float: ...
+
+        @gauges.cls
+        class Gauge:
+            def read(self) -> float:
+                return 1.0
+
+        Meter.register(Gauge)
+
+    def test_a_virtual_subclass_in_one_plugin_is_refused(self, monkeypatch):
+        """GIVEN one plugin registering an abstract class and a virtual subclass of it
+        WHEN the class map is built
+        THEN ValueError naming both classes: the subclass has none of the base's methods."""
+        plugin = Plugin()
+        self._declare(plugin, plugin)
+        monkeypatch.setattr("coral_app.load", lambda name: plugin)
+
+        with pytest.raises(
+            ValueError, match=r"class 'Gauge' .* is a virtual subclass of class 'Meter'"
+        ):
+            build_class_map(include=["one"])
+
+    def test_a_virtual_subclass_across_plugins_is_refused(self, monkeypatch):
+        """GIVEN one plugin registering an abstract class, another a virtual subclass of it
+        WHEN the class map is built with both selected
+        THEN ValueError naming both classes and both plugins: virtual registration is no way
+             around plugins not sharing a hierarchy."""
+        meters, gauges = Plugin(), Plugin()
+        self._declare(meters, gauges)
+        monkeypatch.setattr("coral_app.load", {"meters": meters, "gauges": gauges}.__getitem__)
+
+        with pytest.raises(
+            ValueError,
+            match=r"class 'Gauge' of plugin 'gauges' is a virtual subclass of class 'Meter' of "
+            r"plugin 'meters'",
+        ):
+            build_class_map(include=["meters", "gauges"])

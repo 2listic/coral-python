@@ -278,7 +278,8 @@ input is a **pass-through**, an output too and the very same object, as a non-`c
 in the C++ backend (`"connection_type": "pass_through"` in `node_types.json`). `Graph` then refuses
 two writers of one value, which nothing would order, and runs every reader of a written value before
 its writer; a node that should see the modified value reads the writer's pass-through instead. No
-value is copied.
+copy protects a reader: the order does. (The executor does copy each literal per run, so that a
+writer cannot change the graph itself.)
 
 What a node declares is its author's contract, unchecked like an annotation. What *is* checked is
 that only declared code runs: a method node calls the function its plugin declared for the

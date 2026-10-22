@@ -494,16 +494,17 @@ class Plugin:
         """
         mark = self._marks[declared]
         # Resolved on the function that runs, as the host resolves them: an undeclared override
-        # inherits the names, not the positions.
-        parameters = list(inspect.signature(func).parameters)
+        # inherits the names, not the positions. A declared function's own writes= naming no
+        # parameter is the host's to report, as it reports inputs=.
+        parameters = list(inspect.signature(func).parameters) if mark.writes else []
         missing = [name for name in mark.writes if name not in parameters]
-        if missing:
+        if missing and func is not declared:
             raise ValueError(
                 f"{overrider} overrides the method {attribute!r}, whose declaration writes "
                 f"{missing} with writes=, with a function that has no such parameter; declare the "
                 f"override itself with plugin.method"
             )
-        written = {parameters.index(name) for name in mark.writes}
+        written = {parameters.index(name) for name in mark.writes if name in parameters}
         bases = [
             vars(owner)[attribute]
             for owner in holders
@@ -525,6 +526,8 @@ class Plugin:
                     f"declares const=True, with {func.__qualname__!r}, declared without "
                     f"const=True; an override may promise more than its base, never less"
                 )
+            if not written:
+                continue
             read = [parameters[i] for i in sorted(written - _positions(base, base_mark.writes))]
             if read:
                 raise ValueError(

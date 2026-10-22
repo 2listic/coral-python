@@ -220,7 +220,7 @@ graph's plugin requirement is its directory and never something inferred at run 
   simulation graph is *validated without being executed* — constructing a `Graph` runs all eleven
   checks and calls nothing, so the graph-JSON contract is guarded at ~0 ms per file.
 - **The framework suites name no plugin.** `coral-app/tests/specimen.py` provides a designed
-  plugin surface (`specimen_plugin`, `rival_plugin`, and four clash plugins that exist to be refused),
+  plugin surface (`specimen_plugin`, `rival_plugin`, and five clash plugins that exist to be refused),
   handed to the host by patching the one name→instance lookup. Enforced from outside by
   `tests/invariants/test_source_rules.py`, which fails on a `coral_plugin_*` import, a `mark.<plugin>`,
   or a string literal equal to a plugin name anywhere under `coral-core/tests` or `coral-app/tests`.
@@ -329,8 +329,10 @@ it finds them at runtime via entry-point discovery.
    [Graph validation](#graph-validation)). What is not declared is not checked: that a node modifies
    nothing it does not declare, and that its outputs, or the state a constructed instance keeps,
    share no mutable object with a read input (a node keeping or returning one copies it), are the
-   author's contract, like an annotation. The host's collection builtins keep it for the collection,
-   not for its elements: they copy shallowly.
+   author's contract, like an annotation. A return value is no written input either: the executor
+   refuses one that *is* such an input, and a part of one returned is again the author's to avoid.
+   The host's collection builtins keep it for the collection, not for its elements: they copy
+   shallowly.
 
    **Methods are opt-in**: only a declared method is a node. `plugin.functions()` /
    `plugin.classes()` resolve the declarations when the host asks, so declaration order does not
@@ -626,7 +628,7 @@ built (check 11), so a bad literal fails before any node runs.
    what the call returned. It is a tuple only when the node has more than one output, so a
    non-`const` method returning `None` stores its instance itself.
 
-Three run-time checks survive in the executor, all there for the same reason: they are about
+Four run-time checks survive in the executor, all there for the same reason: they are about
 a *value*, not about wiring, so validation cannot have settled them in advance. Everything else was
 verified before execution began.
 
@@ -634,7 +636,8 @@ verified before execution began.
 | --- | --- | --- |
 | **instance** | resolving a method's callable | input port 0 must really hold an instance of the class it is annotated with (`isinstance(instance, ports.inputs[0].annotation)`), the annotation check 8 validated the edge against |
 | **output arity** | right after a node returns | a node declaring n > 1 return values must have returned a tuple of exactly n; pass-throughs are not counted |
-| **output class** | right after the arity check | every output value that is an instance of a registered class must be of a registered class itself (`type(value)` in the class map), whatever the port's annotation, `Any` included |
+| **return identity** | right after the arity check | no return value is (by identity) an object the node modifies: that object is already passed on, and on two outputs it could feed two writers with nothing ordering them |
+| **output class** | right after the return-identity check | every output value that is an instance of a registered class must be of a registered class itself (`type(value)` in the class map), whatever the port's annotation, `Any` included |
 
 The **output arity** check exists because the port table's arity comes from a return annotation,
 which is a *claim* by the function's author. Everything downstream trusts it: the registry emits that
@@ -787,7 +790,9 @@ modifies it in place, would otherwise give a result decided by node ids: the ord
 id. So every reader of a written value runs before its writer and sees it unmodified, and a reader
 that should see the modified value reads the writer's pass-through output instead, which is an
 ordinary edge. Two writers of one value are refused, since nothing would order them: chain them,
-the second fed from the first's pass-through. No value is copied, by the host or by a node.
+the second fed from the first's pass-through. No copy protects a reader, by the host or by a node:
+the order does. (The executor does copy each literal per run, so that a writer cannot change the
+graph's literals.)
 
 **`source_output` (check 7)** — both `0` and `-1` appear on the wire for a single-output node, so
 both are accepted there:

@@ -90,7 +90,7 @@ class WorkflowExecutor:
         by its three markers — written by the collaborator rather than here, so that "``.failed`` is
         written before the exception escapes" is a property of one testable object instead of a
         discipline this walk has to keep. Everything raising inside the block is covered: a plugin
-        function, the method-instance check, the output-arity and output-class checks.
+        function, the method-instance check, the output-arity, return-identity and output-class checks.
         """
         print(f"Execution order: {self.graph.order}\n")
 
@@ -125,6 +125,9 @@ class WorkflowExecutor:
                     result = target(*arguments)
                     self._check_output_arity(
                         self.graph.describe(node_id), node["type"], ports, result
+                    )
+                    self._check_returns_are_not_written_inputs(
+                        self.graph.describe(node_id), node["type"], ports, values, result
                     )
                     outputs = self._outputs(ports, values, result)
                     self._check_output_classes(
@@ -180,6 +183,35 @@ class WorkflowExecutor:
                 f"Node {node} of type {node_type!r} declares {expected} return values but returned "
                 f"a tuple of {len(result)}"
             )
+
+    @staticmethod
+    def _check_returns_are_not_written_inputs(
+        node: str, node_type: str, ports: NodePorts, values: list, result
+    ) -> None:
+        """A return value must not be an object the node modifies.
+
+        A written input is already passed on, as its pass-through output. Returned as well, the one
+        object would sit on two outputs, and a writer on each would modify it with nothing to order
+        the two: the one-writer check sees two outputs, not one value. Only identity is checked;
+        a return value sharing a part of a written input is the plugin author's to avoid, like any
+        aliasing.
+
+        Raises:
+            ValueError: naming the return output, the input and its pass-through output.
+        """
+        returns = [index for index, port in enumerate(ports.outputs) if port.passthrough is None]
+        if not returns or len(returns) == len(ports.outputs):
+            return
+        returned = result if len(returns) > 1 else (result,)
+        for output, value in zip(returns, returned):
+            for passed, port in enumerate(ports.outputs):
+                if port.passthrough is not None and values[port.passthrough] is value:
+                    name = ports.inputs[port.passthrough].name
+                    raise ValueError(
+                        f"Node {node} of type {node_type!r} returned on output {output} the object "
+                        f"it received on input {port.passthrough} ({name!r}), which it modifies "
+                        f"and passes on as output {passed}; a return value must be another object"
+                    )
 
     def _check_output_classes(self, node: str, node_type: str, ports: NodePorts, outputs) -> None:
         """Every output value of a registered class must be of a registered class itself.
