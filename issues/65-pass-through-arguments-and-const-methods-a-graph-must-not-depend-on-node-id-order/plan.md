@@ -7,8 +7,8 @@
   comments/docstrings (`tests/invariants/test_source_rules.py`); `ruff format` / `ruff check`.
 - Order matters: plugins mark their read-only methods `const=True` (step 7) before any golden
   is regenerated, so the golden diffs show only genuine writers.
-- The fast lane is red from step 3 (registry format) until step 10 (goldens): the
-  pre-commit hook will refuse a commit in between.
+- The fast lane is red from step 2.4 (a non-`const` method gains output 0) until step 10
+  (goldens): the pre-commit hook will refuse a commit in between.
 
 ## Steps
 
@@ -54,11 +54,11 @@
 - [x] 2.5 `_constructor_ports`: unchanged (no pass-through, so `returns` is its one output).
 
 ### 3. `coral-app/src/coral_app/registry.py`
-- [ ] 3.1 `_create_input_argument`: `"connection_type": "pass_through"` for a written input.
-- [ ] 3.2 `_number_outputs`: output arguments only for return ports; the `outputs` list in
+- [x] 3.1 `_create_input_argument`: `"connection_type": "pass_through"` for a written input.
+- [x] 3.2 `_number_outputs`: output arguments only for return ports; the `outputs` list in
       port order, a pass-through's entry being its input's argument index (so `outputs` may
       not be ascending — decision 4).
-- [ ] 3.3 Docstrings of `_number_outputs`, `_add_function_node`, `_add_methods`,
+- [x] 3.3 Docstrings of `_number_outputs`, `_add_function_node`, `_add_methods`,
       `generate_registry`.
 
 ### 4. `coral-app/src/coral_app/graph.py`
