@@ -483,14 +483,27 @@ class Plugin:
         nearest declared function: its own when it is declared. That promise is compared with every
         other declared function under ``attribute`` in the MRO, not only the nearest: a method node
         of any of those classes, given an instance of this one, runs ``func`` behind that class's
-        ports. Written parameters are compared by position, since an override may rename them.
+        ports. Written parameters are compared by position, since an override may rename them; an
+        undeclared override's inherited names are resolved on its own signature, as the host
+        resolves them, and must all be there.
 
         Raises:
             ValueError: if one of them is ``const`` and ``func`` is not declared ``const=True``, or
-                ``func`` modifies a parameter one of them reads.
+                ``func`` modifies a parameter one of them reads, or lacks a parameter its
+                ``writes=`` names.
         """
         mark = self._marks[declared]
-        written = _positions(declared, mark.writes)
+        # Resolved on the function that runs, as the host resolves them: an undeclared override
+        # inherits the names, not the positions.
+        parameters = list(inspect.signature(func).parameters)
+        missing = [name for name in mark.writes if name not in parameters]
+        if missing:
+            raise ValueError(
+                f"{overrider} overrides the method {attribute!r}, whose declaration writes "
+                f"{missing} with writes=, with a function that has no such parameter; declare the "
+                f"override itself with plugin.method"
+            )
+        written = {parameters.index(name) for name in mark.writes}
         bases = [
             vars(owner)[attribute]
             for owner in holders
@@ -512,7 +525,6 @@ class Plugin:
                     f"declares const=True, with {func.__qualname__!r}, declared without "
                     f"const=True; an override may promise more than its base, never less"
                 )
-            parameters = list(inspect.signature(declared).parameters)
             read = [parameters[i] for i in sorted(written - _positions(base, base_mark.writes))]
             if read:
                 raise ValueError(

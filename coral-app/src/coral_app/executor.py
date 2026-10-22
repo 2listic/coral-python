@@ -1,3 +1,4 @@
+import copy
 from contextlib import nullcontext
 from typing import List, Optional
 
@@ -71,6 +72,7 @@ class WorkflowExecutor:
         }
         # Registered class -> its key, for the check on every value a node returns.
         self._class_keys = {d.target: key for key, d in self.class_map.items()}
+        self._registered = tuple(self._class_keys)
 
         print(f"Loaded plugins: {', '.join(plugins)}")
         print(f"Available functions: {len(self.function_map)}")
@@ -110,7 +112,9 @@ class WorkflowExecutor:
             status = self.status.node(qualified_id) if self.status else nullcontext()
             with status:
                 if kind == PRIMITIVE:
-                    self.results[node_id] = self.graph.literals[node_id]
+                    # A copy: a written input is modified in place, and the graph's literal must
+                    # stay as it was read.
+                    self.results[node_id] = copy.deepcopy(self.graph.literals[node_id])
                     print(f"{node_id} (primitive) = {self.results[node_id]}")
                 else:
                     values = self._input_values(node_id)
@@ -194,10 +198,12 @@ class WorkflowExecutor:
             ValueError: naming the output and the unregistered class.
         """
         values = outputs if len(ports.outputs) > 1 else (outputs,)
-        for index, (port, value) in enumerate(zip(ports.outputs, values)):
-            if not isinstance(value, tuple(self._class_keys)) or type(value) in self._class_keys:
+        for index, value in enumerate(values[: len(ports.outputs)]):
+            if not isinstance(value, self._registered) or type(value) in self._class_keys:
                 continue
-            base = next(c for c in type(value).__mro__ if c in self._class_keys)
+            # By `isinstance`, as above, not by the MRO: a virtual subclass of a registered ABC
+            # has no registered class in its MRO.
+            base = next(c for c in self._registered if isinstance(value, c))
             raise ValueError(
                 f"Node {node} of type {node_type!r} produced on output {index} an instance of "
                 f"{type(value).__qualname__}, a subclass of {self._class_keys[base]!r} that no "

@@ -10,6 +10,7 @@ the success cases are about values.
 """
 
 import json
+from abc import ABC, abstractmethod
 from typing import Any, Tuple
 
 import pytest
@@ -1095,6 +1096,29 @@ class TestPassThroughs:
 
         assert results["2"] == (results["1"], 3, 3)
 
+    def test_a_written_literal_leaves_the_graph_s_literal_unchanged(
+        self, write_graph, specimen_plugins
+    ):
+        """GIVEN a list literal wired into a function that appends to it
+        WHEN one executor executes the workflow twice
+        THEN both runs give the same result, and the graph's parsed literal is unchanged: each run
+             starts from a copy of it."""
+        path = write_graph(
+            graph(
+                {
+                    "0": {"type": "list", "value": "[1]"},
+                    "1": {"type": "int", "value": 5},
+                    "2": {"type": "push"},
+                },
+                {"0": edge("0", "2", 0), "1": edge("1", "2", 1)},
+            )
+        )
+        executor = WorkflowExecutor(str(path), plugins=[SPECIMEN])
+
+        assert executor.execute()["2"] == (2, [1, 5])
+        assert executor.execute()["2"] == (2, [1, 5])
+        assert executor.graph.literals["0"] == [1]
+
 
 class TestOnlyRegisteredCodeRuns:
     """A method node runs the function declared for its instance's class, so every value of a
@@ -1169,3 +1193,34 @@ class TestOnlyRegisteredCodeRuns:
         )
 
         assert results["1"] == 2
+
+    def test_a_virtual_subclass_is_refused_where_it_is_produced(self, run_declared):
+        """GIVEN a function returning an instance of a class registered as a virtual subclass of a
+             registered abstract class, and that class's method node fed by it
+        WHEN the workflow is executed
+        THEN ValueError at the producing node, naming the class and its registered base: it is
+             an instance of the base without having the base in its MRO."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Shape(ABC):
+            @plugin.method(const=True)
+            @abstractmethod
+            def area(self) -> float: ...
+
+        class Blob:
+            def area(self) -> float:
+                return 1.0
+
+        Shape.register(Blob)
+
+        @plugin.function
+        def make() -> Shape:
+            return Blob()
+
+        with pytest.raises(ValueError, match=r"an instance of .*Blob, a subclass of 'Shape'"):
+            run_declared(
+                plugin,
+                {"0": {"type": "make"}, "1": {"type": "Shape.area"}},
+                {"0": edge("0", "1", 0)},
+            )

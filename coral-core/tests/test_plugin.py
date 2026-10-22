@@ -746,6 +746,46 @@ class TestOverridesPromiseNoLess:
         with pytest.raises(ValueError, match=r"'Leaf': its base '.*Mid'.*Base\.value"):
             plugin.classes()
 
+    def test_an_undeclared_override_reordering_a_written_parameter_is_refused(self):
+        """GIVEN a method writing its first parameter, overridden without a declaration by a
+             function taking the same parameters in the other order
+        WHEN the subclass's methods are read
+        THEN ValueError naming the parameter and the base: the override inherits the name, so it
+             writes its second port, which the base reads."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method(writes="a")
+            def fill(self, a: list, b: list) -> None: ...
+
+        @plugin.cls
+        class Child(Base):
+            def fill(self, b: list, a: list) -> None: ...
+
+        with pytest.raises(ValueError, match=r"'Child'.*'fill'.*\['a'\].*Base\.fill"):
+            plugin.classes()
+
+    def test_an_undeclared_override_missing_an_inherited_written_parameter_is_refused(self):
+        """GIVEN a method writing a parameter, overridden without a declaration by a function
+             that has no parameter of that name
+        WHEN the subclass's methods are read
+        THEN ValueError naming the parameter: the inherited writes= cannot apply, so the override
+             must be declared itself."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method(writes="a")
+            def fill(self, a: list) -> None: ...
+
+        @plugin.cls
+        class Child(Base):
+            def fill(self, x: list) -> None: ...
+
+        with pytest.raises(ValueError, match=r"'Child'.*'fill'.*\['a'\].*plugin\.method"):
+            plugin.classes()
+
 
 class TestAbstractClasses:
     """A class that only types sockets: declared with ``abstract=``, or detected with

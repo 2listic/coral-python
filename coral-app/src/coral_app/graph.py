@@ -432,11 +432,7 @@ class Graph:
 
     def _output_annotation(self, edge: Edge):
         """The annotation of the source output an edge reads."""
-        outputs = self.ports_of(edge.source).outputs
-        if len(outputs) == 1:
-            # `None` (key omitted) and -1 both mean "the only output".
-            return outputs[0].annotation
-        return outputs[edge.source_output].annotation
+        return self.ports_of(edge.source).outputs[self._output_index(edge)].annotation
 
     def _read_literals(self) -> Dict[str, Any]:
         """Every primitive's ``value``, read the way its type says, by node id.
