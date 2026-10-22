@@ -217,7 +217,7 @@ graph's plugin requirement is its directory and never something inferred at run 
 - **No unmarked test may run a simulation.** Exactly one test per solver does: phiflow's, and pypde's
   diffusion and obstacles, each in its own package's `tests/system/test_graphs_run.py`, all marked
   `slow`. A solve without time stepping is not a simulation: pypde's Poisson graph runs unmarked. Every other
-  simulation graph is *validated without being executed* — constructing a `Graph` runs all ten
+  simulation graph is *validated without being executed* — constructing a `Graph` runs all eleven
   checks and calls nothing, so the graph-JSON contract is guarded at ~0 ms per file.
 - **The framework suites name no plugin.** `coral-app/tests/specimen.py` provides a designed
   plugin surface (`specimen_plugin`, `rival_plugin`, and four clash plugins that exist to be refused),
@@ -296,7 +296,7 @@ it finds them at runtime via entry-point discovery.
 
    @plugin.cls                            # node "Calculator" (its constructor)
    class Calculator:
-       @plugin.method(outputs="value")    # node "Calculator.get_value"
+       @plugin.method(const=True, outputs="value")    # node "Calculator.get_value"
        def get_value(self) -> float: ...
 
    plugin.function(math.atan2, name="math.atan2",
@@ -306,8 +306,9 @@ it finds them at runtime via entry-point discovery.
    `name=` (the node name; default `__name__`; a class's or method's may not contain `.`),
    `inputs=` (`{parameter: label}`), `outputs=` (output names in port order; not on `cls`) and
    `annotations=` (types for the parameters, and `"return"` except on `cls`, the signature leaves
-   unannotated). All
-   are **labels only**: wiring stays positional. They are kept in the plugin, never on the target.
+   unannotated). These four
+   are **labels only**: wiring stays positional. Every option is kept in the plugin, never on the
+   target.
    What can be checked without a signature is checked at the decorator: the target's kind (`function`
    takes any non-class callable, `cls` a class, `method` a plain function other than `__init__` /
    `__new__`), the options' shapes, and duplicates within the plugin (a name used twice across
@@ -320,22 +321,39 @@ it finds them at runtime via entry-point discovery.
    (they describe a constructor it does not have). Its declared methods are still nodes, run on a
    concrete subclass's instance.
 
+   **What a node modifies** is declared too, and it is not a label either. A method is taken to
+   modify its instance unless declared `const=True`; a function or method modifies none of its other
+   parameters unless it names them with `writes=` (a name or a sequence; not on `cls`, since a
+   constructor modifies none of its inputs). A modified input is a **pass-through**: its port is an
+   output too, so a graph can order every node reading the value before the one modifying it (see
+   [Graph validation](#graph-validation)). What is not declared is not checked: that a node modifies
+   nothing it does not declare, and that its outputs, or the state a constructed instance keeps,
+   share no mutable object with a read input (a node keeping or returning one copies it), are the
+   author's contract, like an annotation. The host's collection builtins keep it for the collection,
+   not for its elements: they copy shallowly.
+
    **Methods are opt-in**: only a declared method is a node. `plugin.functions()` /
    `plugin.classes()` resolve the declarations when the host asks, so declaration order does not
    matter: for each declared class the MRO is walked, and an attribute is a method node when some
    class in it holds a function this plugin declared under that attribute. A subclass therefore has
    its bases' declared methods (registered or not); an undeclared override keeps the node and its
-   `name=` / `inputs=` / `outputs=`, but cannot keep `annotations=`, which describe one function's
-   signature: when the declaration has them, the override must be declared itself.
+   `name=` / `inputs=` / `outputs=` / `writes=` / `const=`, but cannot keep `annotations=`, which
+   describe one function's signature: when the declaration has them, the override must be declared
+   itself. **An override may promise more than what it overrides, never less**, compared with every
+   declared function under that attribute in the MRO, not only the nearest: an override of a
+   `const` method must itself be declared `const=True`, and a declared override may not write a
+   parameter a base reads, compared by position, since an override may rename it.
    Declarations are not inherited across plugins. `classes()` raises if a declared method belongs to
    no registered class, if two of a class's methods resolve to one node name, or if an override is
-   not a function or replaces a method declared with `annotations=` without a declaration of its own.
+   not a function, replaces a method declared with `annotations=` without a declaration of its own,
+   or promises less than a method it overrides.
 
    What the host receives are frozen dataclasses: `functions()` -> `{node type: Declaration(target,
-   inputs, outputs, annotations)}`, `classes()` -> `{class key: ClassDeclaration(target, inputs,
-   annotations, methods, abstract)}`, `methods` being `{method node type:
-   MethodDeclaration(attribute, declaration)}` keyed by the full `<class key>.<name>`. `coral_core`
-   reads no signature and builds no port; that is the host's job.
+   inputs, outputs, annotations, writes)}`, `classes()` -> `{class key: ClassDeclaration(target,
+   inputs, annotations, methods, abstract)}`, `methods` being `{method node type:
+   MethodDeclaration(attribute, declaration, const)}` keyed by the full `<class key>.<name>`.
+   `coral_core` builds no port; that is the host's job. The one signature it reads is to compare an
+   override's written parameters with its bases', by position.
 
 2. **Plugins (`coral-plugin-*`)** — each module creates `plugin = Plugin()` and declares its node
    types on it. Each declares itself under the `coral.plugins` entry-point group with that
@@ -364,6 +382,10 @@ it finds them at runtime via entry-point discovery.
      This replaced the former "later wins" merge, which was never a designed rule but the behaviour of
      `dict.update()`; the single real duplicate it papered over — `print_result`, declared by both math and
      string — is gone, each plugin naming its own (`print_number` / `print_text`).
+     **Plugins do not share a class hierarchy**: `build_class_map` also raises a plain `ValueError`
+     when a class registered by one plugin derives from a class registered by another, naming both
+     classes and both plugins. The override rules are checked within one plugin's declarations, so
+     across plugins nothing would check them.
    - Re-exports the two host-owned node surfaces: `PRIMITIVES_MAP` (from `coral_app/primitives.py`)
      and `BUILTINS` (from `coral_app/builtin_nodes.py`), a `Plugin` declaring the 15 collection
      functions with the same decorators, merged without entry-point discovery.
@@ -374,21 +396,27 @@ it finds them at runtime via entry-point discovery.
 
    - **`nodeports.py`** (stage 2): `build_port_table(function_map, class_map, primitives)` takes the
      declarations and returns node type -> `NodePorts(kind, inputs, outputs, attribute)` — `inputs`
-     and `outputs` each a list of `Port(name, annotation, instance)` in port order, `attribute` the
-     name a method is looked up by on its instance (`None` for every other kind). An abstract class
+     and `outputs` each a list of `Port(name, annotation, instance, written, passthrough)` in port
+     order, `attribute` the name a method is declared under (`None` for every other kind), and
+     `.returns` the outputs that are return values. An abstract class
      gets an entry of kind `abstract`, with no ports and no signature read: it is not a node a graph
      may use, but its key must meet the duplicate checks. It reads each callable's
      signature, then applies `annotations=` (fill only: typing an annotated slot, including an
      explicit `Any`, raises), `inputs=` (relabel; labels must stay distinct) and `outputs=` (name),
      in that order; a key naming no parameter, or a method's instance, raises. An input's name is its
-     parameter's or its label; an output's is the one declared with `outputs=`, else `""`. Every
+     parameter's or its label; an output's is the one declared with `outputs=`, else `""`. A
+     **written** input (`writes=`, or a non-`const` method's instance) is also an output, its
+     **pass-through** (`passthrough` = the input's index), named and typed as the input: the
+     outputs are the instance if written, then the return values, then the written parameters in
+     parameter order. `writes=` names parameters as `inputs=` does, never the instance. Every
      port is passed by position, so a callable with no readable signature, or with a keyword-only,
      `*args` or `**kwargs` parameter, raises `ValueError` — which refuses many C-extension classes
      (`datetime.date`), though not all (`decimal.Decimal` has a readable, positional signature).
      The **single place** that derives a node's
      arity from a callable, so the registry and the executor can no longer disagree about it. A
      method's port 0 is its instance: its first parameter, whatever its name, re-emitted as
-     `Port("self", cls, instance=True)`; a method with no parameter at all raises. A missing
+     `Port("self", cls, instance=True)`, `written` unless the method is `const`; a method with no
+     parameter at all raises. A missing
      annotation is normalised to `Any`.
      `methods_of(port_table, class_name)` lists a class's `Class.method` entries. Also the only place
      the three node surfaces meet, so it is where **one name declared as two kinds** — a primitive and
@@ -401,15 +429,16 @@ it finds them at runtime via entry-point discovery.
      [Graph validation](#graph-validation). Exposes `.order`, `.node(id)`, `.ports_of(id)`,
      `.inputs_of(id)` (incoming edges sorted by `target_input`, built once), `.qualified_ids`
      (node id -> qualified id, validated as check 3), `.literals` (node id -> a primitive's value,
-     read as check 10), `.name_of(id)` and `.describe(id)` (see
+     read as check 11), `.name_of(id)` and `.describe(id)` (see
      [Workflow JSON Structure](#workflow-json-structure)). Takes the port table as plain data, so it
      imports neither `inspect` nor any plugin machinery, and its tests need no plugin installed;
      the host modules it imports are `nodestatus`, for check 3's rules, and `primitives`, for
-     check 10's.
+     check 11's.
    - **`registry.py`** (stage 5): `generate_registry()` renders the port table into the platform's
      file format, `python_type_to_string()`, `save_registry_to_file(filename, plugins=...)`. Every
      decision about the *format* lives here — argument dicts, index numbering, the `[-1]`
-     convention; the arity and annotations come from the port table.
+     convention, a pass-through as one `pass_through` argument; the arity and annotations come from
+     the port table.
    - **`executor.py`** (stage 4): `WorkflowExecutor(workflow_file, plugins=..., touch_dir=...)` —
      see [Data flow](#data-flow). Validation happens during construction, so `execute()` only walks,
      calls and stores. No `json`, no `graphlib`, no edge list — and no `pathlib`/`os` either: the
@@ -463,12 +492,18 @@ Edge format:
   `registry[type]`
 - Each entry has:
   - `type`: the node type string (equals the entry's key)
-  - `arguments`: Array with `connection_type` ("input"/"output"), `type`, and `name` (empty `[]` for primitives)
+  - `arguments`: Array with `connection_type` ("input"/"pass_through"/"output"), `type`, and `name` (empty `[]` for primitives)
     — an input argument's `name` is its parameter's or its `inputs=` label; an output argument's
     is what `outputs=` declared, else `""`; the editor shows it as the socket's label
+    — a `pass_through` argument is a written input (a non-`const` method's instance, or a
+    parameter in `writes=`): one argument, named as its input, whose index is in both `inputs` and
+    `outputs`, the C++ backend's shape for a non-`const` reference. It has no output argument of
+    its own
   - `inputs`: List of input indices
   - `outputs`: List of output indices (`[-1]` for constructors/primitives, `[]` for abstract
-    classes)
+    classes), in port order, which need not be ascending: a non-`const` method's instance,
+    argument 0, comes first (`[0, 2]`), and a written parameter after the return values
+    (`[2, 0]`). The editor reads the list in order
   - `node_type`: "primitive", "function", "constructor", "method", or "abstract". An `abstract`
     entry, the C++ backend's shape for a type never constructed, has empty `arguments` /
     `inputs` / `outputs`; the editor hides it from its palette
@@ -508,7 +543,7 @@ Edge format:
 | --- | --- | --- | --- | --- |
 | 1 | load plugins, add the host's builtins | plugin names | `function_map`, `class_map` | `coral_app/__init__.py` |
 | 2 | describe each node type | the maps | port table | `coral_app/nodeports.py` |
-| 3 | read, validate, order the graph | graph JSON + port table | `Graph` | `coral_app/graph.py`, `coral_app/nodestatus.py` (check 3), `coral_app/primitives.py` (check 10) |
+| 3 | read, validate, order the graph | graph JSON + port table | `Graph` | `coral_app/graph.py`, `coral_app/nodestatus.py` (check 3), `coral_app/primitives.py` (check 11) |
 | 4 | execute | `Graph` + the maps | `results`, plus the status markers if a touch dir was given | `coral_app/executor.py`, `coral_app/nodestatus.py` |
 | 5 | write the registry | port table | `node_types.json` | `coral_app/registry.py` |
 
@@ -555,7 +590,7 @@ JSON string, parsed with `json.loads`: an array for `list` / `set`, an object fo
 array or object, the wrong shape, malformed JSON or an unhashable set element raises `ValueError`
 naming the node, chained to the parser's own error where there is one. A missing `value` raises
 `ValueError` naming the node, for every type but `none`. All of this happens while the `Graph` is
-built (check 10), so a bad literal fails before any node runs.
+built (check 11), so a bad literal fails before any node runs.
 
 **Every other node** runs the same four steps, written once:
 
@@ -568,31 +603,38 @@ built (check 10), so a bad literal fails before any node runs.
    outputs, bundled" from "one output that happens to be a tuple". `graph.py:_output_annotation` asks
    the same question the same way.
 2. **Resolve the callable** — the only three-way distinction left, and it cannot be removed, because
-   a method's callable is produced by one of its own inputs and is known only at run time:
+   a method's callable depends on one of its own inputs, the instance's class, known only at run
+   time:
 
    | kind | callable | arguments |
    | --- | --- | --- |
    | function | `function_map[type].target` | all the values |
    | constructor | `class_map[type].target` | all the values |
-   | method | `getattr(values[0], ports.attribute)` | `values[1:]` |
+   | method | the function `Plugin.classes()` resolved for `type(values[0])` under `ports.attribute` | all the values, the instance first |
 
    A method is looked up by its **attribute**, not by its node type, which `name=` may have changed;
-   and on the instance, so a subclass's override is what runs.
+   and for the instance's own class, never on the instance: only declared code runs, and a
+   subclass's override runs only if the subclass is registered — which the output-class check below
+   guarantees for every instance that reaches a method.
 
 3. **Call** — a plain positional call, `target(*arguments)`. The values already arrive in port order,
    which *is* parameter order, so nothing here looks at the callable's signature; `executor.py` does
-   not import `inspect` at all. A bound method has already dropped `self`, so the same call works for
-   all three kinds.
-4. **Store** the result under the node id.
+   not import `inspect` at all. A method's function is plain, so the instance is simply its first
+   argument, and the same call works for all three kinds.
+4. **Store** the result under the node id. A node with pass-throughs stores its outputs in port
+   order: each pass-through is the very object its input received, modified; the return values are
+   what the call returned. It is a tuple only when the node has more than one output, so a
+   non-`const` method returning `None` stores its instance itself.
 
-Two run-time checks survive in the executor, and both are there for the same reason: they are about
+Three run-time checks survive in the executor, all there for the same reason: they are about
 a *value*, not about wiring, so validation cannot have settled them in advance. Everything else was
 verified before execution began.
 
 | check | when | what |
 | --- | --- | --- |
 | **instance** | resolving a method's callable | input port 0 must really hold an instance of the class it is annotated with (`isinstance(instance, ports.inputs[0].annotation)`), the annotation check 8 validated the edge against |
-| **output arity** | right after a node returns | a node declaring n > 1 outputs must have returned a tuple of exactly n |
+| **output arity** | right after a node returns | a node declaring n > 1 return values must have returned a tuple of exactly n; pass-throughs are not counted |
+| **output class** | right after the arity check | every output value that is an instance of a registered class must be of a registered class itself (`type(value)` in the class map), whatever the port's annotation, `Any` included |
 
 The **output arity** check exists because the port table's arity comes from a return annotation,
 which is a *claim* by the function's author. Everything downstream trusts it: the registry emits that
@@ -603,16 +645,26 @@ an under-declared node cannot slip through by nobody reading its last output. Th
 function whose annotation is wrong, not the graph that believed it:
 
 ```
-Node '3' of type 'phiflow_iterate' declares 3 outputs but returned a tuple of 2
-Node '3' of type 'phiflow_iterate' declares 3 outputs but returned int
+Node '3' of type 'phiflow_iterate' declares 3 return values but returned a tuple of 2
+Node '3' of type 'phiflow_iterate' declares 3 return values but returned int
 ```
 
 A named node adds its name after the id: `Node '3' ('step') of type 'phiflow_iterate' …`.
 
 Only n > 1 is checkable. At n == 1 a returned tuple is legitimate — that is the `-> tuple` case — so
-there is nothing to compare; at n == 0 the value is unreachable anyway, since check 7 rejects every
-outgoing edge of a node with no outputs. Nothing here checks the *types* of a tuple's elements; check
+there is nothing to compare; at n == 0 nothing returned is ever read, since the node's outputs, if
+any, are its pass-throughs. Nothing here checks the *types* of a tuple's elements; check
 6 reasons about the declaration only.
+
+The **output class** check exists because a method node runs the function declared for its
+instance's class. A function annotated with a registered base may return an instance of a subclass
+no plugin registers, whose methods nobody declared and no override rule checked. Like the arity
+check it confronts a declaration with a value, so it cannot run earlier, and it fires at the
+producer, before any consumer of the value has run:
+
+```
+Node '0' of type 'make' produced on output 0 an instance of Hidden, a subclass of 'Base' that no selected plugin registers; register it, so that the methods it runs are declared
+```
 
 ### Per-node execution status
 
@@ -714,8 +766,14 @@ In order — one item per check, as `Graph.__init__` runs them:
 6. the incoming edge count equals the type's input count — catches missing and extra connections;
 7. every `source_output` names an output the source type has;
 8. every edge's source annotation is compatible with its target annotation;
-9. no cycles — the message names the cycle path.
-10. every primitive's `value` is present (unless its type is `none`) and can be read as its type
+9. **one writer per value**: an output feeds at most one written input (`source_output` normalised,
+   so `0`, `-1` and an omitted key are one output of a single-output node), and the writer does not
+   also receive it on a read input — it would read the value while modifying it, inside one call;
+10. no cycles — the message names the cycle path. Besides the edges, every node reading an output
+    that check 9 found a writer for is ordered before that writer, as if an edge joined them; a
+    cycle closed by such an implicit edge is named too: which node reads which value, which node
+    modifies it;
+11. every primitive's `value` is present (unless its type is `none`) and can be read as its type
     says (`primitives.read_literal`). The parsed values are kept on `.literals`, so the executor
     never parses one — see [Node Execution Model](#node-execution-model).
 
@@ -723,6 +781,13 @@ In order — one item per check, as `Graph.__init__` runs them:
 leave a port unwired, so the defaults in `phiflow_union`, `phiflow_iterate`,
 `phiflow_plot_and_save`, `Calculator` and `StringProcessor` are unreachable from a graph. This is
 long-standing behaviour, moved earlier.
+
+**Readers before the writer (checks 9 and 10).** A value fanned out to several nodes, one of which
+modifies it in place, would otherwise give a result decided by node ids: the order breaks ties by
+id. So every reader of a written value runs before its writer and sees it unmodified, and a reader
+that should see the modified value reads the writer's pass-through output instead, which is an
+ordinary edge. Two writers of one value are refused, since nothing would order them: chain them,
+the second fed from the first's pass-through. No value is copied, by the host or by a node.
 
 **`source_output` (check 7)** — both `0` and `-1` appear on the wire for a single-output node, so
 both are accepted there:
@@ -762,8 +827,9 @@ standard library's own `numbers` tower rather than a hand-written table.
 
 The check only sees what a node's author declares, so **annotation quality is the author's
 responsibility**. A *slot* below is one annotation the check can look at — every input and output of
-every node type, except a method's `self` (which the port table synthesises from the class). Across
-the four plugins and the host's builtins, 163 of 195 slots are checkable and 32 are `Any` — and every
+every node type, except a method's `self`, as input or as its pass-through output (which the port
+table synthesises from the class). Across
+the four plugins and the host's builtins, 167 of 199 slots are checkable and 32 are `Any` — and every
 one of the 32 is in phiflow or in the builtins, where 9 are deliberate (see below):
 
 | source | slots | `Any` | checkable |
@@ -771,7 +837,7 @@ one of the 32 is in phiflow or in the builtins, where 9 are deliberate (see belo
 | math | 50 | 0 | 50 |
 | string | 8 | 0 | 8 |
 | phiflow | 48 | 23 | 25 |
-| pypde | 53 | 0 | 53 |
+| pypde | 57 | 0 | 57 |
 | builtins (host) | 36 | 9 | 27 |
 
 So `phiflow_iterate` returning `Tuple[Any, Any, Any]` cannot be checked, and a grid wired where a
@@ -822,7 +888,9 @@ Three properties hold for all 15, and graphs depend on each:
 
 - **Pure.** Every operation returns a *new* collection and never mutates its input. A node's result is
   read by every downstream consumer in an order the topological sort chooses, so in-place mutation would
-  make the graph's outcome depend on that choice.
+  make the graph's outcome depend on that choice. The copy is shallow: a collection holds references,
+  so a mutable element modified by a writer elsewhere is seen modified through every collection
+  holding it.
 - **Fail loud.** A missing index or key raises (`IndexError` / `KeyError`); `set_remove` uses `remove`,
   not `discard`. No `None` fallbacks and no default arguments — graph check 6 requires every port to be
   wired, so a default would be unreachable.
@@ -882,11 +950,17 @@ is what provides their node types. The
   shows, and a test looks the node up by it (`node_named` in the plugin's `<n>_suite.py`)
 - **No cycles**: Workflow graphs must be acyclic (DAG) — `graph.py` raises `ValueError` naming the
   cycle path, using `graphlib.TopologicalSorter` (stdlib, `{node: predecessors}`)
+- **Readers before the writer**: a value one node modifies in place has one writer, and every
+  other node reading it runs first (checks 9 and 10). What a node modifies is declared, with
+  `const=` and `writes=` — see Core components
+- **Plugins do not share a class hierarchy**: a class registered by one plugin may not derive from
+  one registered by another (`build_class_map` raises). With the output-class check, a method node
+  runs only code its own plugin declared
 - **Validate before executing**: every defect — identity, wiring, typing, ordering, literals — raises while the `Graph` is being constructed, so
   `WorkflowExecutor(...)` fails before the first node runs — see [Graph validation](#graph-validation)
 - **One job per module**: `nodeports` knows callables but not graphs; `graph` knows graphs but not
   callables (it never imports `inspect` or a plugin; its host imports are `nodestatus`, for
-  check 3's filename rules, and `primitives`, for check 10's literals); `executor` receives an
+  check 3's filename rules, and `primitives`, for check 11's literals); `executor` receives an
   already-validated graph
   (no `json`, no `graphlib`, no edge list). `tests/invariants/test_source_rules.py` enforces these
   boundaries by reading the source
@@ -955,8 +1029,14 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
    class MyClass:
        def __init__(self, x: float = 0.0): ...
 
-       @plugin.method                  # only declared methods become nodes
+       @plugin.method                  # only declared methods become nodes; this one modifies self
        def do_thing(self, amount: float) -> float: ...
+
+       @plugin.method(const=True)      # a method that leaves self unchanged must say so
+       def peek(self) -> float: ...
+
+   @plugin.function(writes="buffer")   # modifies a parameter in place: a pass-through output
+   def fill(buffer: list, value: float) -> None: ...
 
    # A callable defined elsewhere, declared as it is
    plugin.function(math.fmod, name="math.fmod",
@@ -1045,7 +1125,8 @@ in `coral-core` or `coral-app` changes — the host discovers the plugin at runt
    for an abstract class, which has none and whose signature is never read.
 2. Method nodes are generated only for declared methods, inherited ones included (see Core components).
 3. Methods use fully qualified names: `ClassKey.name`, `name` defaulting to the method's `__name__`.
-4. First input to method nodes is always the instance.
+4. First input to method nodes is always the instance; unless the method is `const`, it is also the
+   first output, a pass-through.
 
 **Limitations:**
 - Every port is passed by position, so a parameter that is keyword-only, `*args` or `**kwargs` is
@@ -1076,10 +1157,11 @@ The registry system requires explicit type hints:
 - A function must return what its annotation declares: a node declaring n > 1 outputs returning
   anything but a tuple of exactly n raises at run time (see [Node Execution Model](#node-execution-model))
 - **Naming outputs**: a return value has no name, so every output is written with `"name": ""`
-  unless its declaration gives `outputs=`, one name per output port, in order —
+  unless its declaration gives `outputs=`, one name per return value, in order —
   `@plugin.function(outputs=("velocity", "smoke", "pressure"))` on a `-> Tuple[Any, Any, Any]`. It
   works on functions and methods; a subclass inheriting a declared method inherits its names. A
-  name count different from the output-port count (including any name on a `-> None`) is rejected
+  pass-through output is not named there: it is named as its input. A
+  name count different from the return-value count (including any name on a `-> None`) is rejected
   by `build_port_table` with a `ValueError` naming the node type. `plugin.cls` takes no `outputs=`:
   a constructor's output is the instance, written as `outputs: [-1]` with no argument to carry a
   name. Names are labels only — wiring stays positional (`source_output`)

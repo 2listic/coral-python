@@ -159,16 +159,16 @@
       / `multiply_value` (and pypde's `solve` if 7.5 keeps it non-`const`).
 
 ### 11. Docs
-- [ ] 11.1 `CLAUDE.md`: Core components (`const=`, `writes=`, override rules, decision 3's
+- [x] 11.1 `CLAUDE.md`: Core components (`const=`, `writes=`, override rules, decision 3's
       unchecked contracts: no undeclared mutation, no aliasing of a read input, constructors
       modify no input), Registry Files
       (`pass_through`, non-ascending `outputs`), Node Execution Model (dispatch, bundle,
       producer check in the run-time checks table), Graph validation (new check, implicit
       edges, renumbering), Key Constraints (plugins do not share a hierarchy), Adding a New
       Plugin (example with `const=True`).
-- [ ] 11.2 `docs/ONBOARDING.md`: the narrative of a graph not depending on node order.
-- [ ] 11.3 `README.md`: only if it mentions method outputs.
+- [x] 11.2 `docs/ONBOARDING.md`: the narrative of a graph not depending on node order.
+- [x] 11.3 `README.md`: only if it mentions method outputs.
 
 ### 12. Close
-- [ ] 12.1 `uv run pre-commit run --all-files`; full `pytest` (slow lane included).
-- [ ] 12.2 Short consistency audit of the result against `decisions.md`.
+- [x] 12.1 `uv run pre-commit run --all-files`; full `pytest` (slow lane included).
+- [x] 12.2 Short consistency audit of the result against `decisions.md`.

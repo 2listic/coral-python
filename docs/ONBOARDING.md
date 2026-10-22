@@ -269,6 +269,23 @@ the order is **deterministic** — each ready batch is `sorted()` before being e
 function of the graph rather than of JSON key order. (Those ready batches are also the natural hook for
 executing independent branches concurrently, which nothing does today.)
 
+**A result that does not depend on node ids.** Deterministic is not enough. When one value fans out
+to several nodes and one of them modifies it in place, the tie-break between them — node ids, numbers
+the editor assigns — decides what the others see, so the graph's meaning would hang on them. Nothing
+in a Python signature says a parameter is modified, so it is declared: a method modifies its instance
+unless declared `const=True`, and `writes=` names any other parameter a node modifies. A modified
+input is a **pass-through**, an output too and the very same object, as a non-`const` reference is
+in the C++ backend (`"connection_type": "pass_through"` in `node_types.json`). `Graph` then refuses
+two writers of one value, which nothing would order, and runs every reader of a written value before
+its writer; a node that should see the modified value reads the writer's pass-through instead. No
+value is copied.
+
+What a node declares is its author's contract, unchecked like an annotation. What *is* checked is
+that only declared code runs: a method node calls the function its plugin declared for the
+instance's class, never a lookup on the instance; every instance a node returns must be of a
+registered class; and plugins do not share a class hierarchy. So the override rules — an override
+may promise more than what it overrides, never less — cover every function that can run.
+
 **Recovering what a node is.** Because lean nodes carry only `{type, value?}`, something has to recover each
 node's *kind*. `nodeports.build_port_table()` decides it once per node **type** — not per node — by where the
 type comes from:
@@ -288,8 +305,9 @@ reads the answer back as `graph.ports_of(node_id).kind` and never re-derives it.
 
 Two things worth being precise about:
 
-- The port table records a node type's **argument shape** too, not just its kind: one `Port(name, annotation, instance)`
-  per input port and per output port. So nothing downstream introspects a second time — the executor binds
+- The port table records a node type's **argument shape** too, not just its kind: one
+  `Port(name, annotation, instance, written, passthrough)` per input port and per output port. So
+  nothing downstream introspects a second time — the executor binds
   a node's inputs with a plain positional call (`target(*arguments)`, no `inspect` import at all), because the
   values arrive in port order, which *is* parameter order.
 - Cost is paid per node *type* at startup rather than per node at run time, and lookups during the walk are
