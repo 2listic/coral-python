@@ -130,32 +130,32 @@
 - [x] 8.3 `pytest plugins/*/tests/system/test_graphs_validate.py`: all construct.
 
 ### 9. Tests
-- [ ] 9.1 `coral-core/tests/test_plugin.py`: `const=` (default, explicit, bad type);
+- [x] 9.1 `coral-core/tests/test_plugin.py`: `const=` (default, explicit, bad type);
       `writes=` (shapes, bad types, duplicate names); the three override rules of 1.8, each
       raising and each accepted case; inheritance by an undeclared override.
-- [ ] 9.2 `coral-app/tests/specimen.py`: mark readers `const=True`, declaring their
+- [x] 9.2 `coral-app/tests/specimen.py`: mark readers `const=True`, declaring their
       overrides `const=True` too (`Thermometer.read`, decision 5); add one writer with
       `writes=` (a function) and keep one non-`const` method; a new `hierarchy_clash_plugin`
       whose class derives from a specimen class, used only by 9.6. Module table, `__all__`.
-- [ ] 9.3 `test_nodeports.py`: written inputs, pass-through outputs in decision 4's order,
+- [x] 9.3 `test_nodeports.py`: written inputs, pass-through outputs in decision 4's order,
       names, `returns`; `writes=` naming no parameter / the instance raises; `outputs=` counts
       only returns.
-- [ ] 9.4 `test_registry.py`: a non-`const` method's exact entry (non-ascending `outputs`);
+- [x] 9.4 `test_registry.py`: a non-`const` method's exact entry (non-ascending `outputs`);
       a `writes=` function's entry; a `const` method unchanged.
-- [ ] 9.5 `test_graph.py`: two writers on one output refused; readers ordered before the
+- [x] 9.5 `test_graph.py`: two writers on one output refused; readers ordered before the
       writer (check `order`); a reader depending on the writer's output → cycle message naming
       the implicit edge; normalised `source_output` (`0` / `-1` / omitted) count as one output.
-- [ ] 9.6 `test_discovery` / `__init__` tests: cross-plugin hierarchy refused (decision 8).
-- [ ] 9.7 `test_executor.py`: pass-through outputs carry the same object; dispatch runs a
+- [x] 9.6 `test_discovery` / `__init__` tests: cross-plugin hierarchy refused (decision 8).
+- [x] 9.7 `test_executor.py`: pass-through outputs carry the same object; dispatch runs a
       registered subclass's override (an unregistered one never gets there); the producer
       check refuses an unregistered subclass, through a typed and through an `Any` port;
       output arity counts only returns; existing `Meter` / `Child` tests still pass.
-- [ ] 9.8 Plugin unit/system tests touched by step 7 and 8 (math's classes graph values).
+- [x] 9.8 Plugin unit/system tests touched by step 7 and 8 (math's classes graph values).
 
 ### 10. Goldens
-- [ ] 10.1 Regenerate `coral-app/tests/golden/node_types.format.json`; the diff shows only
+- [x] 10.1 Regenerate `coral-app/tests/golden/node_types.format.json`; the diff shows only
       the specimen's writers.
-- [ ] 10.2 Regenerate the four plugin goldens; the diff shows only `Calculator.add_to_value`
+- [x] 10.2 Regenerate the four plugin goldens; the diff shows only `Calculator.add_to_value`
       / `multiply_value` (and pypde's `solve` if 7.5 keeps it non-`const`).
 
 ### 11. Docs

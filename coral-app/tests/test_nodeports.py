@@ -149,7 +149,7 @@ class TestTableCoverage:
 
         @plugin.cls(abstract=True)
         class Part:
-            @plugin.method
+            @plugin.method(const=True)
             def weigh(self) -> float: ...
 
         table = build_port_table(class_map=plugin.classes())
@@ -581,7 +581,7 @@ class TestOutputNames:
 
         @plugin.cls
         class Meter:
-            @plugin.method(outputs="reading")
+            @plugin.method(outputs="reading", const=True)
             def read(self) -> float:
                 return 0.0
 
@@ -597,7 +597,7 @@ class TestOutputNames:
 
         @plugin.cls
         class Meter:
-            @plugin.method(outputs="reading")
+            @plugin.method(outputs="reading", const=True)
             def read(self) -> float:
                 return 0.0
 
@@ -663,6 +663,154 @@ def variadic(*args: int) -> int:
 def keywords(**kwargs: int) -> int:
     """A function taking ``**kwargs``."""
     return len(kwargs)
+
+
+class TestPassThroughs:
+    """A written input is also an output: the instance of a method that is not ``const`` first,
+    then the return values, then each parameter in ``writes=``, in parameter order."""
+
+    def test_a_written_parameter_is_marked_and_passed_on_after_the_return(self):
+        """GIVEN a function declared with writes= naming its first parameter
+        WHEN the table is built
+        THEN that input is marked written, and an output after the return value passes it on,
+             named and annotated as the input."""
+        plugin = Plugin()
+
+        @plugin.function(writes="items")
+        def push(items: list, item: Any) -> int: ...
+
+        ports = build_port_table(function_map=plugin.functions())["push"]
+
+        assert ports.inputs == [Port("items", list, written=True), Port("item", Any)]
+        assert ports.outputs == [Port("", int), Port("items", list, passthrough=0)]
+        assert ports.returns == [Port("", int)]
+
+    def test_a_method_that_is_not_const_passes_its_instance_first(self):
+        """GIVEN a method declared without const=True
+        WHEN the table is built
+        THEN its instance is a written input, and output 0 passes it on, ahead of the return."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Counter:
+            @plugin.method
+            def bump(self, by: int) -> int: ...
+
+        ports = build_port_table(class_map=plugin.classes())["Counter.bump"]
+
+        assert ports.inputs == [
+            Port("self", Counter, instance=True, written=True),
+            Port("by", int),
+        ]
+        assert ports.outputs == [Port("self", Counter, passthrough=0), Port("", int)]
+        assert ports.returns == [Port("", int)]
+
+    def test_a_const_method_passes_nothing_on(self):
+        """GIVEN a method declared const=True
+        WHEN the table is built
+        THEN its instance is read, and its only outputs are its return values."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Counter:
+            @plugin.method(const=True)
+            def current(self) -> int: ...
+
+        ports = build_port_table(class_map=plugin.classes())["Counter.current"]
+
+        assert ports.inputs == [Port("self", Counter, instance=True)]
+        assert ports.outputs == ports.returns == [Port("", int)]
+
+    def test_outputs_are_the_instance_the_returns_then_the_written_parameters(self):
+        """GIVEN a method that is not const, returning two named values and writing two
+             parameters, named in writes= against parameter order
+        WHEN the table is built
+        THEN the outputs are the instance, the two return values, then the two parameters in
+             parameter order, each pass-through pointing at its input."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Mixer:
+            @plugin.method(outputs=("low", "high"), writes=("right", "left"))
+            def split(self, left: list, gain: float, right: list) -> Tuple[float, float]: ...
+
+        ports = build_port_table(class_map=plugin.classes())["Mixer.split"]
+
+        assert ports.outputs == [
+            Port("self", Mixer, passthrough=0),
+            Port("low", float),
+            Port("high", float),
+            Port("left", list, passthrough=1),
+            Port("right", list, passthrough=3),
+        ]
+
+    def test_a_pass_through_is_named_by_its_input_label(self):
+        """GIVEN a written parameter relabelled with inputs=
+        WHEN the table is built
+        THEN its pass-through output carries the label: it is one argument, with one name."""
+        plugin = Plugin()
+
+        @plugin.function(inputs={"items": "queue"}, writes="items")
+        def push(items: list, item: Any) -> int: ...
+
+        ports = build_port_table(function_map=plugin.functions())["push"]
+
+        assert ports.outputs[1] == Port("queue", list, passthrough=0)
+
+    def test_a_writer_returning_nothing_has_only_its_pass_throughs(self):
+        """GIVEN a function returning None and writing its parameter
+        WHEN the table is built
+        THEN its one output is the pass-through, and it has no return value."""
+        plugin = Plugin()
+
+        @plugin.function(writes="items")
+        def clear(items: list) -> None: ...
+
+        ports = build_port_table(function_map=plugin.functions())["clear"]
+
+        assert ports.outputs == [Port("items", list, passthrough=0)]
+        assert ports.returns == []
+
+    def test_outputs_names_only_the_return_values(self):
+        """GIVEN a writer declared with one outputs= name per return value, and another with one
+             more, meant for its pass-through
+        WHEN the table is built
+        THEN the first is accepted; the second raises ValueError counting the return values."""
+        plugin = Plugin()
+
+        @plugin.function(outputs="length", writes="items")
+        def push(items: list, item: Any) -> int: ...
+
+        assert build_port_table(function_map=plugin.functions())["push"].outputs[0].name == "length"
+
+        plugin = Plugin()
+        plugin.function(push, outputs=("length", "items"), writes="items")
+        with pytest.raises(ValueError, match=r"names 2 outputs.*declares 1"):
+            build_port_table(function_map=plugin.functions())
+
+    def test_writes_naming_no_parameter_raises(self):
+        """GIVEN writes= naming a parameter the function does not have
+        WHEN the table is built
+        THEN ValueError naming the key and the parameters."""
+        plugin = Plugin()
+        plugin.function(annotated, writes="c")
+
+        with pytest.raises(ValueError, match=r"writes= names 'c'.*\['a', 'b'\]"):
+            build_port_table(function_map=plugin.functions())
+
+    def test_writes_naming_the_instance_raises(self):
+        """GIVEN a method whose writes= names its instance
+        WHEN the table is built
+        THEN ValueError pointing at const=: whether the instance is written is its to say."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Counter:
+            @plugin.method(writes="self")
+            def bump(self, by: int) -> int: ...
+
+        with pytest.raises(ValueError, match=r"writes= names 'self'.*const=True"):
+            build_port_table(class_map=plugin.classes())
 
 
 class TestSignatures:
@@ -733,7 +881,7 @@ class TestSignatures:
 
         @plugin.cls
         class Meter:
-            @plugin.method
+            @plugin.method(const=True)
             def scaled(this, factor: float) -> float:
                 return factor
 
@@ -809,7 +957,7 @@ class TestAnnotations:
 
         @plugin.cls
         class Meter:
-            @plugin.method(annotations={"scale": float})
+            @plugin.method(annotations={"scale": float}, const=True)
             def read(self, scale) -> float:
                 return scale
 

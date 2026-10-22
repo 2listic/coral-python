@@ -25,7 +25,7 @@ from coral_app import (
 )
 from coral_app.registry import save_registry_to_file
 from coral_core import Plugin
-from specimen import BUILTIN_CLASH, CLASS_CLASH, FUNCTION_CLASH, RIVAL, SPECIMEN
+from specimen import BUILTIN_CLASH, CLASS_CLASH, FUNCTION_CLASH, HIERARCHY_CLASH, RIVAL, SPECIMEN
 
 
 class TestLoadFailsLoud:
@@ -225,3 +225,33 @@ class TestDuplicateNodeTypeIsRefused:
         WHEN it is selected alone
         THEN the map is built normally — the rule refuses duplicates, not plugins."""
         assert "shared_label" in build_function_map(include=[SPECIMEN])
+
+
+class TestPluginsDoNotShareAHierarchy:
+    """A class registered by one plugin may not derive from a class registered by another: the
+    override rules are checked within one plugin's declarations, so across plugins nothing would."""
+
+    @pytest.mark.parametrize(
+        "selection",
+        [[SPECIMEN, HIERARCHY_CLASH], [HIERARCHY_CLASH, SPECIMEN]],
+        ids=["base-first", "subclass-first"],
+    )
+    def test_a_subclass_of_another_plugin_s_class_is_refused(self, specimen_plugins, selection):
+        """GIVEN a plugin registering a subclass of a class the specimen registers
+        WHEN the class map is built with both selected, in either order
+        THEN a plain ValueError names both classes and both plugins: no name is declared twice,
+             so it is not a DuplicateNodeTypeError."""
+        with pytest.raises(
+            ValueError,
+            match=r"class 'Audited' of plugin 'hierarchy-clash' derives from class 'Accumulator' "
+            r"of plugin 'specimen'",
+        ) as raised:
+            build_class_map(include=selection)
+
+        assert type(raised.value) is ValueError
+
+    def test_the_subclass_s_plugin_selected_alone_is_fine(self, specimen_plugins):
+        """GIVEN the same plugin, selected without the one registering the base
+        WHEN the class map is built
+        THEN no error: an unregistered base is shared with no plugin."""
+        assert list(build_class_map(include=[HIERARCHY_CLASH])) == ["Audited"]

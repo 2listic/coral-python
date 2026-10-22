@@ -32,6 +32,12 @@ OBSTACLES = EXAMPLES / "pypde" / "obstacles.json"
 OBSTACLES_OUTPUT_FILES = ("obstacles.hdf5", "obstacles.mp4")
 
 
+def solved(executor):
+    """The field the ``solve`` node returned. A solve modifies its equation and both trackers, so
+    it passes them on too: its outputs are the equation, the field, the storage and the plot."""
+    return executor.results[node_named(executor.graph, "solve")][1]
+
+
 def _execute(graph, directory):
     """Run ``graph`` from ``directory``, returning the executor and that directory.
 
@@ -79,7 +85,7 @@ class TestTheShippedExampleRuns:
         rather than the input state being mutated and passed back."""
         executor, _ = executed
 
-        final = executor.results[node_named(executor.graph, "solve")]
+        final = solved(executor)
         initial = executor.results[node_named(executor.graph, "initial_state")]
 
         assert isinstance(final, PyPDEScalarField)
@@ -91,7 +97,7 @@ class TestTheShippedExampleRuns:
         THEN they differ — the solver did work, rather than handing back what it was given."""
         executor, _ = executed
 
-        final = executor.results[node_named(executor.graph, "solve")]
+        final = solved(executor)
         initial = executor.results[node_named(executor.graph, "initial_state")]
 
         assert not numpy.array_equal(final.field.data, initial.field.data)
@@ -179,7 +185,7 @@ class TestTheObstaclesExampleRuns:
         THEN the result is a PyPDEScalarField, not the one it was handed, and its data differ."""
         executor, _ = executed
 
-        final = executor.results[node_named(executor.graph, "solve")]
+        final = solved(executor)
         initial = executor.results[node_named(executor.graph, "initial_state")]
 
         assert isinstance(final, PyPDEScalarField)
@@ -194,13 +200,13 @@ class TestTheObstaclesExampleRuns:
         This is what the obstacle equation adds to plain diffusion: its rate is zero on those
         cells, so they hold the values the initial condition gave them however long it runs."""
         executor, _ = executed
-        pde = executor.results[node_named(executor.graph, "pde")]
+        equation = executor.results[node_named(executor.graph, "pde")].equation
 
-        final = executor.results[node_named(executor.graph, "solve")].field.data
+        final = solved(executor).field.data
 
-        assert numpy.all(final[pde.source.mask] == 1.0)
-        assert numpy.all(final[pde.absorber.mask] == 0.0)
-        assert numpy.all(final[pde.obstacle.mask] == 0.0)
+        assert numpy.all(final[equation.source] == 1.0)
+        assert numpy.all(final[equation.absorber] == 0.0)
+        assert numpy.all(final[equation.obstacle] == 0.0)
 
     @pytest.mark.parametrize("filename", OBSTACLES_OUTPUT_FILES)
     def test_each_output_was_written(self, executed, filename):

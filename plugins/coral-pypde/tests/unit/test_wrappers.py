@@ -216,19 +216,23 @@ class TestMovie:
 class TestPlotTracker:
     """The frame-drawing tracker, and the movie handle ``solve`` needs afterwards."""
 
-    def test_it_holds_the_raw_movie_and_a_plot_tracker(self, tmp_path):
+    def test_it_draws_into_its_own_copy_of_the_movie(self, tmp_path):
         """GIVEN a movie wrapper and a schedule
         WHEN a PyPDEPlotTracker is constructed
-        THEN it holds a PlotTracker and the *same* Movie object the wrapper carries.
+        THEN it holds a PlotTracker drawing into the movie it holds, a copy of the wrapper's for
+        the same file.
 
-        Identity matters: the movie holds its file open until told the last frame is drawn, and
-        ``solve`` closes it through this attribute. A copy would leave a truncated mp4."""
+        The wrapper's movie is a read input, and drawing frames modifies a movie, so the tracker
+        draws into its own. Identity with the tracker's matters: the movie holds its file open
+        until told the last frame is drawn, and ``solve`` closes it through this attribute."""
         movie = PyPDEMovie(str(tmp_path / "out.mp4"), 3, 100, 6000)
 
         plot = PyPDEPlotTracker(movie, 1.0)
 
-        assert plot.movie is movie.movie
         assert isinstance(plot.tracker, PlotTracker)
+        assert plot.tracker.movie is plot.movie
+        assert plot.movie is not movie.movie
+        assert plot.movie.filename == movie.movie.filename
 
 
 class TestDiffusionPDE:
@@ -245,7 +249,8 @@ class TestDiffusionPDE:
 
 
 class TestShapes:
-    """A shape is geometry only; its mask is built on the grid the equation is given."""
+    """A shape is geometry only; its mask is built on the grid the equation is given, and the
+    shape is left unchanged."""
 
     @pytest.fixture
     def grid(self):
@@ -259,14 +264,16 @@ class TestShapes:
         THEN it covers the four cells around the centre, none of the corners, and is symmetric
         under swapping x and y and under mirroring either."""
         circle = PyPDECircle(0.25, "[0.5, 0.5]")
+        before = dict(vars(circle))
 
-        circle._build_mask(grid)
+        mask = circle._mask(grid.grid)
 
-        assert circle.mask.shape == (20, 20)
-        assert circle.mask[9:11, 9:11].all()
-        assert not circle.mask[[0, 0, -1, -1], [0, -1, 0, -1]].any()
-        assert (circle.mask == circle.mask.T).all()
-        assert (circle.mask == circle.mask[::-1, :]).all()
+        assert vars(circle) == before
+        assert mask.shape == (20, 20)
+        assert mask[9:11, 9:11].all()
+        assert not mask[[0, 0, -1, -1], [0, -1, 0, -1]].any()
+        assert (mask == mask.T).all()
+        assert (mask == mask[::-1, :]).all()
 
     def test_a_rectangle_masks_an_axis_aligned_rectangle_around_its_center(self, grid):
         """GIVEN a rectangle centred in the square, its second side the longer
@@ -277,13 +284,15 @@ class TestShapes:
         Only the shape is asserted, not the size: what makes it a rectangle is that the cells form
         a full, axis-aligned box."""
         rectangle = PyPDERectangle("[0.5, 0.5]", "[0.1, 0.3]")
+        before = dict(vars(rectangle))
 
-        rectangle._build_mask(grid)
+        mask = rectangle._mask(grid.grid)
 
-        rows, cols = numpy.nonzero(rectangle.mask)
-        box = rectangle.mask[rows.min() : rows.max() + 1, cols.min() : cols.max() + 1]
+        assert vars(rectangle) == before
+        rows, cols = numpy.nonzero(mask)
+        box = mask[rows.min() : rows.max() + 1, cols.min() : cols.max() + 1]
         assert box.all()
-        assert rectangle.mask.sum() == box.size
+        assert mask.sum() == box.size
         assert rows.min() + rows.max() == 19
         assert cols.min() + cols.max() == 19
         assert rows.max() - rows.min() < cols.max() - cols.min()
@@ -296,16 +305,19 @@ class TestObstacleDiffusionPDE:
         """GIVEN an equation built from a source, an absorber and an obstacle that do not overlap
         WHEN its initial condition is asked for
         THEN it is a PyPDEScalarField on the equation's grid, 1 exactly on the source's cells and 0
-        everywhere else."""
+        everywhere else; and the three shapes, read inputs of the equation, are left unchanged."""
         grid = PyPDECartesianGrid("[[0.0, 1.0], [0.0, 1.0]]", "[20, 20]")
         source = PyPDECircle(0.1, "[0.2, 0.5]")
         absorber = PyPDECircle(0.1, "[0.8, 0.5]")
         obstacle = PyPDERectangle("[0.5, 0.5]", "[0.05, 0.2]")
+        before = [dict(vars(shape)) for shape in (source, absorber, obstacle)]
         equation = PyPDEObstacleDiffusionPDE(0.002, 0.05, grid, source, absorber, obstacle)
 
         initial = equation.get_initial_condition()
 
-        assert source.mask.any()
+        assert [vars(shape) for shape in (source, absorber, obstacle)] == before
+        mask = source._mask(grid.grid)
+        assert mask.any()
         assert isinstance(initial, PyPDEScalarField)
         assert initial.field.grid is grid.grid
-        numpy.testing.assert_array_equal(initial.field.data, source.mask.astype(float))
+        numpy.testing.assert_array_equal(initial.field.data, mask.astype(float))

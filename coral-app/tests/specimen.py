@@ -18,6 +18,7 @@ entry                         the shape it exists for
 ``pair``                      a bare ``tuple`` return: **one** output port, passed on whole
 ``short_triple``              declares three outputs, returns two — an annotation that lies
 ``not_a_tuple``               declares two outputs, returns no tuple at all
+``push``                      writes a parameter (``writes=``): a pass-through after the return
 ``make_one``                  **no** inputs: a function node with ``inputs: []``
 ``record``                    returns ``None``: no output ports at all
 ``unannotated``               no annotations, which must normalise to ``Any``
@@ -25,17 +26,18 @@ entry                         the shape it exists for
 ``specimen.ratio``            a dotted function name, and an **asymmetric** one
 ``shared_label``              a name a clash plugin also declares (duplicate-name refusal)
 ``Accumulator``               a class: constructor, methods, the instance at method port 0; ``add``
-                              names its output with ``outputs=``, which ``PreciseAccumulator`` inherits
+                              names its output with ``outputs=``, which ``PreciseAccumulator``
+                              inherits; ``deposit`` is the one method that is not ``const``
 ``Gauge``                     an *unrelated* class, so a wrong instance can be rejected
 ``PreciseAccumulator``        a *subclass*, which must be accepted where its base is expected
 ``Resettable``                a second parent for ``Ledger``, unrelated to ``Accumulator``
 ``Ledger``                    a subclass of both: a chain and a second parent at once
 ``Meter``                     an *abstract* class, detected by ``inspect.isabstract``: a socket type
                               with no constructor node; ``read`` is declared on it
-``Thermometer``               a concrete ``Meter``, overriding ``read`` without redeclaring it
+``Thermometer``               a concrete ``Meter``, overriding ``read`` and declaring it ``const``
 ============================  =================================================================
 
-Six plugins expose it, and the split is driven entirely by what the host's merge rules need:
+Seven plugins expose it, and the split is driven entirely by what the host's merge rules need:
 
 * :data:`specimen_plugin` — the whole surface above. A shape only needs to exist once.
 * :data:`rival_plugin` — a second, *non-colliding* peer. Two plugins are needed to test that the
@@ -47,6 +49,9 @@ Six plugins expose it, and the split is driven entirely by what the host's merge
   the others in a passing case.
 * :data:`collection_clash_plugin` — declares a class keyed ``list``, which collides with the
   primitive ``list``. It must raise ``DuplicateNodeTypeError`` too.
+* :data:`hierarchy_clash_plugin` — registers ``Audited``, a subclass of ``Accumulator``. Plugins do
+  not share a class hierarchy, so selecting it with :data:`specimen_plugin` must raise
+  ``ValueError``.
 
 Nothing here is a distribution: no entry point, no ``pyproject.toml``. The suite hands these to the
 host by patching the one lookup that maps a plugin *name* to a plugin instance — see the
@@ -67,12 +72,14 @@ __all__ = [
     "CLASS_CLASH",
     "BUILTIN_CLASH",
     "COLLECTION_CLASH",
+    "HIERARCHY_CLASH",
     "specimen_plugin",
     "rival_plugin",
     "function_clash_plugin",
     "class_clash_plugin",
     "builtin_clash_plugin",
     "collection_clash_plugin",
+    "hierarchy_clash_plugin",
     "Accumulator",
     "Gauge",
     "PreciseAccumulator",
@@ -81,6 +88,7 @@ __all__ = [
     "Meter",
     "Thermometer",
     "Tally",
+    "Audited",
 ]
 
 #: The whole designed surface, as one plugin.
@@ -100,6 +108,9 @@ builtin_clash_plugin = Plugin()
 
 #: Declares a class keyed ``list``, the name of a primitive; selecting it is refused.
 collection_clash_plugin = Plugin()
+
+#: Registers a subclass of a class :data:`specimen_plugin` registers; selecting both is refused.
+hierarchy_clash_plugin = Plugin()
 
 
 @specimen_plugin.function
@@ -185,6 +196,14 @@ def not_a_tuple() -> Tuple[Any, Any]:
     return 7
 
 
+@specimen_plugin.function(writes="items")
+def push(items: list, item: Any) -> int:
+    """Append to ``items`` in place and return its new length: ``items`` is a pass-through, the
+    output after the return value, so its registry entry lists outputs out of ascending order."""
+    items.append(item)
+    return len(items)
+
+
 @rival_plugin.function
 def rival_only(value: float) -> float:
     """:data:`rival_plugin`'s own function: a second plugin's contribution, colliding with nothing."""
@@ -200,14 +219,21 @@ class Accumulator:
     def __init__(self, start: float):
         self.start = start
 
-    @specimen_plugin.method(outputs="total")
+    @specimen_plugin.method(outputs="total", const=True)
     def add(self, amount: float) -> float:
         """The instance arrives at port 0; ``amount`` is port 1."""
         return self.start + amount
 
-    @specimen_plugin.method
+    @specimen_plugin.method(const=True)
     def total(self) -> float:
         """A method taking nothing but the instance: exactly one input port."""
+        return self.start
+
+    @specimen_plugin.method
+    def deposit(self, amount: float) -> float:
+        """Not ``const``: it modifies the instance, so the instance is a pass-through, output 0,
+        ahead of the return value."""
+        self.start += amount
         return self.start
 
     def _hidden(self, value: int) -> int:
@@ -222,7 +248,7 @@ class Gauge:
     def __init__(self, reading: float):
         self.reading = reading
 
-    @specimen_plugin.method
+    @specimen_plugin.method(const=True)
     def label(self) -> str:
         return f"gauge:{self.reading}"
 
@@ -235,7 +261,7 @@ class PreciseAccumulator(Accumulator):
         super().__init__(start)
         self.digits = digits
 
-    @specimen_plugin.method
+    @specimen_plugin.method(const=True)
     def rounded(self) -> float:
         return round(self.start, self.digits)
 
@@ -247,7 +273,7 @@ class Resettable:
     def __init__(self, level: float):
         self.level = level
 
-    @specimen_plugin.method
+    @specimen_plugin.method(const=True)
     def reset(self) -> float:
         """Return a constant: on a :class:`Ledger` this class's ``__init__`` never runs."""
         return 0.0
@@ -264,7 +290,7 @@ class Meter(ABC):
     """An abstract class, detected rather than declared: ``read`` is abstract, so Python cannot
     instantiate it. Its key types sockets; it has no constructor node."""
 
-    @specimen_plugin.method
+    @specimen_plugin.method(const=True)
     @abstractmethod
     def read(self) -> float:
         """Declared here, implemented by every concrete subclass."""
@@ -272,11 +298,13 @@ class Meter(ABC):
 
 @specimen_plugin.cls
 class Thermometer(Meter):
-    """A concrete :class:`Meter`, overriding ``read`` without declaring it again."""
+    """A concrete :class:`Meter`, overriding ``read``: declared again, as an override of a
+    ``const`` method must be."""
 
     def __init__(self, celsius: float):
         self.celsius = celsius
 
+    @specimen_plugin.method(const=True)
     def read(self) -> float:
         return self.celsius
 
@@ -288,7 +316,7 @@ class Tally:
     def __init__(self, count: int):
         self.count = count
 
-    @rival_plugin.method
+    @rival_plugin.method(const=True)
     def bump(self) -> int:
         return self.count + 1
 
@@ -305,6 +333,14 @@ builtin_clash_plugin.function(lambda lst, item: "clash", name="list_append")
 
 collection_clash_plugin.cls(Tally, name="list")
 
+
+class Audited(Accumulator):
+    """A subclass of :data:`specimen_plugin`'s :class:`Accumulator`, registered by another plugin:
+    plugins do not share a class hierarchy."""
+
+
+hierarchy_clash_plugin.cls(Audited)
+
 #: The name each specimen plugin is selected by. Any string would do: these are keys into the
 #: lookup the ``specimen_plugins`` fixture patches in, not entry-point names, and no distribution
 #: declares them. They are deliberately unlike any real plugin's name.
@@ -314,6 +350,7 @@ FUNCTION_CLASH = "function-clash"
 CLASS_CLASH = "class-clash"
 BUILTIN_CLASH = "builtin-clash"
 COLLECTION_CLASH = "collection-clash"
+HIERARCHY_CLASH = "hierarchy-clash"
 
 #: Every specimen plugin, by the name it is selected under.
 PLUGINS = {
@@ -323,4 +360,5 @@ PLUGINS = {
     CLASS_CLASH: class_clash_plugin,
     BUILTIN_CLASH: builtin_clash_plugin,
     COLLECTION_CLASH: collection_clash_plugin,
+    HIERARCHY_CLASH: hierarchy_clash_plugin,
 }

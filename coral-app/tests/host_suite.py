@@ -29,10 +29,11 @@ def declared_classes(
     classes: Dict[str, type], methods: Iterable[Callable] = ()
 ) -> Dict[str, ClassDeclaration]:
     """``{class key: class}`` as the class map the host builds: each class declared, under its key,
-    on a fresh plugin, with ``methods`` declared as their method nodes."""
+    on a fresh plugin, with ``methods`` declared as their method nodes, each ``const=True``: the
+    shapes the callers check are a reader's, and a writer's are tested on their own."""
     plugin = Plugin()
     for method in methods:
-        plugin.method(method)
+        plugin.method(method, const=True)
     for key, cls in classes.items():
         plugin.cls(cls, name=key)
     return plugin.classes()

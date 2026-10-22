@@ -121,15 +121,16 @@ class TestTheClassesExport:
         assert isinstance(results["1"], Calculator)
 
     def test_the_two_methods_compose_on_one_instance(self, results):
-        """GIVEN add_to_value(2) feeding multiply_value's factor, both on the same instance
+        """GIVEN add_to_value(2) passing its instance on to multiply_value, and its result as
+             multiply_value's factor
         WHEN the graph is executed
-        THEN the results are 4.0 and 16.0.
+        THEN the results are 4.0 and 16.0, each after the instance its node passes on.
 
         `Calculator` is stateful, so the second call sees the first call's mutation: 2 + 2 = 4, then
-        4 * 4 = 16, the factor being the first result. Also previously executed with no assertion at
-        all."""
-        assert results["5"] == 4.0
-        assert results["4"] == 16.0
+        4 * 4 = 16, the factor being the first result. Neither method is const, so each passes the
+        instance on as output 0, and the second receives it from the first."""
+        assert results["5"] == (results["1"], 4.0)
+        assert results["4"] == (results["1"], 16.0)
 
     def test_the_instance_ends_at_the_last_mutation(self, results):
         """GIVEN the same instance shared by both method nodes

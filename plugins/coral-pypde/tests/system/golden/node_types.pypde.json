@@ -831,7 +831,7 @@
   "PyPDEDiffusionPDE.solve": {
     "arguments": [
       {
-        "connection_type": "input",
+        "connection_type": "pass_through",
         "type": "PyPDEDiffusionPDE",
         "name": "self"
       },
@@ -846,12 +846,12 @@
         "name": "t_range"
       },
       {
-        "connection_type": "input",
+        "connection_type": "pass_through",
         "type": "PyPDEFileStorage",
         "name": "storage"
       },
       {
-        "connection_type": "input",
+        "connection_type": "pass_through",
         "type": "PyPDEPlotTracker",
         "name": "plot"
       },
@@ -869,7 +869,10 @@
       4
     ],
     "outputs": [
-      5
+      0,
+      5,
+      3,
+      4
     ],
     "node_type": "method",
     "type": "PyPDEDiffusionPDE.solve"
@@ -899,7 +902,7 @@
   "PyPDEObstacleDiffusionPDE.solve": {
     "arguments": [
       {
-        "connection_type": "input",
+        "connection_type": "pass_through",
         "type": "PyPDEObstacleDiffusionPDE",
         "name": "self"
       },
@@ -914,12 +917,12 @@
         "name": "t_range"
       },
       {
-        "connection_type": "input",
+        "connection_type": "pass_through",
         "type": "PyPDEFileStorage",
         "name": "storage"
       },
       {
-        "connection_type": "input",
+        "connection_type": "pass_through",
         "type": "PyPDEPlotTracker",
         "name": "plot"
       },
@@ -937,7 +940,10 @@
       4
     ],
     "outputs": [
-      5
+      0,
+      5,
+      3,
+      4
     ],
     "node_type": "method",
     "type": "PyPDEObstacleDiffusionPDE.solve"

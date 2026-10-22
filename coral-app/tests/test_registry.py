@@ -31,8 +31,11 @@ def outputs_of(entry: dict) -> List[dict]:
 
 
 def inputs_of(entry: dict) -> List[dict]:
-    """The input arguments of a registry entry, in order."""
-    return [arg for arg in entry["arguments"] if arg["connection_type"] == "input"]
+    """The input arguments of a registry entry, in order, pass-throughs included: a pass-through
+    is one argument, an input and an output at once."""
+    return [
+        arg for arg in entry["arguments"] if arg["connection_type"] in ("input", "pass_through")
+    ]
 
 
 @pytest.fixture
@@ -281,6 +284,63 @@ class TestConstructorAndMethodEntries:
         assert registry["PreciseAccumulator"]["node_type"] == "constructor"
         assert registry["PreciseAccumulator.rounded"]["node_type"] == "method"
         assert registry["PreciseAccumulator.add"]["node_type"] == "method"
+
+
+class TestPassThroughEntries:
+    """A written input is one ``"pass_through"`` argument whose index is in both ``inputs`` and
+    ``outputs``: the C++ backend's shape for a non-``const`` reference."""
+
+    def test_a_method_that_is_not_const_passes_its_instance_as_output_zero(self, registry):
+        """GIVEN a method that is not const, with one parameter and a return value
+        WHEN its entry is read
+        THEN the instance is a pass_through argument, index 0 in both lists, and the return value
+             follows as the only output argument."""
+        assert registry["Accumulator.deposit"] == {
+            "arguments": [
+                {"connection_type": "pass_through", "type": "Accumulator", "name": "self"},
+                {"connection_type": "input", "type": "float", "name": "amount"},
+                {"connection_type": "output", "type": "float", "name": ""},
+            ],
+            "inputs": [0, 1],
+            "outputs": [0, 2],
+            "node_type": "method",
+            "type": "Accumulator.deposit",
+        }
+
+    def test_a_written_parameter_follows_the_return_out_of_ascending_order(self, registry):
+        """GIVEN a function writing its first parameter
+        WHEN its entry is read
+        THEN that parameter is a pass_through argument, and `outputs` lists the return value's
+             index before the parameter's, [2, 0]: outputs are in port order, not argument order."""
+        assert registry["push"] == {
+            "arguments": [
+                {"connection_type": "pass_through", "type": "list", "name": "items"},
+                {"connection_type": "input", "type": "any", "name": "item"},
+                {"connection_type": "output", "type": "int", "name": ""},
+            ],
+            "inputs": [0, 1],
+            "outputs": [2, 0],
+            "node_type": "function",
+            "type": "push",
+        }
+
+    def test_a_const_method_has_no_pass_through(self, registry):
+        """GIVEN a method declared const=True
+        WHEN its entry is read
+        THEN no argument is a pass_through, and its outputs are its return values only."""
+        entry = registry["Accumulator.add"]
+
+        assert all(arg["connection_type"] != "pass_through" for arg in entry["arguments"])
+        assert entry["outputs"] == [2]
+
+    def test_every_pass_through_is_both_an_input_and_an_output(self, registry):
+        """GIVEN any entry
+        WHEN its pass_through arguments are read
+        THEN each one's index is in both `inputs` and `outputs`."""
+        for key, entry in registry.items():
+            for index, arg in enumerate(entry["arguments"]):
+                if arg["connection_type"] == "pass_through":
+                    assert index in entry["inputs"] and index in entry["outputs"], key
 
 
 class TestOutputNames:
