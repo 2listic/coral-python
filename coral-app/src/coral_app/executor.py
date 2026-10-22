@@ -62,6 +62,15 @@ class WorkflowExecutor:
 
         self.function_map = build_function_map(include=plugins)
         self.class_map = build_class_map(include=plugins)
+        # (registered class, attribute) -> the function `Plugin.classes` resolved for it: what a
+        # method node runs, so no code runs that no plugin declared.
+        self._methods = {
+            (declaration.target, method.attribute): method.declaration.target
+            for declaration in self.class_map.values()
+            for method in declaration.methods.values()
+        }
+        # Registered class -> its key, for the check on every value a node returns.
+        self._class_keys = {d.target: key for key, d in self.class_map.items()}
 
         print(f"Loaded plugins: {', '.join(plugins)}")
         print(f"Available functions: {len(self.function_map)}")
@@ -79,7 +88,7 @@ class WorkflowExecutor:
         by its three markers — written by the collaborator rather than here, so that "``.failed`` is
         written before the exception escapes" is a property of one testable object instead of a
         discipline this walk has to keep. Everything raising inside the block is covered: a plugin
-        function, the method-instance check, the output-arity check.
+        function, the method-instance check, the output-arity and output-class checks.
         """
         print(f"Execution order: {self.graph.order}\n")
 
@@ -113,7 +122,11 @@ class WorkflowExecutor:
                     self._check_output_arity(
                         self.graph.describe(node_id), node["type"], ports, result
                     )
-                    self.results[node_id] = result
+                    outputs = self._outputs(ports, values, result)
+                    self._check_output_classes(
+                        self.graph.describe(node_id), node["type"], ports, outputs
+                    )
+                    self.results[node_id] = outputs
 
                     if kind == CONSTRUCTOR:
                         print(f"{node_id} (constructor {node['type']}) = {self.results[node_id]}")
@@ -126,7 +139,7 @@ class WorkflowExecutor:
 
     @staticmethod
     def _check_output_arity(node: str, node_type: str, ports, result) -> None:
-        """A node declaring more than one output must return a tuple of exactly that many.
+        """A node declaring more than one return value must return a tuple of exactly that many.
 
         The port table's output arity comes from a return annotation, which is a *claim* by the
         function's author. Everything downstream trusts it: the registry emits that many sockets,
@@ -138,6 +151,9 @@ class WorkflowExecutor:
         an under-declared node cannot slip through by nobody reading its last output, and the error
         names the function whose annotation is wrong rather than the graph that believed it.
 
+        Only the return values are counted (``ports.returns``): a pass-through output is not
+        returned, but taken from the input it passes on.
+
         Only ``n > 1`` is checkable. At ``n == 1`` a returned tuple is legitimate — that is exactly
         the ``-> tuple`` case — so there is nothing to compare. At ``n == 0`` the value is
         unreachable anyway: graph check 7 rejects every outgoing edge of a node with no outputs.
@@ -145,21 +161,70 @@ class WorkflowExecutor:
         Raises:
             ValueError: if the result is not a tuple, or is a tuple of the wrong length.
         """
-        expected = len(ports.outputs)
+        expected = len(ports.returns)
         if expected <= 1:
             return
 
         if not isinstance(result, tuple):
             raise ValueError(
-                f"Node {node} of type {node_type!r} declares {expected} outputs but returned "
+                f"Node {node} of type {node_type!r} declares {expected} return values but returned "
                 f"{type(result).__name__}"
             )
 
         if len(result) != expected:
             raise ValueError(
-                f"Node {node} of type {node_type!r} declares {expected} outputs but returned "
+                f"Node {node} of type {node_type!r} declares {expected} return values but returned "
                 f"a tuple of {len(result)}"
             )
+
+    def _check_output_classes(self, node: str, node_type: str, ports: NodePorts, outputs) -> None:
+        """Every output value of a registered class must be of a registered class itself.
+
+        A method node runs the function declared for its instance's own class, so that class must
+        be registered: a function returning an instance of a subclass no plugin registers would
+        otherwise hand a method node code nobody declared, with no override check behind it.
+        Whatever the port's annotation, ``Any`` included: a value's class is a fact about the value.
+
+        Like the arity check it confronts a declaration with a value, so it cannot run before the
+        call; and like it, it runs at the producing node rather than at a consumer, so it fires
+        before any consumer of the value has run, and for every value, not only those reaching a
+        method.
+
+        Raises:
+            ValueError: naming the output and the unregistered class.
+        """
+        values = outputs if len(ports.outputs) > 1 else (outputs,)
+        for index, (port, value) in enumerate(zip(ports.outputs, values)):
+            if not isinstance(value, tuple(self._class_keys)) or type(value) in self._class_keys:
+                continue
+            base = next(c for c in type(value).__mro__ if c in self._class_keys)
+            raise ValueError(
+                f"Node {node} of type {node_type!r} produced on output {index} an instance of "
+                f"{type(value).__qualname__}, a subclass of {self._class_keys[base]!r} that no "
+                f"selected plugin registers; register it, so that the methods it runs are declared"
+            )
+
+    @staticmethod
+    def _outputs(ports: NodePorts, values: list, result):
+        """What a node stores: its outputs in port order, from what it returned and what it passed
+        through.
+
+        A pass-through output is the very object its input received, modified in place. The return
+        values are what the call returned, a tuple of them when there are several. What is stored is
+        a tuple only when the node has more than one output, as :meth:`_input_values` expects, so a
+        non-``const`` method returning ``None`` stores its instance itself.
+        """
+        if len(ports.returns) == len(ports.outputs):
+            return result
+        if len(ports.returns) > 1:
+            returned = iter(result)
+        else:
+            returned = iter([result] if ports.returns else [])
+        outputs = [
+            next(returned) if port.passthrough is None else values[port.passthrough]
+            for port in ports.outputs
+        ]
+        return tuple(outputs) if len(outputs) > 1 else outputs[0]
 
     def _input_values(self, node_id: str) -> list:
         """The values feeding a node, in port order.
@@ -169,15 +234,17 @@ class WorkflowExecutor:
 
         Whether that result is a *bundle* of outputs to index into is decided by the **port table**,
         never by the value. How many outputs a node has is a static fact, settled in stage 2 from
-        the return annotation; a runtime ``isinstance(value, tuple)`` cannot tell "three outputs,
-        bundled" from "one output that happens to be a tuple", so answering it that way is wrong.
+        the return annotation and the written inputs; a runtime ``isinstance(value, tuple)`` cannot
+        tell "three outputs, bundled" from "one output that happens to be a tuple", so answering it
+        that way is wrong.
         ``graph.py:_output_annotation`` asks the same question the same way.
 
         So a single-output node passes its value on whole whatever ``source_output`` says — the
         three spellings graph check 7 accepts for "the only output" (``0``, ``-1``, and the key
         omitted) therefore deliver one and the same value. A multi-output node always indexes, and
-        the index is in range because check 7 bounded it by the declared output count and
-        :meth:`_check_output_arity` confronted that count with what the node actually returned.
+        the index is in range because check 7 bounded it by the declared output count, and the
+        stored bundle has that many: :meth:`_check_output_arity` confronted the return values with
+        what the node returned, and :meth:`_outputs` added the pass-throughs.
         """
         values = []
         for edge in self.graph.inputs_of(node_id):
@@ -194,8 +261,8 @@ class WorkflowExecutor:
     def _resolve(self, node_id: str, node_type: str, ports: NodePorts, values: list):
         """The callable a node runs, and the arguments to pass it.
 
-        This is the one three-way distinction the executor cannot write once: a method's callable is
-        produced by one of its own inputs, so it is only known at run time.
+        This is the one three-way distinction the executor cannot write once: a method's callable
+        depends on one of its own inputs, the instance's class, so it is only known at run time.
         """
         if ports.kind == FUNCTION:
             return self.function_map[node_type].target, values
@@ -216,9 +283,12 @@ class WorkflowExecutor:
                     f"{cls.__name__}, got {type(instance).__name__}"
                 )
 
-            # By attribute, not by node type: a method may be declared under another name. Looked
-            # up on the instance, so a subclass's override is what runs.
-            return getattr(instance, ports.attribute), values[1:]
+            # The function resolved for the instance's own class, by attribute rather than node
+            # type, since a method may be declared under another name. Never looked up on the
+            # instance: only declared code runs, and an override only if its class is registered.
+            # That class is registered: a value of a registered class was checked to be of a
+            # registered class itself when the node producing it returned.
+            return self._methods[(type(instance), ports.attribute)], values
 
         raise ValueError(
             f"Unknown node kind: {ports.kind}. Supported kinds: primitive, function, constructor, "

@@ -79,20 +79,20 @@
 - [x] 5.2 Docstring.
 
 ### 6. `coral-app/src/coral_app/executor.py`
-- [ ] 6.1 Dispatch (decision 7): build `{class: ClassDeclaration}` once from `class_map`;
+- [x] 6.1 Dispatch (decision 7): build `{class: ClassDeclaration}` once from `class_map`;
       `_resolve` for a method takes the declaration of `type(instance)` and the
       `MethodDeclaration` with `ports.attribute`; calls `declaration.target(instance, *rest)`.
       No `getattr`. The `isinstance` check on port 0 stays, before the lookup. Comment and
       docstring updated.
-- [ ] 6.2 Output bundle: when a node has pass-through outputs, assemble the stored result in
+- [x] 6.2 Output bundle: when a node has pass-through outputs, assemble the stored result in
       port order from the instance / written arguments and the call's return value(s); a
       tuple only when there is more than one output (a non-`const` method returning `None`
       stores the instance itself).
-- [ ] 6.3 `_check_output_arity`: compare against `ports.returns`, before 6.2's assembly.
-- [ ] 6.4 Producer check (decision 7): after 6.3, every output value that is an instance of a
+- [x] 6.3 `_check_output_arity`: compare against `ports.returns`, before 6.2's assembly.
+- [x] 6.4 Producer check (decision 7): after 6.3, every output value that is an instance of a
       registered class has `type(value)` in the class map; else `ValueError` naming node,
       output and class. Docstring placed beside the arity check's.
-- [ ] 6.5 `_input_values`: unchanged in logic (it indexes by `len(outputs) > 1`, which now
+- [x] 6.5 `_input_values`: unchanged in logic (it indexes by `len(outputs) > 1`, which now
       counts pass-throughs); re-read its docstring.
 
 ### 7. Plugins: declare `const` / `writes=`

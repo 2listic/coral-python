@@ -94,8 +94,9 @@ class MethodDeclaration:
     """One method node type of a class.
 
     Attributes:
-        attribute: The attribute the method is reached by on an instance. The host looks it up on
-            the instance at run time, so an override in the instance's own class is what runs.
+        attribute: The attribute the method is defined under. A method node runs the function the
+            declaration of its instance's class resolves under it, so an override in a registered
+            subclass is what runs.
         declaration: The function the class holds under that attribute, with its labels.
         const: Whether the method leaves its instance unmodified. A method that is not ``const``
             passes its instance through, as its first output.

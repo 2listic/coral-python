@@ -98,6 +98,8 @@ change needed with or without concurrency. #61 depends on this issue.
    the node fails, naming that class, before any consumer runs. Like the output-arity check,
    it confronts a declaration with a value, so it cannot run earlier. With it, every function
    that can run has been through the checks of 5.
+   With that check, the nearest registered class in `type(instance).__mro__` is always
+   `type(instance)` itself, so the executor looks the function up by it directly.
 8. **Plugins do not share a class hierarchy.** A class registered by one plugin may not derive
    from a class registered by another: `build_class_map` raises while merging, naming the two
    classes and the two plugins. In this repo plugins depend only on `coral-core`, so it can
