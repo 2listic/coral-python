@@ -115,6 +115,10 @@ change needed with or without concurrency. #61 depends on this issue.
    concerned: a virtual subclass of a registered ABC (`float` of `numbers.Real`) is no instance
    of it, so it is not refused where it is produced, and is refused by a method of the ABC it
    reaches, by the instance check, before any of its code runs.
+   Check 8 refuses one only on a method's instance port; on any other port it keeps
+   `issubclass`, which `list` into `Sequence` needs. So one reaching a method through a
+   parameter typed with the ABC, as its pass-through, passes validation and is refused when the
+   method runs: a gap left open, since a plugin registering both is rare.
 8. **Plugins do not share a class hierarchy.** A class registered by one plugin may not derive
    from a class registered by another: `build_class_map` raises while merging, naming the two
    classes and the two plugins. In this repo plugins depend only on `coral-core`, so it can

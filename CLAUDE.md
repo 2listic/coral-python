@@ -798,8 +798,8 @@ id. So every reader of a written value runs before its writer and sees it unmodi
 that should see the modified value reads the writer's pass-through output instead, which is an
 ordinary edge. Two writers of one value are refused, since nothing would order them: chain them,
 the second fed from the first's pass-through. No copy protects a reader, by the host or by a node:
-the order does. (The executor does copy, per run, each literal a node modifies, so that a writer
-cannot change the graph's literals.)
+the order does. (The executor does copy each literal per run, so that a writer cannot change the
+graph's literals.)
 
 **`source_output` (check 7)** — both `0` and `-1` appear on the wire for a single-output node, so
 both are accepted there:

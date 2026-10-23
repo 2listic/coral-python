@@ -111,11 +111,9 @@ class WorkflowExecutor:
             status = self.status.node(qualified_id) if self.status else nullcontext()
             with status:
                 if kind == PRIMITIVE:
-                    # A copy only when a node modifies the literal in place, so that the graph's
-                    # literal stays as it was read; a literal only read is shared as it is.
-                    literal = self.graph.literals[node_id]
-                    written = self.graph.is_written(node_id, 0)
-                    self.results[node_id] = copy.deepcopy(literal) if written else literal
+                    # A copy: a written input is modified in place, and the graph's literal must
+                    # stay as it was read.
+                    self.results[node_id] = copy.deepcopy(self.graph.literals[node_id])
                     print(f"{node_id} (primitive) = {self.results[node_id]}")
                 else:
                     values = self._input_values(node_id)

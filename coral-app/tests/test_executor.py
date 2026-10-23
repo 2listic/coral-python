@@ -1119,20 +1119,36 @@ class TestPassThroughs:
         assert executor.execute()["2"] == (2, [1, 5])
         assert executor.graph.literals["0"] == [1]
 
-    def test_a_literal_no_node_modifies_is_not_copied(self, write_graph, specimen_plugins):
-        """GIVEN a list literal read only by a node that does not modify it
-        WHEN the workflow is executed
-        THEN the stored value is the graph's parsed literal itself: only a literal a node modifies
-             is copied."""
+    def test_a_literal_modified_through_an_element_leaves_the_graph_s_literal_unchanged(
+        self, write_graph, specimen_plugins
+    ):
+        """GIVEN a nested list literal, whose element list_get passes to a function appending to it
+        WHEN one executor executes the workflow twice
+        THEN the graph's parsed literal is unchanged: the builtins share elements, so the literal
+             is copied whether or not its own output feeds a writer."""
         path = write_graph(
             graph(
-                {"0": {"type": "list", "value": "[1, 2]"}, "1": {"type": "list_size"}},
-                {"0": edge("0", "1", 0)},
+                {
+                    "0": {"type": "list", "value": "[[1]]"},
+                    "1": {"type": "int", "value": 0},
+                    "2": {"type": "list_get"},
+                    "3": {"type": "int", "value": 9},
+                    "4": {"type": "push"},
+                },
+                {
+                    "0": edge("0", "2", 0),
+                    "1": edge("1", "2", 1),
+                    "2": edge("2", "4", 0),
+                    "3": edge("3", "4", 1),
+                },
             )
         )
         executor = WorkflowExecutor(str(path), plugins=[SPECIMEN])
 
-        assert executor.execute()["0"] is executor.graph.literals["0"]
+        executor.execute()
+        executor.execute()
+
+        assert executor.graph.literals["0"] == [[1]]
 
 
 class TestOnlyRegisteredCodeRuns:

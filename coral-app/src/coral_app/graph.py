@@ -227,10 +227,6 @@ class Graph:
         name = self.name_of(node_id)
         return f"{node_id!r}" if name is None else f"{node_id!r} ({name!r})"
 
-    def is_written(self, node_id: str, output: int) -> bool:
-        """Whether a node modifies this output of a node in place (check 9)."""
-        return (node_id, output) in self._writers
-
     # Validation. Each method is one of the checks, run in the order listed in __init__ — where
     # check 3, the qualified ids, is `nodestatus.qualified_ids` rather than a method here.
 
