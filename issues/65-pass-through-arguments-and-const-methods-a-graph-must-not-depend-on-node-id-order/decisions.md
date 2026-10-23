@@ -47,20 +47,21 @@ change needed with or without concurrency. #61 depends on this issue.
    other parameters, so adding a name to `writes=` can never turn a method `const` by omission.
    An undeclared parameter is read: that a node does not mutate what it does not declare is the
    author's contract, unchecked, like an annotation.
-   Likewise unchecked: a node's outputs, and the state a constructed instance keeps, share no
-   mutable object with a read input. A constructor or function that keeps or returns one
-   copies it; otherwise a writer downstream modifies a value other nodes read, which the
-   ordering of 6 cannot see.
+   **An output is either a pass-through or a new object.** Then every object has one lineage
+   the graph knows (created, then passed through its writers), and the ordering of 6 is
+   complete for it. An alias breaks it: one object on edges the graph sees as different
+   values, so a writer of one modifies what the other's readers read, in an order decided by
+   node ids. The executor refuses, right after the call, a return value that is (by identity)
+   one of the node's inputs or another of its outputs: `return self`, `const` or not, an
+   argument returned, one object returned twice. An object nothing can modify in place
+   (`None`, numbers, strings, bytes, tuples, frozen sets, by exact type) is exempt.
+   Unchecked, the author's contract like an annotation: a return value, and the state a
+   constructed instance keeps, share no *part* with an input (a node keeping or returning one
+   copies it), nor state outside Python, such as a file.
    The host's collection builtins keep this contract for the collection, not for its elements:
    they copy shallowly, so a collection holds references, and a mutable element modified by a
    writer elsewhere is seen modified through every collection holding it. Copying deeply is what
    the rejected host-enforced copies would cost, and some elements cannot be copied at all.
-   Two outputs of a node may not hold one object when a writer reads either: check 9 sees two
-   values, so the writer would modify it with nothing ordering it against the other output's
-   consumers. That covers a returned written input (`return self`) and one object returned
-   twice. It is refused at run time, right after the call (the identity is checkable there), and
-   only where a writer is wired, so sharing without one stays allowed; sharing a part of an
-   object stays the author's contract.
    `cls` takes no `writes=`: a constructor modifies none of its inputs.
 4. **Output order:** the instance (if written), then the return value(s), then the written
    parameters in parameter order. C++'s argument order, a tuple return's outputs taking the

@@ -1226,14 +1226,15 @@ class TestOnlyRegisteredCodeRuns:
             )
 
 
-class TestWrittenOutputsAreUnshared:
-    """An output feeding a writer must hold an object no other output of its node holds: the
-    writer would modify it with nothing ordering it against the other output's consumers."""
+class TestReturnValuesAreNewObjects:
+    """A return value must be a new object, never one the node received nor another of its
+    outputs: an alias is a value no edge carries, so nothing orders its readers and writers.
+    An object nothing can modify in place is exempt."""
 
-    def test_a_method_returning_its_own_instance_into_a_writer_is_refused(self, run_declared):
-        """GIVEN a method that is not const and returns ``self``, its return value feeding a writer
+    def test_a_method_returning_its_own_instance_is_refused(self, run_declared):
+        """GIVEN a method that is not const and returns ``self``
         WHEN the workflow is executed
-        THEN ValueError naming the two outputs and the writer."""
+        THEN ValueError naming the return output and the instance."""
         plugin = Plugin()
 
         @plugin.cls
@@ -1248,8 +1249,8 @@ class TestWrittenOutputsAreUnshared:
 
         with pytest.raises(
             ValueError,
-            match=r"Node '3' of type 'Box.grow' produced one object on outputs 0 and 1, and node "
-            r"'4' modifies it through output 1",
+            match=r"Node '3' of type 'Box.grow' returned on output 1 the object it received on "
+            r"input 0 \('self'\); a return value must be a new object",
         ):
             run_declared(
                 plugin,
@@ -1258,24 +1259,41 @@ class TestWrittenOutputsAreUnshared:
                     "1": {"type": "Box"},
                     "2": {"type": "int", "value": 1},
                     "3": {"type": "Box.grow"},
-                    "4": {"type": "Box.grow"},
                 },
-                {
-                    "0": edge("0", "1", 0),
-                    "1": edge("1", "3", 0),
-                    "2": edge("2", "3", 1),
-                    "3": edge("3", "4", 0, 1),
-                    "4": edge("2", "4", 1),
-                },
+                {"0": edge("0", "1", 0), "1": edge("1", "3", 0), "2": edge("2", "3", 1)},
             )
 
-    def test_a_function_returning_its_written_parameter_into_a_writer_is_refused(
-        self, run_declared
-    ):
-        """GIVEN a function declared writes= that returns the parameter it modifies, its
-        pass-through feeding a writer
+    def test_a_const_method_returning_its_own_instance_is_refused(self, run_declared):
+        """GIVEN a const method returning ``self``
         WHEN the workflow is executed
-        THEN ValueError naming the two outputs and the writer."""
+        THEN ValueError naming the return output and the instance: a writer of either output
+             would modify what the other output's readers read."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Box:
+            def __init__(self, size: int):
+                self.size = size
+
+            @plugin.method(const=True)
+            def me(self) -> Any:
+                return self
+
+        with pytest.raises(
+            ValueError,
+            match=r"Node '2' of type 'Box.me' returned on output 0 the object it received on "
+            r"input 0 \('self'\)",
+        ):
+            run_declared(
+                plugin,
+                {"0": {"type": "int", "value": 3}, "1": {"type": "Box"}, "2": {"type": "Box.me"}},
+                {"0": edge("0", "1", 0), "1": edge("1", "2", 0)},
+            )
+
+    def test_a_function_returning_its_written_parameter_is_refused(self, run_declared):
+        """GIVEN a function declared writes= that returns the parameter it modifies
+        WHEN the workflow is executed
+        THEN ValueError naming the return output and the parameter."""
         plugin = Plugin()
 
         @plugin.function(writes="items")
@@ -1285,8 +1303,8 @@ class TestWrittenOutputsAreUnshared:
 
         with pytest.raises(
             ValueError,
-            match=r"Node '2' of type 'push' produced one object on outputs 0 and 1, and node "
-            r"'3' modifies it through output 1",
+            match=r"Node '2' of type 'push' returned on output 0 the object it received on input "
+            r"0 \('items'\)",
         ):
             run_declared(
                 plugin,
@@ -1294,20 +1312,35 @@ class TestWrittenOutputsAreUnshared:
                     "0": {"type": "list", "value": "[1]"},
                     "1": {"type": "int", "value": 5},
                     "2": {"type": "push"},
-                    "3": {"type": "push"},
                 },
-                {
-                    "0": edge("0", "2", 0),
-                    "1": edge("1", "2", 1),
-                    "2": edge("2", "3", 0, 1),
-                    "3": edge("1", "3", 1),
-                },
+                {"0": edge("0", "2", 0), "1": edge("1", "2", 1)},
             )
 
-    def test_one_object_returned_twice_into_two_writers_is_refused(self, run_declared):
-        """GIVEN a function returning one list as both its return values, each feeding a writer
+    def test_a_function_returning_a_read_input_is_refused(self, run_declared):
+        """GIVEN a function returning the list it reads
         WHEN the workflow is executed
-        THEN ValueError naming both outputs and the writer: nothing would order the two writers."""
+        THEN ValueError naming the return output and the parameter."""
+        plugin = Plugin()
+
+        @plugin.function
+        def same(items: list) -> list:
+            return items
+
+        with pytest.raises(
+            ValueError,
+            match=r"Node '1' of type 'same' returned on output 0 the object it received on input "
+            r"0 \('items'\)",
+        ):
+            run_declared(
+                plugin,
+                {"0": {"type": "list", "value": "[1]"}, "1": {"type": "same"}},
+                {"0": edge("0", "1", 0)},
+            )
+
+    def test_one_object_returned_twice_is_refused(self, run_declared):
+        """GIVEN a function returning one list as both its return values
+        WHEN the workflow is executed
+        THEN ValueError naming both outputs."""
         plugin = Plugin()
 
         @plugin.function
@@ -1315,57 +1348,55 @@ class TestWrittenOutputsAreUnshared:
             items = []
             return items, items
 
-        @plugin.function(writes="items")
-        def push(items: list, item: int) -> None:
-            items.append(item)
-
         with pytest.raises(
-            ValueError,
-            match=r"Node '0' of type 'twice' produced one object on outputs 0 and 1, and node "
-            r"'2' modifies it through output 0",
+            ValueError, match=r"Node '0' of type 'twice' returned one object on outputs 0 and 1"
         ):
-            run_declared(
-                plugin,
-                {
-                    "0": {"type": "twice"},
-                    "1": {"type": "int", "value": 5},
-                    "2": {"type": "push"},
-                    "3": {"type": "push"},
-                },
-                {
-                    "0": edge("0", "2", 0, 0),
-                    "1": edge("1", "2", 1),
-                    "2": edge("0", "3", 0, 1),
-                    "3": edge("1", "3", 1),
-                },
-            )
+            run_declared(plugin, {"0": {"type": "twice"}})
 
-    def test_one_object_on_two_outputs_without_a_writer_is_allowed(self, run_declared):
-        """GIVEN a method that is not const and returns ``self``, no writer reading either output
+    @pytest.mark.parametrize(
+        "value",
+        [None, True, 7, 1.5, 1j, "text", b"raw", (1, [2]), frozenset({1})],
+        ids=lambda value: type(value).__name__,
+    )
+    def test_an_object_nothing_modifies_in_place_may_be_returned(self, run_declared, value):
+        """GIVEN a function returning its input, an object nothing can modify in place
         WHEN the workflow is executed
-        THEN it runs, both outputs holding the instance: nothing modifies it afterwards."""
+        THEN it runs: an alias of it cannot be written through. A tuple's elements are parts of
+             it, left to the author like any shared part."""
         plugin = Plugin()
 
-        @plugin.cls
-        class Box:
-            def __init__(self, size: int):
-                self.size = size
+        @plugin.function
+        def make() -> Any:
+            return value
 
-            @plugin.method
-            def grow(self, by: int) -> Any:
-                self.size += by
-                return self
+        @plugin.function
+        def keep(kept: Any) -> Any:
+            return kept
 
         results = run_declared(
-            plugin,
-            {
-                "0": {"type": "int", "value": 3},
-                "1": {"type": "Box"},
-                "2": {"type": "int", "value": 1},
-                "3": {"type": "Box.grow"},
-            },
-            {"0": edge("0", "1", 0), "1": edge("1", "3", 0), "2": edge("2", "3", 1)},
+            plugin, {"0": {"type": "make"}, "1": {"type": "keep"}}, {"0": edge("0", "1", 0)}
         )
 
-        grown, returned = results["3"]
-        assert returned is grown and grown.size == 4
+        assert results["1"] is value
+
+    def test_a_subclass_of_an_immutable_type_is_refused(self, run_declared):
+        """GIVEN a function returning its input, an instance of a tuple subclass
+        WHEN the workflow is executed
+        THEN ValueError: a subclass may hold state that can be modified in place."""
+        plugin = Plugin()
+
+        class Pair(tuple):
+            pass
+
+        @plugin.function
+        def make() -> Any:
+            return Pair((1, 2))
+
+        @plugin.function
+        def keep(kept: Any) -> Any:
+            return kept
+
+        with pytest.raises(ValueError, match=r"Node '1' of type 'keep' returned on output 0"):
+            run_declared(
+                plugin, {"0": {"type": "make"}, "1": {"type": "keep"}}, {"0": edge("0", "1", 0)}
+            )

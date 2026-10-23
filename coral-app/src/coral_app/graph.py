@@ -226,11 +226,6 @@ class Graph:
         name = self.name_of(node_id)
         return f"{node_id!r}" if name is None else f"{node_id!r} ({name!r})"
 
-    def writer_of(self, node_id: str, output: int) -> Optional[str]:
-        """The node modifying one output of a node in place (check 9), or ``None`` if none does."""
-        edge = self._writers.get((node_id, output))
-        return None if edge is None else edge.target
-
     # Validation. Each method is one of the checks, run in the order listed in __init__ — where
     # check 3, the qualified ids, is `nodestatus.qualified_ids` rather than a method here.
 

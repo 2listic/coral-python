@@ -329,12 +329,14 @@ it finds them at runtime via entry-point discovery.
    constructor modifies none of its inputs). A modified input is a **pass-through**: its port is an
    output too, so a graph can order every node reading the value before the one modifying it (see
    [Graph validation](#graph-validation)). What is not declared is not checked: that a node modifies
-   nothing it does not declare, and that its outputs, or the state a constructed instance keeps,
-   share no mutable object with a read input (a node keeping or returning one copies it), are the
-   author's contract, like an annotation. The host's collection builtins keep it for the
-   collection, not for its elements: they copy shallowly. Two outputs of a node may not hold one
-   object when a writer reads one of them: the executor refuses that, and two outputs sharing a
-   part of one object are again the author's to avoid.
+   nothing it does not declare is the author's contract, like an annotation. **An output is a
+   pass-through or a new object**: the executor refuses a return value that is (by identity) one of
+   the node's inputs or another of its outputs, since the graph cannot order the readers and
+   writers of an alias; an object nothing can modify in place (`None`, numbers, strings, bytes,
+   tuples, frozen sets) is exempt. That a return value, or the state a constructed instance keeps,
+   shares no *part* with an input (a node keeping one copies it) stays the author's contract. The
+   host's collection builtins keep it for the collection, not for its elements: they copy
+   shallowly.
 
    **Methods are opt-in**: only a declared method is a node. `plugin.functions()` /
    `plugin.classes()` resolve the declarations when the host asks, so declaration order does not
@@ -642,8 +644,8 @@ verified before execution began.
 | --- | --- | --- |
 | **instance** | resolving a method's callable | input port 0 must really hold an instance of the class it is annotated with (`isinstance(instance, ports.inputs[0].annotation)`), the annotation check 8 validated the edge against |
 | **output arity** | right after a node returns | a node declaring n > 1 return values must have returned a tuple of exactly n; pass-throughs are not counted |
-| **shared output** | right after the arity check | an output feeding a writer holds an object (by identity) no other output of the node holds: `return self`, or one object returned twice, would otherwise be modified with nothing ordering it against the other output's consumers |
-| **output class** | right after the shared-output check | every output value that is an instance of a registered class must be of a registered class itself (`type(value)` in the class map), whatever the port's annotation, `Any` included |
+| **new return value** | right after the arity check | a return value is a new object: not (by identity) one of the node's inputs or another of its outputs, unless nothing can modify it in place (`None`, numbers, strings, bytes, tuples, frozen sets). The graph orders a value's readers and writer by its edges, and cannot see an alias |
+| **output class** | right after the new-return-value check | every output value that is an instance of a registered class must be of a registered class itself (`type(value)` in the class map), whatever the port's annotation, `Any` included |
 
 The **output arity** check exists because the port table's arity comes from a return annotation,
 which is a *claim* by the function's author. Everything downstream trusts it: the registry emits that
