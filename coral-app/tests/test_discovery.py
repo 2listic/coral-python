@@ -258,6 +258,34 @@ class TestPluginsDoNotShareAHierarchy:
         THEN no error: an unregistered base is shared with no plugin."""
         assert list(build_class_map(include=[HIERARCHY_CLASH])) == ["Audited"]
 
+    @pytest.mark.parametrize(
+        "selection, message",
+        [
+            (["first", "second"], r"as 'Base' by plugin 'first' and as 'Other' by plugin 'second'"),
+            (["second", "first"], r"as 'Other' by plugin 'second' and as 'Base' by plugin 'first'"),
+        ],
+        ids=["in-order", "reversed"],
+    )
+    def test_one_class_under_two_keys_is_a_duplicate(self, monkeypatch, selection, message):
+        """GIVEN two plugins registering one class under two keys, one also registering a subclass
+        WHEN the class map is built with both selected, in either order
+        THEN DuplicateNodeTypeError naming the class, both keys and both plugins: the subclass's
+             base is one both plugins hold, so a shared-hierarchy message would mislead."""
+
+        class Base:
+            def __init__(self, size: int): ...
+
+        class Child(Base): ...
+
+        first, second = Plugin(), Plugin()
+        first.cls(Base)
+        first.cls(Child)
+        second.cls(Base, name="Other")
+        monkeypatch.setattr("coral_app.load", {"first": first, "second": second}.__getitem__)
+
+        with pytest.raises(DuplicateNodeTypeError, match=r"class 'Base' is registered " + message):
+            build_class_map(include=selection)
+
 
 class TestAVirtualSubclassIsRefused:
     """A registered class must inherit every registered class it is accepted as: ABC registration

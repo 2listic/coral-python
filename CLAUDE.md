@@ -313,6 +313,8 @@ it finds them at runtime via entry-point discovery.
    takes any non-class callable, `cls` a class, `method` a plain function other than `__init__` /
    `__new__`), the options' shapes, and duplicates within the plugin (a name used twice across
    functions and classes, a class or method declared twice; one function under two names is an alias).
+   `cls` refuses a `typing.Protocol`: its subclasses are decided by structure, a registered class's
+   bases by inheritance.
 
    `plugin.cls` takes one more option, `abstract=`, which is not a label: an **abstract** class
    only types sockets (its key, `bases` / `derived`) and has no constructor node. Omitted, it is
@@ -329,10 +331,10 @@ it finds them at runtime via entry-point discovery.
    [Graph validation](#graph-validation)). What is not declared is not checked: that a node modifies
    nothing it does not declare, and that its outputs, or the state a constructed instance keeps,
    share no mutable object with a read input (a node keeping or returning one copies it), are the
-   author's contract, like an annotation. A return value is no written input either: the executor
-   refuses one that *is* such an input, and a part of one returned is again the author's to avoid.
-   The host's collection builtins keep it for the collection, not for its elements: they copy
-   shallowly.
+   author's contract, like an annotation. The host's collection builtins keep it for the
+   collection, not for its elements: they copy shallowly. Two outputs of a node may not hold one
+   object when a writer reads one of them: the executor refuses that, and two outputs sharing a
+   part of one object are again the author's to avoid.
 
    **Methods are opt-in**: only a declared method is a node. `plugin.functions()` /
    `plugin.classes()` resolve the declarations when the host asks, so declaration order does not
@@ -384,6 +386,8 @@ it finds them at runtime via entry-point discovery.
      This replaced the former "later wins" merge, which was never a designed rule but the behaviour of
      `dict.update()`; the single real duplicate it papered over — `print_result`, declared by both math and
      string — is gone, each plugin naming its own (`print_number` / `print_text`).
+     `build_class_map` raises the same error for one class registered by two plugins under two
+     keys, naming both, before the hierarchy check below could misread it.
      **Plugins do not share a class hierarchy**: `build_class_map` also raises a plain `ValueError`
      when a class registered by one plugin derives from a class registered by another, naming both
      classes and both plugins. The override rules are checked within one plugin's declarations, so
@@ -410,10 +414,12 @@ it finds them at runtime via entry-point discovery.
      **written** input (`writes=`, or a non-`const` method's instance) is also an output, its
      **pass-through** (`passthrough` = the input's index), named and typed as the input: the
      outputs are the instance if written, then the return values, then the written parameters in
-     parameter order. `writes=` names parameters as `inputs=` does, never the instance. Every
-     port is passed by position, so a callable with no readable signature, or with a keyword-only,
-     `*args` or `**kwargs` parameter, raises `ValueError` — which refuses many C-extension classes
-     (`datetime.date`), though not all (`decimal.Decimal` has a readable, positional signature).
+     parameter order. Typed as the input, a subclass's instance passed through a base's node
+     comes out as the base; the subclass's own node keeps its type. `writes=` names parameters
+     as `inputs=` does, never the instance. Every port is passed by position, so a callable with
+     no readable signature, or with a keyword-only, `*args` or `**kwargs` parameter, raises
+     `ValueError` — which refuses many C-extension classes (`datetime.date`), though not all
+     (`decimal.Decimal` has a readable, positional signature).
      The **single place** that derives a node's
      arity from a callable, so the registry and the executor can no longer disagree about it. A
      method's port 0 is its instance: its first parameter, whatever its name, re-emitted as
@@ -636,8 +642,8 @@ verified before execution began.
 | --- | --- | --- |
 | **instance** | resolving a method's callable | input port 0 must really hold an instance of the class it is annotated with (`isinstance(instance, ports.inputs[0].annotation)`), the annotation check 8 validated the edge against |
 | **output arity** | right after a node returns | a node declaring n > 1 return values must have returned a tuple of exactly n; pass-throughs are not counted |
-| **return identity** | right after the arity check | no return value is (by identity) an object the node modifies: that object is already passed on, and on two outputs it could feed two writers with nothing ordering them |
-| **output class** | right after the return-identity check | every output value that is an instance of a registered class must be of a registered class itself (`type(value)` in the class map), whatever the port's annotation, `Any` included |
+| **shared output** | right after the arity check | an output feeding a writer holds an object (by identity) no other output of the node holds: `return self`, or one object returned twice, would otherwise be modified with nothing ordering it against the other output's consumers |
+| **output class** | right after the shared-output check | every output value that is an instance of a registered class must be of a registered class itself (`type(value)` in the class map), whatever the port's annotation, `Any` included |
 
 The **output arity** check exists because the port table's arity comes from a return annotation,
 which is a *claim* by the function's author. Everything downstream trusts it: the registry emits that

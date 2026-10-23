@@ -1226,14 +1226,14 @@ class TestOnlyRegisteredCodeRuns:
             )
 
 
-class TestReturnValuesAreNotWrittenInputs:
-    """A node's return value must not be an object it modifies: that object is already passed on,
-    and two outputs holding it could each feed a writer, with nothing to order the two."""
+class TestWrittenOutputsAreUnshared:
+    """An output feeding a writer must hold an object no other output of its node holds: the
+    writer would modify it with nothing ordering it against the other output's consumers."""
 
-    def test_a_method_returning_its_own_instance_is_refused(self, run_declared):
-        """GIVEN a method that is not const and returns ``self``
+    def test_a_method_returning_its_own_instance_into_a_writer_is_refused(self, run_declared):
+        """GIVEN a method that is not const and returns ``self``, its return value feeding a writer
         WHEN the workflow is executed
-        THEN ValueError naming the return output, the instance and its pass-through output."""
+        THEN ValueError naming the two outputs and the writer."""
         plugin = Plugin()
 
         @plugin.cls
@@ -1248,8 +1248,8 @@ class TestReturnValuesAreNotWrittenInputs:
 
         with pytest.raises(
             ValueError,
-            match=r"Node '3' of type 'Box.grow' returned on output 1 the object it received on "
-            r"input 0 \('self'\), which it modifies and passes on as output 0",
+            match=r"Node '3' of type 'Box.grow' produced one object on outputs 0 and 1, and node "
+            r"'4' modifies it through output 1",
         ):
             run_declared(
                 plugin,
@@ -1258,14 +1258,24 @@ class TestReturnValuesAreNotWrittenInputs:
                     "1": {"type": "Box"},
                     "2": {"type": "int", "value": 1},
                     "3": {"type": "Box.grow"},
+                    "4": {"type": "Box.grow"},
                 },
-                {"0": edge("0", "1", 0), "1": edge("1", "3", 0), "2": edge("2", "3", 1)},
+                {
+                    "0": edge("0", "1", 0),
+                    "1": edge("1", "3", 0),
+                    "2": edge("2", "3", 1),
+                    "3": edge("3", "4", 0, 1),
+                    "4": edge("2", "4", 1),
+                },
             )
 
-    def test_a_function_returning_its_written_parameter_is_refused(self, run_declared):
-        """GIVEN a function declared writes= that returns the parameter it modifies
+    def test_a_function_returning_its_written_parameter_into_a_writer_is_refused(
+        self, run_declared
+    ):
+        """GIVEN a function declared writes= that returns the parameter it modifies, its
+        pass-through feeding a writer
         WHEN the workflow is executed
-        THEN ValueError naming the return output, the parameter and its pass-through output."""
+        THEN ValueError naming the two outputs and the writer."""
         plugin = Plugin()
 
         @plugin.function(writes="items")
@@ -1275,8 +1285,8 @@ class TestReturnValuesAreNotWrittenInputs:
 
         with pytest.raises(
             ValueError,
-            match=r"Node '2' of type 'push' returned on output 0 the object it received on input "
-            r"0 \('items'\), which it modifies and passes on as output 1",
+            match=r"Node '2' of type 'push' produced one object on outputs 0 and 1, and node "
+            r"'3' modifies it through output 1",
         ):
             run_declared(
                 plugin,
@@ -1284,6 +1294,78 @@ class TestReturnValuesAreNotWrittenInputs:
                     "0": {"type": "list", "value": "[1]"},
                     "1": {"type": "int", "value": 5},
                     "2": {"type": "push"},
+                    "3": {"type": "push"},
                 },
-                {"0": edge("0", "2", 0), "1": edge("1", "2", 1)},
+                {
+                    "0": edge("0", "2", 0),
+                    "1": edge("1", "2", 1),
+                    "2": edge("2", "3", 0, 1),
+                    "3": edge("1", "3", 1),
+                },
             )
+
+    def test_one_object_returned_twice_into_two_writers_is_refused(self, run_declared):
+        """GIVEN a function returning one list as both its return values, each feeding a writer
+        WHEN the workflow is executed
+        THEN ValueError naming both outputs and the writer: nothing would order the two writers."""
+        plugin = Plugin()
+
+        @plugin.function
+        def twice() -> Tuple[list, list]:
+            items = []
+            return items, items
+
+        @plugin.function(writes="items")
+        def push(items: list, item: int) -> None:
+            items.append(item)
+
+        with pytest.raises(
+            ValueError,
+            match=r"Node '0' of type 'twice' produced one object on outputs 0 and 1, and node "
+            r"'2' modifies it through output 0",
+        ):
+            run_declared(
+                plugin,
+                {
+                    "0": {"type": "twice"},
+                    "1": {"type": "int", "value": 5},
+                    "2": {"type": "push"},
+                    "3": {"type": "push"},
+                },
+                {
+                    "0": edge("0", "2", 0, 0),
+                    "1": edge("1", "2", 1),
+                    "2": edge("0", "3", 0, 1),
+                    "3": edge("1", "3", 1),
+                },
+            )
+
+    def test_one_object_on_two_outputs_without_a_writer_is_allowed(self, run_declared):
+        """GIVEN a method that is not const and returns ``self``, no writer reading either output
+        WHEN the workflow is executed
+        THEN it runs, both outputs holding the instance: nothing modifies it afterwards."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Box:
+            def __init__(self, size: int):
+                self.size = size
+
+            @plugin.method
+            def grow(self, by: int) -> Any:
+                self.size += by
+                return self
+
+        results = run_declared(
+            plugin,
+            {
+                "0": {"type": "int", "value": 3},
+                "1": {"type": "Box"},
+                "2": {"type": "int", "value": 1},
+                "3": {"type": "Box.grow"},
+            },
+            {"0": edge("0", "1", 0), "1": edge("1", "3", 0), "2": edge("2", "3", 1)},
+        )
+
+        grown, returned = results["3"]
+        assert returned is grown and grown.size == 4

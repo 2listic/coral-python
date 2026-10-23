@@ -90,7 +90,7 @@ class WorkflowExecutor:
         by its three markers — written by the collaborator rather than here, so that "``.failed`` is
         written before the exception escapes" is a property of one testable object instead of a
         discipline this walk has to keep. Everything raising inside the block is covered: a plugin
-        function, the method-instance check, the output-arity, return-identity and output-class checks.
+        function, the method-instance check, the output-arity, shared-output and output-class checks.
         """
         print(f"Execution order: {self.graph.order}\n")
 
@@ -123,16 +123,10 @@ class WorkflowExecutor:
                     # Inputs arrive in port order, which is parameter order, so a positional call
                     # binds them correctly — no need to look at the callable's signature.
                     result = target(*arguments)
-                    self._check_output_arity(
-                        self.graph.describe(node_id), node["type"], ports, result
-                    )
-                    self._check_returns_are_not_written_inputs(
-                        self.graph.describe(node_id), node["type"], ports, values, result
-                    )
+                    self._check_output_arity(node_id, node["type"], ports, result)
                     outputs = self._outputs(ports, values, result)
-                    self._check_output_classes(
-                        self.graph.describe(node_id), node["type"], ports, outputs
-                    )
+                    self._check_written_outputs_are_unshared(node_id, node["type"], ports, outputs)
+                    self._check_output_classes(node_id, node["type"], ports, outputs)
                     self.results[node_id] = outputs
 
                     if kind == CONSTRUCTOR:
@@ -144,8 +138,7 @@ class WorkflowExecutor:
         print("All nodes executed successfully!")
         return self.results
 
-    @staticmethod
-    def _check_output_arity(node: str, node_type: str, ports, result) -> None:
+    def _check_output_arity(self, node_id: str, node_type: str, ports, result) -> None:
         """A node declaring more than one return value must return a tuple of exactly that many.
 
         The port table's output arity comes from a return annotation, which is a *claim* by the
@@ -174,46 +167,50 @@ class WorkflowExecutor:
 
         if not isinstance(result, tuple):
             raise ValueError(
-                f"Node {node} of type {node_type!r} declares {expected} return values but returned "
-                f"{type(result).__name__}"
+                f"Node {self.graph.describe(node_id)} of type {node_type!r} declares {expected} "
+                f"return values but returned {type(result).__name__}"
             )
 
         if len(result) != expected:
             raise ValueError(
-                f"Node {node} of type {node_type!r} declares {expected} return values but returned "
-                f"a tuple of {len(result)}"
+                f"Node {self.graph.describe(node_id)} of type {node_type!r} declares {expected} "
+                f"return values but returned a tuple of {len(result)}"
             )
 
-    @staticmethod
-    def _check_returns_are_not_written_inputs(
-        node: str, node_type: str, ports: NodePorts, values: list, result
+    def _check_written_outputs_are_unshared(
+        self, node_id: str, node_type: str, ports: NodePorts, outputs
     ) -> None:
-        """A return value must not be an object the node modifies.
+        """An output a writer modifies must hold an object no other output of its node holds.
 
-        A written input is already passed on, as its pass-through output. Returned as well, the one
-        object would sit on two outputs, and a writer on each would modify it with nothing to order
-        the two: the one-writer check sees two outputs, not one value. Only identity is checked;
-        a return value sharing a part of a written input is the plugin author's to avoid, like any
-        aliasing.
+        The one-writer check sees outputs, not objects: one object on two outputs, a writer on
+        one of them, would be modified with nothing ordering it against the other output's
+        consumers. A node returning a written input (``return self``), or one object as two return
+        values, can only be seen here, after the call. Without a writer, sharing harms nothing, so
+        it is allowed. Only identity is checked; outputs sharing a part of one object are the
+        plugin author's to avoid, like any aliasing.
 
         Raises:
-            ValueError: naming the return output, the input and its pass-through output.
+            ValueError: naming the two outputs and the writer.
         """
-        returns = [index for index, port in enumerate(ports.outputs) if port.passthrough is None]
-        if not returns or len(returns) == len(ports.outputs):
+        if len(ports.outputs) < 2:
             return
-        returned = result if len(returns) > 1 else (result,)
-        for output, value in zip(returns, returned):
-            for passed, port in enumerate(ports.outputs):
-                if port.passthrough is not None and values[port.passthrough] is value:
-                    name = ports.inputs[port.passthrough].name
+        for written, value in enumerate(outputs):
+            writer = self.graph.writer_of(node_id, written)
+            if writer is None:
+                continue
+            for other, shared in enumerate(outputs):
+                if other != written and shared is value:
+                    first, second = sorted((written, other))
                     raise ValueError(
-                        f"Node {node} of type {node_type!r} returned on output {output} the object "
-                        f"it received on input {port.passthrough} ({name!r}), which it modifies "
-                        f"and passes on as output {passed}; a return value must be another object"
+                        f"Node {self.graph.describe(node_id)} of type {node_type!r} produced one "
+                        f"object on outputs {first} and {second}, and node "
+                        f"{self.graph.describe(writer)} modifies it through output {written}; an "
+                        f"output feeding a writer must hold an object of its own"
                     )
 
-    def _check_output_classes(self, node: str, node_type: str, ports: NodePorts, outputs) -> None:
+    def _check_output_classes(
+        self, node_id: str, node_type: str, ports: NodePorts, outputs
+    ) -> None:
         """Every output value of a registered class must be of a registered class itself.
 
         A method node runs the function declared for its instance's own class, so that class must
@@ -237,7 +234,8 @@ class WorkflowExecutor:
             # has no registered class in its MRO.
             base = next(c for c in self._registered if isinstance(value, c))
             raise ValueError(
-                f"Node {node} of type {node_type!r} produced on output {index} an instance of "
+                f"Node {self.graph.describe(node_id)} of type {node_type!r} produced on output "
+                f"{index} an instance of "
                 f"{type(value).__qualname__}, a subclass of {self._class_keys[base]!r} that no "
                 f"selected plugin registers; register it, so that the methods it runs are declared"
             )

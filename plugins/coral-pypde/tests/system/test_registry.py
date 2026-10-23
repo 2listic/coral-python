@@ -60,7 +60,7 @@ class TestTheGoldenDescribesThisPlugin:
         """GIVEN the two base classes, which only type sockets
         WHEN the golden is read
         THEN both are abstract entries: neither is a constructor node, which would build an object
-             with no `.grid` or `_build_mask`."""
+             with no `.grid` or `_mask`."""
         assert registry["PyPDEGridBase"]["node_type"] == "abstract"
         assert registry["PyPDEShape"]["node_type"] == "abstract"
 

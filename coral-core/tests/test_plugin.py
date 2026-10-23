@@ -9,6 +9,7 @@ match the return annotation — is the host's check, not this package's.
 import math
 from abc import ABC, abstractmethod
 from fractions import Fraction
+from typing import Protocol, runtime_checkable
 
 import pytest
 from coral_core import ClassDeclaration, Declaration, MethodDeclaration, Plugin
@@ -972,6 +973,34 @@ class TestTargetsAreRefused:
         THEN TypeError."""
         with pytest.raises(TypeError, match="only a class"):
             Plugin().cls(add)
+
+    @pytest.mark.parametrize("checkable", [False, True], ids=["plain", "runtime_checkable"])
+    def test_a_protocol_is_refused(self, checkable):
+        """GIVEN a typing.Protocol, runtime_checkable or not
+        WHEN it is declared with plugin.cls
+        THEN TypeError: its subclasses are decided by structure, a class's bases by inheritance."""
+
+        class Sized(Protocol):
+            def size(self) -> int: ...
+
+        with pytest.raises(TypeError, match=r"Sized.*typing\.Protocol"):
+            Plugin().cls(runtime_checkable(Sized) if checkable else Sized)
+
+    def test_a_class_inheriting_a_protocol_is_a_class(self):
+        """GIVEN a class inheriting a typing.Protocol by name, being no protocol itself
+        WHEN it is declared with plugin.cls
+        THEN it is registered."""
+
+        class Sized(Protocol):
+            def size(self) -> int: ...
+
+        class Box(Sized):
+            def size(self) -> int:
+                return 1
+
+        plugin = Plugin()
+        plugin.cls(Box)
+        assert "Box" in plugin.classes()
 
     @pytest.mark.parametrize("decorator", ["function", "cls", "method"])
     def test_none_is_refused(self, decorator):

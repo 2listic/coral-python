@@ -34,6 +34,7 @@ node type             inputs                            outputs
 ``dict_size``         ``d: dict``                       ``int``
 ``fill``              ``lst*: list``                    pass-through
 ``merge``             ``into*: list``, ``other: list``  pass-through
+``swap``              ``left*: list``, ``right*: list`` pass-through, pass-through
 ===================== ================================= ==========================
 
 A ``*`` marks a written input: it is an output too, its pass-through, listed first among the
@@ -169,6 +170,11 @@ PORT_TABLE = {
         kind=FUNCTION,
         inputs=[Port("into", list, written=True), Port("other", list)],
         outputs=[Port("into", list, passthrough=0)],
+    ),
+    "swap": NodePorts(
+        kind=FUNCTION,
+        inputs=[Port("left", list, written=True), Port("right", list, written=True)],
+        outputs=[Port("left", list, passthrough=0), Port("right", list, passthrough=1)],
     ),
 }
 
@@ -327,6 +333,22 @@ class TestWriters:
             ValueError,
             match=r"Output 0 of node '1' feeds two inputs that modify it: 'self' of node '2' "
             r"\(edge '1'\) and 'self' of node '3' \(edge '3'\)",
+        ):
+            build(nodes, edges)
+
+    def test_two_written_inputs_of_one_node_on_one_output_are_refused(self):
+        """GIVEN one list wired into both written inputs of one node
+        WHEN the graph is built
+        THEN ValueError naming the node and both parameters, with no advice to chain: one node
+             cannot be fed from its own pass-through."""
+        nodes = {"0": {"type": "list_new"}, "1": {"type": "swap"}}
+        edges = {"0": edge("0", "1", 0), "1": edge("0", "1", 1)}
+
+        with pytest.raises(
+            ValueError,
+            match=r"Output 0 of node '0' feeds two inputs of node '1' that modify it: 'left' "
+            r"\(edge '0'\) and 'right' \(edge '1'\); a node cannot modify one value through two "
+            r"parameters$",
         ):
             build(nodes, edges)
 

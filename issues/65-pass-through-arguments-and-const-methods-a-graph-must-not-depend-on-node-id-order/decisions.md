@@ -51,14 +51,16 @@ change needed with or without concurrency. #61 depends on this issue.
    mutable object with a read input. A constructor or function that keeps or returns one
    copies it; otherwise a writer downstream modifies a value other nodes read, which the
    ordering of 6 cannot see.
-   Nor is a return value a written input: it is already passed on, and on two outputs one object
-   could feed two writers, which check 9 sees as two values. Returning the input itself is
-   refused at run time, right after the call (the identity is checkable there); returning a part
-   of it stays the author's contract.
    The host's collection builtins keep this contract for the collection, not for its elements:
    they copy shallowly, so a collection holds references, and a mutable element modified by a
    writer elsewhere is seen modified through every collection holding it. Copying deeply is what
    the rejected host-enforced copies would cost, and some elements cannot be copied at all.
+   Two outputs of a node may not hold one object when a writer reads either: check 9 sees two
+   values, so the writer would modify it with nothing ordering it against the other output's
+   consumers. That covers a returned written input (`return self`) and one object returned
+   twice. It is refused at run time, right after the call (the identity is checkable there), and
+   only where a writer is wired, so sharing without one stays allowed; sharing a part of an
+   object stays the author's contract.
    `cls` takes no `writes=`: a constructor modifies none of its inputs.
 4. **Output order:** the instance (if written), then the return value(s), then the written
    parameters in parameter order. C++'s argument order, a tuple return's outputs taking the

@@ -156,7 +156,8 @@ def build_class_map(
 
     Raises:
         LookupError: if a selected name is not a discoverable plugin.
-        DuplicateNodeTypeError: if two plugins declare the same class name.
+        DuplicateNodeTypeError: if two plugins declare the same class name, or register one class
+            under two names.
         ValueError: if a class registered by one plugin derives from a class registered by another.
             Also if a registered class is a virtual subclass of another registered class.
     """
@@ -173,9 +174,21 @@ def build_class_map(
             owner[class_name] = name
             class_map[class_name] = declaration
 
+    # One class, one key. Checked first: the hierarchy check below would misread a class two
+    # plugins both register as one plugin's subclass deriving from the other's class.
+    registered: Dict[type, str] = {}
+    for class_name, declaration in class_map.items():
+        cls = declaration.target
+        if cls in registered:
+            first = registered[cls]
+            raise DuplicateNodeTypeError(
+                f"class {cls.__name__!r} is registered as {first!r} by plugin {owner[first]!r} "
+                f"and as {class_name!r} by plugin {owner[class_name]!r}"
+            )
+        registered[cls] = class_name
+
     # Plugins do not share a class hierarchy. Overrides are checked against the declarations of one
     # plugin (`Plugin.classes`), so a class deriving from another plugin's would escape the check.
-    registered = {declaration.target: class_name for class_name, declaration in class_map.items()}
     for class_name, declaration in class_map.items():
         for base in declaration.target.__mro__[1:]:
             if base in registered and owner[registered[base]] != owner[class_name]:

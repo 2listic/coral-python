@@ -245,7 +245,8 @@ class Plugin:
                 constructor.
 
         Raises:
-            TypeError: if the target is not a class, or an option has the wrong type.
+            TypeError: if the target is not a class, or is a ``typing.Protocol``, or an option has
+                the wrong type.
             ValueError: if an option's value is refused, the class is already registered here, or
                 the name is already declared here; if ``abstract=False`` is given for a class with
                 unimplemented abstract methods, or ``inputs=`` / ``annotations=`` for an abstract
@@ -256,6 +257,14 @@ class Plugin:
             where = f"plugin.cls({_describe(klass)})"
             if not isinstance(klass, type):
                 raise TypeError(f"{where}: only a class can be declared with plugin.cls")
+            # `typing.is_protocol` reads this flag, from Python 3.13 on. A class inheriting a
+            # protocol by name has it False: only the protocol itself is structural.
+            if getattr(klass, "_is_protocol", False):
+                raise TypeError(
+                    f"{where}: the class is a typing.Protocol, whose subclasses are decided by "
+                    f"structure, while a registered class's bases are decided by inheritance; "
+                    f"register a base class the classes inherit instead"
+                )
             key = _name(name, klass, where, dotted=False)
             if klass in self._class_keys:
                 raise ValueError(
