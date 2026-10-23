@@ -499,21 +499,9 @@ class Plugin:
         Raises:
             ValueError: if one of them is ``const`` and ``func`` is not declared ``const=True``, or
                 ``func`` modifies a parameter one of them reads, or lacks a parameter its
-                ``writes=`` names.
+                ``writes=`` names, or takes another number of parameters than one of them.
         """
         mark = self._marks[declared]
-        # Resolved on the function that runs, as the host resolves them: an undeclared override
-        # inherits the names, not the positions. A declared function's own writes= naming no
-        # parameter is the host's to report, as it reports inputs=.
-        parameters = list(inspect.signature(func).parameters) if mark.writes else []
-        missing = [name for name in mark.writes if name not in parameters]
-        if missing and func is not declared:
-            raise ValueError(
-                f"{overrider} overrides the method {attribute!r}, whose declaration writes "
-                f"{missing} with writes=, with a function that has no such parameter; declare the "
-                f"override itself with plugin.method"
-            )
-        written = {parameters.index(name) for name in mark.writes if name in parameters}
         bases = [
             vars(owner)[attribute]
             for owner in holders
@@ -521,8 +509,32 @@ class Plugin:
             and vars(owner)[attribute] in self._marks
             and vars(owner)[attribute] is not func
         ]
+        # An undeclared override has its declaration among them, so without one nothing is compared.
+        if not bases:
+            return
+        # Resolved on the function that runs, as the host resolves them: an undeclared override
+        # inherits the names, not the positions. A declared function's own writes= naming no
+        # parameter is the host's to report, as it reports inputs=.
+        parameters = list(inspect.signature(func).parameters)
+        missing = [name for name in mark.writes if name not in parameters]
+        if missing and func is not declared:
+            raise ValueError(
+                f"{overrider} overrides the method {attribute!r}, whose declaration writes "
+                f"{missing} with writes=, with a function that has no such parameter; declare the "
+                f"override itself with plugin.method"
+            )
+        written = _positions(parameters, mark.writes)
         for base in bases:
             base_mark = self._marks[base]
+            base_parameters = list(inspect.signature(base).parameters)
+            # A method node of a base passes the override as many arguments as the base takes.
+            if len(parameters) != len(base_parameters):
+                raise ValueError(
+                    f"{overrider} overrides the method {attribute!r} with {func.__qualname__!r}, "
+                    f"which takes {len(parameters)} parameter(s), where {base.__qualname__!r} "
+                    f"takes {len(base_parameters)}; a method node of the base passes it that many "
+                    f"arguments"
+                )
             if base_mark.const and func is not declared:
                 raise ValueError(
                     f"{overrider} overrides the method {attribute!r}, which {base.__qualname__!r} "
@@ -537,7 +549,8 @@ class Plugin:
                 )
             if not written:
                 continue
-            read = [parameters[i] for i in sorted(written - _positions(base, base_mark.writes))]
+            read = sorted(written - _positions(base_parameters, base_mark.writes))
+            read = [parameters[i] for i in read]
             if read:
                 raise ValueError(
                     f"{overrider} overrides the method {attribute!r} with one that modifies "
@@ -555,10 +568,9 @@ def _attributes(klass: type) -> list[str]:
     return sorted({name for owner in klass.__mro__ for name in vars(owner)})
 
 
-def _positions(func: Callable, names: tuple[str, ...]) -> set[int]:
-    """The positions of ``names`` among a plain function's parameters. A name that is not a
+def _positions(parameters: list[str], names: tuple[str, ...]) -> set[int]:
+    """The positions of ``names`` among a function's ``parameters``. A name that is not a
     parameter is skipped: the host checks ``writes=`` against the signature."""
-    parameters = list(inspect.signature(func).parameters)
     return {parameters.index(name) for name in names if name in parameters}
 
 

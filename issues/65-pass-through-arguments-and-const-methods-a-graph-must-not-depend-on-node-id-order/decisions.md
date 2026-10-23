@@ -47,21 +47,18 @@ change needed with or without concurrency. #61 depends on this issue.
    other parameters, so adding a name to `writes=` can never turn a method `const` by omission.
    An undeclared parameter is read: that a node does not mutate what it does not declare is the
    author's contract, unchecked, like an annotation.
-   **An output is either a pass-through or a new object.** Then every object has one lineage
-   the graph knows (created, then passed through its writers), and the ordering of 6 is
-   complete for it. An alias breaks it: one object on edges the graph sees as different
+   **An output is either a pass-through or a new object**: that too is the author's contract,
+   unchecked. A return value, or state a constructed instance keeps, that is an object the node
+   received, or a part of one, is an alias: one object on edges the graph sees as different
    values, so a writer of one modifies what the other's readers read, in an order decided by
-   node ids. The executor refuses, right after the call, a return value that is (by identity)
-   one of the node's inputs or another of its outputs: `return self`, `const` or not, an
-   argument returned, one object returned twice. An object nothing can modify in place
-   (`None`, numbers, strings, bytes, tuples, frozen sets, by exact type) is exempt.
-   Unchecked, the author's contract like an annotation: a return value, and the state a
-   constructed instance keeps, share no *part* with an input (a node keeping or returning one
-   copies it), nor state outside Python, such as a file.
+   node ids. A node keeping or returning such an object copies it. State outside Python, such
+   as a file, is the author's as well.
    The host's collection builtins keep this contract for the collection, not for its elements:
    they copy shallowly, so a collection holds references, and a mutable element modified by a
    writer elsewhere is seen modified through every collection holding it. Copying deeply is what
    the rejected host-enforced copies would cost, and some elements cannot be copied at all.
+   So `list_get` and `dict_get` return an alias of an element: a graph modifying it depends on
+   node ids.
    `cls` takes no `writes=`: a constructor modifies none of its inputs.
 4. **Output order:** the instance (if written), then the return value(s), then the written
    parameters in parameter order. C++'s argument order, a tuple return's outputs taking the
@@ -84,6 +81,8 @@ change needed with or without concurrency. #61 depends on this issue.
    - a declared override may not write a parameter its base declares as read, compared by
      position;
    - an undeclared override inherits `writes=`.
+   - an override, declared or not, takes as many parameters as its base: a method node of the
+     base passes it that many arguments, so another count fails only when the node runs.
    Every declared function under that attribute in the MRO is a base, not only the nearest: a
    method node of any of those classes, given an instance of this one, runs the override behind
    that class's ports. The nearest alone misses multiple inheritance (`D(B, C)`, `C.f` `const`,
@@ -112,6 +111,10 @@ change needed with or without concurrency. #61 depends on this issue.
    that can run has been through the checks of 5.
    With that check, the nearest registered class in `type(instance).__mro__` is always
    `type(instance)` itself, so the executor looks the function up by it directly.
+   An instance is one by inheritance, the type's MRO, as everywhere a registered class is
+   concerned: a virtual subclass of a registered ABC (`float` of `numbers.Real`) is no instance
+   of it, so it is not refused where it is produced, and is refused by a method of the ABC it
+   reaches, by the instance check, before any of its code runs.
 8. **Plugins do not share a class hierarchy.** A class registered by one plugin may not derive
    from a class registered by another: `build_class_map` raises while merging, naming the two
    classes and the two plugins. In this repo plugins depend only on `coral-core`, so it can
@@ -135,3 +138,12 @@ change needed with or without concurrency. #61 depends on this issue.
   when that method is reached, possibly after other consumers of the same value have run. The
   producer check of 7 fires first, and for every method, not only `const` ones.
 - **Trusting unregistered overrides:** leaves graphs that validate and still depend on order.
+- **Run-time alias checks.** Four were tried in review and dropped: refusing a return value
+  that is a written input; refusing two outputs holding one object when a writer reads one;
+  refusing any return value that is an input or another output (immutable builtins exempt);
+  and, proposed, tracking each object's lineage up to its writers. Each was partial: an alias
+  reached through another object's state (an attribute, or an element read without being
+  taken out) is invisible to identity, and the third refused harmless immutables it did not
+  list (`Fraction`, numpy scalars). Aliasing is the author's contract (3), so an alias is out
+  of scope here, not a defect of the ordering. A complete check, if wanted, is its own issue,
+  likely with #61, where an alias becomes a data race.

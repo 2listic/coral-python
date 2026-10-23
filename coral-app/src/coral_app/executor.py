@@ -14,10 +14,6 @@ from coral_app.nodeports import (
 )
 from coral_app.nodestatus import NodeStatusDir
 
-#: Types whose instances nothing can modify in place, so an alias of one cannot be written through.
-#: Matched by exact type: a subclass may carry state of its own.
-_IMMUTABLE = frozenset({type(None), bool, int, float, complex, str, bytes, tuple, frozenset})
-
 
 class WorkflowExecutor:
     """Stage 4: walk a validated graph, calling each node in dependency order.
@@ -76,7 +72,6 @@ class WorkflowExecutor:
         }
         # Registered class -> its key, for the check on every value a node returns.
         self._class_keys = {d.target: key for key, d in self.class_map.items()}
-        self._registered = tuple(self._class_keys)
 
         print(f"Loaded plugins: {', '.join(plugins)}")
         print(f"Available functions: {len(self.function_map)}")
@@ -94,8 +89,7 @@ class WorkflowExecutor:
         by its three markers — written by the collaborator rather than here, so that "``.failed`` is
         written before the exception escapes" is a property of one testable object instead of a
         discipline this walk has to keep. Everything raising inside the block is covered: a plugin
-        function, the method-instance check, the output-arity, new-return-value and output-class
-        checks.
+        function, the method-instance check, the output-arity and output-class checks.
         """
         print(f"Execution order: {self.graph.order}\n")
 
@@ -117,9 +111,11 @@ class WorkflowExecutor:
             status = self.status.node(qualified_id) if self.status else nullcontext()
             with status:
                 if kind == PRIMITIVE:
-                    # A copy: a written input is modified in place, and the graph's literal must
-                    # stay as it was read.
-                    self.results[node_id] = copy.deepcopy(self.graph.literals[node_id])
+                    # A copy only when a node modifies the literal in place, so that the graph's
+                    # literal stays as it was read; a literal only read is shared as it is.
+                    literal = self.graph.literals[node_id]
+                    written = self.graph.is_written(node_id, 0)
+                    self.results[node_id] = copy.deepcopy(literal) if written else literal
                     print(f"{node_id} (primitive) = {self.results[node_id]}")
                 else:
                     values = self._input_values(node_id)
@@ -130,7 +126,6 @@ class WorkflowExecutor:
                     result = target(*arguments)
                     self._check_output_arity(node_id, node["type"], ports, result)
                     outputs = self._outputs(ports, values, result)
-                    self._check_return_values_are_new(node_id, node["type"], ports, values, outputs)
                     self._check_output_classes(node_id, node["type"], ports, outputs)
                     self.results[node_id] = outputs
 
@@ -182,50 +177,6 @@ class WorkflowExecutor:
                 f"return values but returned a tuple of {len(result)}"
             )
 
-    def _check_return_values_are_new(
-        self, node_id: str, node_type: str, ports: NodePorts, values: list, outputs
-    ) -> None:
-        """A return value must be a new object: neither one the node received nor another of its
-        outputs.
-
-        The graph orders a value's readers before its writer by the edges that carry it. An alias,
-        such as an instance a method returns as well as passes through, an argument returned, or
-        one object returned twice, is one value on edges the graph sees as different values, so a
-        writer of one would modify what the other's readers read, in an order decided by node ids.
-        With every return value new, each object has one lineage: created, then passed through its
-        writers.
-
-        An object nothing can modify in place (``None``, numbers, strings, bytes, tuples, frozen
-        sets) is exempt: no alias of it can be written through. Only identity is checked: a return
-        value sharing a part of an input, or state outside Python such as a file, is the plugin
-        author's to avoid.
-
-        Raises:
-            ValueError: naming the return output and the input or the output it is.
-        """
-        rule = (
-            "a return value must be a new object: nothing orders the readers and writers of an "
-            "alias"
-        )
-        produced = outputs if len(ports.outputs) > 1 else (outputs,)
-        for index, (port, value) in enumerate(zip(ports.outputs, produced)):
-            if port.passthrough is not None or type(value) in _IMMUTABLE:
-                continue
-            for received, argument in enumerate(values):
-                if argument is value:
-                    raise ValueError(
-                        f"Node {self.graph.describe(node_id)} of type {node_type!r} returned on "
-                        f"output {index} the object it received on input {received} "
-                        f"({ports.inputs[received].name!r}); {rule}"
-                    )
-            for other, shared in enumerate(produced):
-                if other != index and shared is value:
-                    first, second = sorted((index, other))
-                    raise ValueError(
-                        f"Node {self.graph.describe(node_id)} of type {node_type!r} returned one "
-                        f"object on outputs {first} and {second}; {rule}"
-                    )
-
     def _check_output_classes(
         self, node_id: str, node_type: str, ports: NodePorts, outputs
     ) -> None:
@@ -244,13 +195,18 @@ class WorkflowExecutor:
         Raises:
             ValueError: naming the output and the unregistered class.
         """
+        if not ports.outputs:
+            return
         values = outputs if len(ports.outputs) > 1 else (outputs,)
-        for index, value in enumerate(values[: len(ports.outputs)]):
-            if not isinstance(value, self._registered) or type(value) in self._class_keys:
+        for index, value in enumerate(values):
+            if type(value) in self._class_keys:
                 continue
-            # By `isinstance`, as above, not by the MRO: a virtual subclass of a registered ABC
-            # has no registered class in its MRO.
-            base = next(c for c in self._registered if isinstance(value, c))
+            # By the MRO, not `isinstance`: a class's bases are decided by inheritance, so a
+            # virtual subclass of a registered ABC (`float` of `numbers.Real`) is not one of its
+            # instances, and no method declared on the ABC accepts it.
+            base = next((c for c in type(value).__mro__ if c in self._class_keys), None)
+            if base is None:
+                continue
             raise ValueError(
                 f"Node {self.graph.describe(node_id)} of type {node_type!r} produced on output "
                 f"{index} an instance of "
@@ -329,9 +285,10 @@ class WorkflowExecutor:
             instance = values[0]
 
             # The one run-time check made before the call, about a value rather than about wiring:
-            # port 0 must really hold an instance of the class. The class is port 0's annotation,
-            # the one graph validation checked the edge against.
-            if not isinstance(instance, cls):
+            # port 0 must really hold an instance of the class, by inheritance: a virtual subclass
+            # has no function declared for it. The class is port 0's annotation, the one graph
+            # validation checked the edge against.
+            if cls not in type(instance).__mro__:
                 raise ValueError(
                     f"Method node {self.graph.describe(node_id)} expected instance of "
                     f"{cls.__name__}, got {type(instance).__name__}"

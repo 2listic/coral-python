@@ -278,10 +278,12 @@ input is a **pass-through**, an output too and the very same object, as a non-`c
 in the C++ backend (`"connection_type": "pass_through"` in `node_types.json`). `Graph` then refuses
 two writers of one value, which nothing would order, and runs every reader of a written value before
 its writer; a node that should see the modified value reads the writer's pass-through instead. No
-copy protects a reader: the order does. (The executor does copy each literal per run, so that a
-writer cannot change the graph itself.)
+copy protects a reader: the order does. (The executor does copy, per run, each literal a node
+modifies, so that a writer cannot change the graph itself.)
 
-What a node declares is its author's contract, unchecked like an annotation. What *is* checked is
+What a node declares is its author's contract, unchecked like an annotation, and so is that an
+output is a pass-through or a new object: returning or keeping an object the node received, or
+part of one, makes an alias no edge carries, which no order can protect. What *is* checked is
 that only declared code runs: a method node calls the function its plugin declared for the
 instance's class, never a lookup on the instance; every instance a node returns must be of a
 registered class; and plugins do not share a class hierarchy. So the override rules — an override

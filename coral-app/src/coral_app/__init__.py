@@ -159,7 +159,6 @@ def build_class_map(
         DuplicateNodeTypeError: if two plugins declare the same class name, or register one class
             under two names.
         ValueError: if a class registered by one plugin derives from a class registered by another.
-            Also if a registered class is a virtual subclass of another registered class.
     """
     class_map: Dict[str, ClassDeclaration] = {}
     owner: Dict[str, str] = {}  # class name -> the plugin that declared it
@@ -196,21 +195,6 @@ def build_class_map(
                     f"class {class_name!r} of plugin {owner[class_name]!r} derives from class "
                     f"{registered[base]!r} of plugin {owner[registered[base]]!r}; plugins do not "
                     f"share a class hierarchy, so one plugin must register both"
-                )
-
-    # A registered class must inherit every registered class it is accepted as. ABC registration
-    # (`register`, `__subclasshook__`) makes `issubclass` true without the base in the MRO, which is
-    # what method resolution walks: such a class would lack the base's declared methods, and would
-    # join another plugin's hierarchy unseen by the check above.
-    for class_name, declaration in class_map.items():
-        cls = declaration.target
-        for base, base_name in registered.items():
-            if base is not cls and base not in cls.__mro__ and issubclass(cls, base):
-                raise ValueError(
-                    f"class {class_name!r} of plugin {owner[class_name]!r} is a virtual subclass "
-                    f"of class {base_name!r} of plugin {owner[base_name]!r} (ABC registration or "
-                    f"__subclasshook__); a registered class must inherit the registered classes "
-                    f"it is accepted as, whose declared methods it otherwise lacks"
                 )
 
     return class_map

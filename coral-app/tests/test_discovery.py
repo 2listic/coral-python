@@ -287,17 +287,25 @@ class TestPluginsDoNotShareAHierarchy:
             build_class_map(include=selection)
 
 
-class TestAVirtualSubclassIsRefused:
-    """A registered class must inherit every registered class it is accepted as: ABC registration
-    makes it pass ``issubclass``, but its MRO, which method resolution walks, lacks the base."""
+class TestAVirtualSubclassIsUnrelated:
+    """A class's bases are decided by inheritance: ABC registration, or a ``__subclasshook__``,
+    relates no registered class to another, so it refuses nothing at load. An instance of a virtual
+    subclass is refused by the abstract class's methods instead."""
 
-    @staticmethod
-    def _declare(meters: Plugin, gauges: Plugin) -> None:
-        """Declare an abstract Meter with a const ``read`` on ``meters``, and on ``gauges`` a Gauge
-        registered as Meter's virtual subclass. One plugin may be passed as both."""
+    @pytest.mark.parametrize("hook", [False, True], ids=["register", "subclasshook"])
+    def test_a_virtual_subclass_across_plugins_loads(self, monkeypatch, hook):
+        """GIVEN one plugin registering an abstract class, another a class that is its virtual
+             subclass, by ABC registration or by the abstract class's __subclasshook__
+        WHEN the class map is built with both selected
+        THEN both are registered: neither is a base of the other."""
+        meters, gauges = Plugin(), Plugin()
 
         @meters.cls
         class Meter(ABC):
+            @classmethod
+            def __subclasshook__(cls, other):
+                return True if hook and hasattr(other, "read") else NotImplemented
+
             @meters.method(const=True)
             @abstractmethod
             def read(self) -> float: ...
@@ -307,33 +315,8 @@ class TestAVirtualSubclassIsRefused:
             def read(self) -> float:
                 return 1.0
 
-        Meter.register(Gauge)
-
-    def test_a_virtual_subclass_in_one_plugin_is_refused(self, monkeypatch):
-        """GIVEN one plugin registering an abstract class and a virtual subclass of it
-        WHEN the class map is built
-        THEN ValueError naming both classes: the subclass has none of the base's methods."""
-        plugin = Plugin()
-        self._declare(plugin, plugin)
-        monkeypatch.setattr("coral_app.load", lambda name: plugin)
-
-        with pytest.raises(
-            ValueError, match=r"class 'Gauge' .* is a virtual subclass of class 'Meter'"
-        ):
-            build_class_map(include=["one"])
-
-    def test_a_virtual_subclass_across_plugins_is_refused(self, monkeypatch):
-        """GIVEN one plugin registering an abstract class, another a virtual subclass of it
-        WHEN the class map is built with both selected
-        THEN ValueError naming both classes and both plugins: virtual registration is no way
-             around plugins not sharing a hierarchy."""
-        meters, gauges = Plugin(), Plugin()
-        self._declare(meters, gauges)
+        if not hook:
+            Meter.register(Gauge)
         monkeypatch.setattr("coral_app.load", {"meters": meters, "gauges": gauges}.__getitem__)
 
-        with pytest.raises(
-            ValueError,
-            match=r"class 'Gauge' of plugin 'gauges' is a virtual subclass of class 'Meter' of "
-            r"plugin 'meters'",
-        ):
-            build_class_map(include=["meters", "gauges"])
+        assert list(build_class_map(include=["meters", "gauges"])) == ["Meter", "Gauge"]

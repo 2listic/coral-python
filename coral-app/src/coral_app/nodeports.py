@@ -22,6 +22,7 @@ This module knows callables. It does not know what a graph, an edge, or a regist
 
 import inspect
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import Any, Dict, List, Mapping, Optional, get_args, get_origin
 
 from coral_core import ClassDeclaration, Declaration, MethodDeclaration
@@ -59,8 +60,8 @@ class Port:
             the one declared with ``outputs=``, or ``""`` when none is: Python gives a return value
             no name of its own, so there is nothing to read.
         annotation: The declared type, with a missing annotation normalised to ``Any``.
-        instance: Whether this is a method's instance, port 0, which the executor checks with
-            ``isinstance`` before the call. ``False`` on every other port.
+        instance: Whether this is a method's instance, port 0, which the executor checks by its
+            MRO before the call. ``False`` on every other port.
         written: On an input, whether the node modifies the value it receives in place: a
             parameter named in ``writes=``, or a non-``const`` method's instance. ``False`` on
             every output.
@@ -88,8 +89,9 @@ class NodePorts:
         outputs: One :class:`Port` per output port, in port order — 0-based within outputs, which
             is the numbering the editor and the executor use. A callable returning ``None`` has
             none.
-        attribute: For a method, the attribute the executor looks up on the instance; ``None`` for
-            every other kind. A renamed method's node type no longer contains it.
+        attribute: For a method, the attribute it is declared under, by which the executor finds
+            the function declared for the instance's class; ``None`` for every other kind. A
+            renamed method's node type no longer contains it.
     """
 
     kind: str
@@ -97,7 +99,7 @@ class NodePorts:
     outputs: List[Port] = field(default_factory=list)
     attribute: Optional[str] = None
 
-    @property
+    @cached_property
     def returns(self) -> List[Port]:
         """The outputs that are return values, in port order: what ``outputs=`` names and the
         executor's arity check counts. The others pass an input on."""

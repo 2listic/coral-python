@@ -75,8 +75,9 @@ def _is_compatible(source_annotation, target_annotation, *, widening: bool = Tru
     - ``bool`` as the *target* is the one exception the tower needs: ``bool`` is an ``int`` subclass,
       so it shares ``int``'s rank, and without a guard any Integral would be accepted where a
       ``bool`` is expected. Widening never lands on ``bool``.
-    - ``widening=False`` turns the tower off, so only the class itself or a subclass is accepted.
-      It is for a method's instance, which the executor checks with ``isinstance``.
+    - ``widening=False`` turns the tower off, so only the class itself or a subclass by
+      inheritance (in its MRO: not a virtual subclass) is accepted. It is for a method's
+      instance, which the executor checks the same way.
     """
     if source_annotation is Any or target_annotation is Any:
         return True
@@ -84,11 +85,11 @@ def _is_compatible(source_annotation, target_annotation, *, widening: bool = Tru
     if not (isinstance(source_annotation, type) and isinstance(target_annotation, type)):
         return True
 
+    if not widening:
+        return target_annotation in source_annotation.__mro__
+
     if issubclass(source_annotation, target_annotation):
         return True
-
-    if not widening:
-        return False
 
     # `bool` is an `int` subclass, so the tower ranks it alongside `int` — without this, any
     # Integral would be accepted where a `bool` is expected. Widening never lands on `bool`.
@@ -225,6 +226,10 @@ class Graph:
         """The node as messages name it: its id, followed by its name when it has one."""
         name = self.name_of(node_id)
         return f"{node_id!r}" if name is None else f"{node_id!r} ({name!r})"
+
+    def is_written(self, node_id: str, output: int) -> bool:
+        """Whether a node modifies this output of a node in place (check 9)."""
+        return (node_id, output) in self._writers
 
     # Validation. Each method is one of the checks, run in the order listed in __init__ — where
     # check 3, the qualified ids, is `nodestatus.qualified_ids` rather than a method here.
@@ -366,8 +371,8 @@ class Graph:
             # incoming edges occupy exactly ports 0..n-1 for its type's n inputs.
             target = ports.inputs[edge.target_input]
 
-            # A method's instance is checked with `isinstance` when the node runs, so no widening
-            # reaches it: an `int` is not a `Fraction` there.
+            # A method's instance is checked by its MRO when the node runs, so neither widening
+            # nor a virtual subclass reaches it: an `int` is not a `Fraction` there.
             if not _is_compatible(
                 source_annotation, target.annotation, widening=not target.instance
             ):

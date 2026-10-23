@@ -555,6 +555,34 @@ class TestOverridesPromiseNoLess:
     """An override may promise more than what it overrides, never less: ``const`` where its base
     is, and no parameter written that a base reads."""
 
+    @pytest.mark.parametrize("declared", [False, True], ids=["undeclared", "declared"])
+    def test_an_override_taking_another_number_of_parameters_is_refused(self, declared):
+        """GIVEN a declared method taking a parameter, overridden by one taking none, declared or
+             not
+        WHEN the classes are resolved
+        THEN ValueError naming both counts: a method node of the base passes the override as many
+             arguments as the base takes."""
+        plugin = Plugin()
+
+        @plugin.cls
+        class Base:
+            @plugin.method
+            def m(self, a: float) -> None: ...
+
+        @plugin.cls
+        class Sub(Base):
+            def m(self) -> None: ...
+
+        if declared:
+            plugin.method(Sub.m)
+
+        with pytest.raises(
+            ValueError,
+            match=r"class 'Sub' overrides the method 'm' with .*Sub\.m', which takes 1 "
+            r"parameter\(s\), where .*Base\.m' takes 2",
+        ):
+            plugin.classes()
+
     def test_an_undeclared_override_of_a_const_method_is_refused(self):
         """GIVEN a method declared const=True, overridden without a declaration
         WHEN the subclass's methods are read

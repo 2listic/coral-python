@@ -1119,6 +1119,21 @@ class TestPassThroughs:
         assert executor.execute()["2"] == (2, [1, 5])
         assert executor.graph.literals["0"] == [1]
 
+    def test_a_literal_no_node_modifies_is_not_copied(self, write_graph, specimen_plugins):
+        """GIVEN a list literal read only by a node that does not modify it
+        WHEN the workflow is executed
+        THEN the stored value is the graph's parsed literal itself: only a literal a node modifies
+             is copied."""
+        path = write_graph(
+            graph(
+                {"0": {"type": "list", "value": "[1, 2]"}, "1": {"type": "list_size"}},
+                {"0": edge("0", "1", 0)},
+            )
+        )
+        executor = WorkflowExecutor(str(path), plugins=[SPECIMEN])
+
+        assert executor.execute()["0"] is executor.graph.literals["0"]
+
 
 class TestOnlyRegisteredCodeRuns:
     """A method node runs the function declared for its instance's class, so every value of a
@@ -1194,12 +1209,12 @@ class TestOnlyRegisteredCodeRuns:
 
         assert results["1"] == 2
 
-    def test_a_virtual_subclass_is_refused_where_it_is_produced(self, run_declared):
+    def test_a_virtual_subclass_is_refused_by_the_method_it_reaches(self, run_declared):
         """GIVEN a function returning an instance of a class registered as a virtual subclass of a
              registered abstract class, and that class's method node fed by it
         WHEN the workflow is executed
-        THEN ValueError at the producing node, naming the class and its registered base: it is
-             an instance of the base without having the base in its MRO."""
+        THEN ValueError at the method node, before any of its code runs: without the base in its
+             MRO, it is not an instance of the base."""
         plugin = Plugin()
 
         @plugin.cls
@@ -1218,185 +1233,87 @@ class TestOnlyRegisteredCodeRuns:
         def make() -> Shape:
             return Blob()
 
-        with pytest.raises(ValueError, match=r"an instance of .*Blob, a subclass of 'Shape'"):
+        with pytest.raises(
+            ValueError, match=r"Method node '1' expected instance of Shape, got Blob"
+        ):
             run_declared(
                 plugin,
                 {"0": {"type": "make"}, "1": {"type": "Shape.area"}},
                 {"0": edge("0", "1", 0)},
             )
 
-
-class TestReturnValuesAreNewObjects:
-    """A return value must be a new object, never one the node received nor another of its
-    outputs: an alias is a value no edge carries, so nothing orders its readers and writers.
-    An object nothing can modify in place is exempt."""
-
-    def test_a_method_returning_its_own_instance_is_refused(self, run_declared):
-        """GIVEN a method that is not const and returns ``self``
-        WHEN the workflow is executed
-        THEN ValueError naming the return output and the instance."""
-        plugin = Plugin()
+    @staticmethod
+    def _measure(plugin: Plugin) -> type:
+        """Declare on ``plugin`` an abstract Measure with a const ``half``, and register ``float``
+        as its virtual subclass."""
 
         @plugin.cls
-        class Box:
-            def __init__(self, size: int):
-                self.size = size
-
-            @plugin.method
-            def grow(self, by: int) -> Any:
-                self.size += by
-                return self
-
-        with pytest.raises(
-            ValueError,
-            match=r"Node '3' of type 'Box.grow' returned on output 1 the object it received on "
-            r"input 0 \('self'\); a return value must be a new object",
-        ):
-            run_declared(
-                plugin,
-                {
-                    "0": {"type": "int", "value": 3},
-                    "1": {"type": "Box"},
-                    "2": {"type": "int", "value": 1},
-                    "3": {"type": "Box.grow"},
-                },
-                {"0": edge("0", "1", 0), "1": edge("1", "3", 0), "2": edge("2", "3", 1)},
-            )
-
-    def test_a_const_method_returning_its_own_instance_is_refused(self, run_declared):
-        """GIVEN a const method returning ``self``
-        WHEN the workflow is executed
-        THEN ValueError naming the return output and the instance: a writer of either output
-             would modify what the other output's readers read."""
-        plugin = Plugin()
-
-        @plugin.cls
-        class Box:
-            def __init__(self, size: int):
-                self.size = size
-
+        class Measure(ABC):
             @plugin.method(const=True)
-            def me(self) -> Any:
-                return self
+            @abstractmethod
+            def half(self) -> float: ...
 
-        with pytest.raises(
-            ValueError,
-            match=r"Node '2' of type 'Box.me' returned on output 0 the object it received on "
-            r"input 0 \('self'\)",
-        ):
-            run_declared(
-                plugin,
-                {"0": {"type": "int", "value": 3}, "1": {"type": "Box"}, "2": {"type": "Box.me"}},
-                {"0": edge("0", "1", 0), "1": edge("1", "2", 0)},
-            )
+        Measure.register(float)
+        return Measure
 
-    def test_a_function_returning_its_written_parameter_is_refused(self, run_declared):
-        """GIVEN a function declared writes= that returns the parameter it modifies
-        WHEN the workflow is executed
-        THEN ValueError naming the return output and the parameter."""
+    def test_a_builtin_registered_virtually_with_a_registered_class_may_be_produced(
+        self, run_declared
+    ):
+        """GIVEN a registered abstract class with float registered as its virtual subclass
+        WHEN a node returns a float
+        THEN it runs: float does not inherit the class, so it is not one of its instances."""
         plugin = Plugin()
-
-        @plugin.function(writes="items")
-        def push(items: list, item: Any) -> list:
-            items.append(item)
-            return items
-
-        with pytest.raises(
-            ValueError,
-            match=r"Node '2' of type 'push' returned on output 0 the object it received on input "
-            r"0 \('items'\)",
-        ):
-            run_declared(
-                plugin,
-                {
-                    "0": {"type": "list", "value": "[1]"},
-                    "1": {"type": "int", "value": 5},
-                    "2": {"type": "push"},
-                },
-                {"0": edge("0", "2", 0), "1": edge("1", "2", 1)},
-            )
-
-    def test_a_function_returning_a_read_input_is_refused(self, run_declared):
-        """GIVEN a function returning the list it reads
-        WHEN the workflow is executed
-        THEN ValueError naming the return output and the parameter."""
-        plugin = Plugin()
+        self._measure(plugin)
 
         @plugin.function
-        def same(items: list) -> list:
-            return items
+        def add(a: float, b: float) -> float:
+            return a + b
+
+        results = run_declared(
+            plugin,
+            {"0": {"type": "float", "value": 1.0}, "1": {"type": "add"}},
+            {"0": edge("0", "1", 0), "1": edge("0", "1", 1)},
+        )
+
+        assert results["1"] == 2.0
+
+    def test_a_builtin_registered_virtually_is_refused_by_the_method_it_reaches(self, run_declared):
+        """GIVEN the same class, and a float from a node annotated Any wired into its method
+        WHEN the workflow is executed
+        THEN ValueError from the instance check, not a KeyError: no function is declared for
+             float. Annotated Any, the edge passes validation."""
+        plugin = Plugin()
+        self._measure(plugin)
+
+        @plugin.function
+        def make() -> Any:
+            return 1.0
 
         with pytest.raises(
-            ValueError,
-            match=r"Node '1' of type 'same' returned on output 0 the object it received on input "
-            r"0 \('items'\)",
+            ValueError, match=r"Method node '1' expected instance of Measure, got float"
         ):
             run_declared(
                 plugin,
-                {"0": {"type": "list", "value": "[1]"}, "1": {"type": "same"}},
+                {"0": {"type": "make"}, "1": {"type": "Measure.half"}},
                 {"0": edge("0", "1", 0)},
             )
 
-    def test_one_object_returned_twice_is_refused(self, run_declared):
-        """GIVEN a function returning one list as both its return values
+    def test_a_node_with_no_outputs_has_nothing_checked(self, run_declared):
+        """GIVEN a function annotated -> None that returns an instance of an unregistered
+             subclass of a registered class anyway
         WHEN the workflow is executed
-        THEN ValueError naming both outputs."""
+        THEN it runs: the node has no output, so nothing can read the value."""
         plugin = Plugin()
 
-        @plugin.function
-        def twice() -> Tuple[list, list]:
-            items = []
-            return items, items
+        @plugin.cls
+        class Base:
+            pass
 
-        with pytest.raises(
-            ValueError, match=r"Node '0' of type 'twice' returned one object on outputs 0 and 1"
-        ):
-            run_declared(plugin, {"0": {"type": "twice"}})
-
-    @pytest.mark.parametrize(
-        "value",
-        [None, True, 7, 1.5, 1j, "text", b"raw", (1, [2]), frozenset({1})],
-        ids=lambda value: type(value).__name__,
-    )
-    def test_an_object_nothing_modifies_in_place_may_be_returned(self, run_declared, value):
-        """GIVEN a function returning its input, an object nothing can modify in place
-        WHEN the workflow is executed
-        THEN it runs: an alias of it cannot be written through. A tuple's elements are parts of
-             it, left to the author like any shared part."""
-        plugin = Plugin()
-
-        @plugin.function
-        def make() -> Any:
-            return value
-
-        @plugin.function
-        def keep(kept: Any) -> Any:
-            return kept
-
-        results = run_declared(
-            plugin, {"0": {"type": "make"}, "1": {"type": "keep"}}, {"0": edge("0", "1", 0)}
-        )
-
-        assert results["1"] is value
-
-    def test_a_subclass_of_an_immutable_type_is_refused(self, run_declared):
-        """GIVEN a function returning its input, an instance of a tuple subclass
-        WHEN the workflow is executed
-        THEN ValueError: a subclass may hold state that can be modified in place."""
-        plugin = Plugin()
-
-        class Pair(tuple):
+        class Hidden(Base):
             pass
 
         @plugin.function
-        def make() -> Any:
-            return Pair((1, 2))
+        def log() -> None:
+            return Hidden()
 
-        @plugin.function
-        def keep(kept: Any) -> Any:
-            return kept
-
-        with pytest.raises(ValueError, match=r"Node '1' of type 'keep' returned on output 0"):
-            run_declared(
-                plugin, {"0": {"type": "make"}, "1": {"type": "keep"}}, {"0": edge("0", "1", 0)}
-            )
+        run_declared(plugin, {"0": {"type": "log"}})

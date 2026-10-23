@@ -329,14 +329,12 @@ it finds them at runtime via entry-point discovery.
    constructor modifies none of its inputs). A modified input is a **pass-through**: its port is an
    output too, so a graph can order every node reading the value before the one modifying it (see
    [Graph validation](#graph-validation)). What is not declared is not checked: that a node modifies
-   nothing it does not declare is the author's contract, like an annotation. **An output is a
-   pass-through or a new object**: the executor refuses a return value that is (by identity) one of
-   the node's inputs or another of its outputs, since the graph cannot order the readers and
-   writers of an alias; an object nothing can modify in place (`None`, numbers, strings, bytes,
-   tuples, frozen sets) is exempt. That a return value, or the state a constructed instance keeps,
-   shares no *part* with an input (a node keeping one copies it) stays the author's contract. The
-   host's collection builtins keep it for the collection, not for its elements: they copy
-   shallowly.
+   nothing it does not declare is the author's contract, like an annotation. So is that **an
+   output is a pass-through or a new object**: a return value, or the state a constructed
+   instance keeps, that is an object the node received, or part of one, is an alias the graph
+   cannot order, and a node keeping or returning one copies it. The host's collection builtins
+   keep it for the collection, not for its elements: they copy shallowly, so `list_get` /
+   `dict_get` return an alias of an element.
 
    **Methods are opt-in**: only a declared method is a node. `plugin.functions()` /
    `plugin.classes()` resolve the declarations when the host asks, so declaration order does not
@@ -349,6 +347,8 @@ it finds them at runtime via entry-point discovery.
    declared function under that attribute in the MRO, not only the nearest: an override of a
    `const` method must itself be declared `const=True`, and a declared override may not write a
    parameter a base reads, compared by position, since an override may rename it.
+   An override also takes as many parameters as each of them: a method node of a base passes it
+   that many arguments.
    Declarations are not inherited across plugins. `classes()` raises if a declared method belongs to
    no registered class, if two of a class's methods resolve to one node name, or if an override is
    not a function, replaces a method declared with `annotations=` without a declaration of its own,
@@ -533,7 +533,7 @@ Edge format:
   matches types by exact string. `base` is no longer written, so until the front end adopts the
   planned rule `{type} ∪ bases ∪ {base}`, a subclass instance is refused where its base is
   expected — a known regression, shared with the C++ backend. Validation and execution are
-  unaffected: check 8 uses `issubclass` and the executor `isinstance`, so every registered
+  unaffected: check 8 uses `issubclass` and the executor the instance's MRO, so every registered
   ancestor is accepted there. `coral-math` ships the case to check the rule end to end:
   `plugins/coral-math/tests/graphs/network-multiple-inheritance.json` wires a
   `Square(Regular, Rectangle)` into sockets typed `Rectangle` and `Shape`, which only `bases`
@@ -636,16 +636,15 @@ built (check 11), so a bad literal fails before any node runs.
    what the call returned. It is a tuple only when the node has more than one output, so a
    non-`const` method returning `None` stores its instance itself.
 
-Four run-time checks survive in the executor, all there for the same reason: they are about
+Three run-time checks survive in the executor, all there for the same reason: they are about
 a *value*, not about wiring, so validation cannot have settled them in advance. Everything else was
 verified before execution began.
 
 | check | when | what |
 | --- | --- | --- |
-| **instance** | resolving a method's callable | input port 0 must really hold an instance of the class it is annotated with (`isinstance(instance, ports.inputs[0].annotation)`), the annotation check 8 validated the edge against |
+| **instance** | resolving a method's callable | input port 0 must really hold an instance of the class it is annotated with, by inheritance (the annotation in `type(instance).__mro__`, so a virtual subclass is refused), the annotation check 8 validated the edge against |
 | **output arity** | right after a node returns | a node declaring n > 1 return values must have returned a tuple of exactly n; pass-throughs are not counted |
-| **new return value** | right after the arity check | a return value is a new object: not (by identity) one of the node's inputs or another of its outputs, unless nothing can modify it in place (`None`, numbers, strings, bytes, tuples, frozen sets). The graph orders a value's readers and writer by its edges, and cannot see an alias |
-| **output class** | right after the new-return-value check | every output value that is an instance of a registered class must be of a registered class itself (`type(value)` in the class map), whatever the port's annotation, `Any` included |
+| **output class** | right after the arity check | every output value that is an instance of a registered class, by inheritance, must be of a registered class itself (`type(value)` in the class map), whatever the port's annotation, `Any` included |
 
 The **output arity** check exists because the port table's arity comes from a return annotation,
 which is a *claim* by the function's author. Everything downstream trusts it: the registry emits that
@@ -799,8 +798,8 @@ id. So every reader of a written value runs before its writer and sees it unmodi
 that should see the modified value reads the writer's pass-through output instead, which is an
 ordinary edge. Two writers of one value are refused, since nothing would order them: chain them,
 the second fed from the first's pass-through. No copy protects a reader, by the host or by a node:
-the order does. (The executor does copy each literal per run, so that a writer cannot change the
-graph's literals.)
+the order does. (The executor does copy, per run, each literal a node modifies, so that a writer
+cannot change the graph's literals.)
 
 **`source_output` (check 7)** — both `0` and `-1` appear on the wire for a single-output node, so
 both are accepted there:
@@ -825,7 +824,7 @@ certain, because wrongly refusing a good graph is worse than not checking one.
 | `Any`, or no annotation | anything | skip |
 | anything | `Any`, or no annotation | skip |
 | a class | the same class, or a base of it | accept |
-| a number | a method's instance (port 0) of a numeric class, e.g. `Fraction` | **reject** unless the same class or a subclass — the executor checks the instance with `isinstance`, so no widening reaches it |
+| a number | a method's instance (port 0) of a numeric class, e.g. `Fraction` | **reject** unless the same class or a subclass — the executor checks the instance by its MRO, so no widening reaches it |
 | `bool` | `int` | accept — `bool` really is an `int` subclass |
 | `int` | `float` | accept — numeric widening |
 | anything | `bool` | **reject** — widening never lands on `bool`; only `bool` itself is accepted |

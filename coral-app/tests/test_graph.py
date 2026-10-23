@@ -41,6 +41,7 @@ A ``*`` marks a written input: it is an output too, its pass-through, listed fir
 outputs.
 """
 
+from abc import ABC
 from fractions import Fraction
 from typing import Any
 
@@ -1058,6 +1059,24 @@ class TestEdgeTypes:
 
         with pytest.raises(ValueError, match=r"feeds int .* expects Fraction"):
             build(nodes, {"0": edge("0", "2", 0), "1": edge("1", "2", 1)}, table)
+
+    def test_a_virtual_subclass_into_an_instance_port_is_rejected(self):
+        """GIVEN a float primitive feeding port 0, the instance, of a method of an abstract class
+             float is registered with as a virtual subclass
+        WHEN the graph is built
+        THEN it raises: the instance is checked by inheritance, and float does not inherit it."""
+
+        class Measure(ABC): ...
+
+        Measure.register(float)
+        table = dict(
+            PORT_TABLE,
+            **{"Measure.half": ports(kind=METHOD, inputs=[("self", Measure)], outputs=[float])},
+        )
+        nodes = {"0": {"type": "float", "value": 1.0}, "1": {"type": "Measure.half"}}
+
+        with pytest.raises(ValueError, match=r"feeds float .* expects Measure"):
+            build(nodes, {"0": edge("0", "1", 0)}, table)
 
     def test_bool_into_bool_is_accepted(self):
         """GIVEN a bool primitive feeding a bool parameter
